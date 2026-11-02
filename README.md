@@ -13,6 +13,18 @@ Native SwiftUI (iPhone/iPad) browsing and AVPlayer. Created from the v1.1 projec
 
 See [RELEASE-v1.6.md](RELEASE-v1.6.md) for the manual iPhone test checklist and known limitations.
 
+## Make Cinemana accessible to testers and users
+
+A regular iPhone cannot install our unsigned GitHub Actions IPA by tapping a ZIP link.
+The official no-sideload route is **TestFlight** (beta), followed by **App Store** (production).
+
+- [Distribution instructions](DISTRIBUTION.md): Apple membership, content permissions, code signing, GitHub secrets and TestFlight approval.
+- [Manual TestFlight upload workflow](.github/workflows/testflight.yml): only runs when explicitly requested and distribution rights are confirmed.
+- [Public website template](landing/index.html): responsive release landing page with a **coming soon** placeholder, not a fake installation link.
+- [Draft privacy policy](landing/privacy.html): must be checked, completed with support contact and publicly hosted before submission.
+
+**Current state:** public release is not enabled. We still need the Apple Developer Program membership, valid signing materials, authorized provider/media rights and real-device QA. The unsigned build remains available for development checks.
+
 ## Build on GitHub's website (Windows-friendly)
 
 In your existing **Cinemana-IOS** repository, use **Add file → Upload files** and upload the *extracted* project files and folders. Preserve the folder structure: `CinemanaMobile/`, `Tests/`, `project.yml`. Replace existing files when prompted. The included `.github/workflows/ios.yml` can be used for a standalone build workflow, but if your existing green workflow (`main.yml` or `ios.yml`) works, you may keep it: XcodeGen will pick up the new `PlaybackPlanner.swift` automatically.
