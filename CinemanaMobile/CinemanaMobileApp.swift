@@ -305,6 +305,7 @@ struct FeaturedPoster: View {
                                 .buttonStyle(.bordered)
                         }
                         ForEach(visibleEpisodes) { ep in
+                            VStack(alignment: .leading, spacing: 2) {
                             Button { watch = ep } label: {
                                 HStack(spacing: 12) {
                                     RemotePoster(url: ep.poster ?? (detail ?? video).poster)
@@ -321,6 +322,8 @@ struct FeaturedPoster: View {
                                     Image(systemName: "play.circle.fill").foregroundStyle(mint)
                                 }.padding(.vertical, 5)
                             }.buttonStyle(.plain)
+                            DownloadAction(video: ep)
+                            }
                         }
                     }
                     if !related.isEmpty {
@@ -884,6 +887,7 @@ final class PlaybackSession: ObservableObject {
 
 struct AboutView: View {
     @EnvironmentObject private var library: LibraryStore
+    @AppStorage("cinemana-max-download-quality") private var downloadQuality = 1080
     @State private var confirmHistory = false
     @State private var confirmWatchlist = false
     @State private var cacheCleared = false
@@ -911,6 +915,19 @@ struct AboutView: View {
                 Button("Clear Continue Watching", role: .destructive) { confirmHistory = true }
                 Button("Clear My List", role: .destructive) { confirmWatchlist = true }
                 Text("Your list and playback progress stay on this device.")
+                    .font(.footnote).foregroundStyle(.secondary)
+            }
+            Section("Offline downloads") {
+                NavigationLink { DownloadsView() } label: {
+                    Label("Manage downloads", systemImage: "arrow.down.to.line.compact")
+                }
+                Picker("Preferred download quality", selection: $downloadQuality) {
+                    Text("480p").tag(480)
+                    Text("720p").tag(720)
+                    Text("1080p").tag(1080)
+                    Text("2160p").tag(2160)
+                }
+                Text("Downloads require provider-authorized MP4 or HLS media. Some streams cannot be saved.")
                     .font(.footnote).foregroundStyle(.secondary)
             }
             Section("Connection and playback") {
