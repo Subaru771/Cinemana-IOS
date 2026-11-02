@@ -21,8 +21,8 @@ targets:
       path: CinemanaMobile/Info.plist
       properties:
         CFBundleDisplayName: Cinemana Mobile
-        CFBundleShortVersionString: '1.1.0'
-        CFBundleVersion: '2'
+        CFBundleShortVersionString: '1.2.0'
+        CFBundleVersion: '3'
         UILaunchScreen: {}
         NSAppTransportSecurity:
           NSAllowsArbitraryLoadsForMedia: true

@@ -36,7 +36,7 @@ struct CinemanaAPI: Sendable {
         guard let url = URL(string: base + path) else { throw APIError.invalidResponse }
         var req = URLRequest(url: url)
         req.timeoutInterval = 18
-        req.setValue("CinemanaMobile/1.1 (iOS)", forHTTPHeaderField: "User-Agent")
+        req.setValue("CinemanaMobile/1.2 (iOS)", forHTTPHeaderField: "User-Agent")
         do {
             let (data, response) = try await URLSession.shared.data(for: req)
             guard let http = response as? HTTPURLResponse else { throw APIError.invalidResponse }
@@ -46,7 +46,12 @@ struct CinemanaAPI: Sendable {
             case 403, 451: throw APIError.providerRestricted
             default: throw APIError.server(http.statusCode)
             }
-            return try JSONSerialization.jsonObject(with: data, options: [.fragmentsAllowed])
+            do {
+                return try JSONSerialization.jsonObject(with: data, options: [.fragmentsAllowed])
+            } catch {
+                // A 200 response containing HTML is not a successful JSON response.
+                throw APIError.invalidResponse
+            }
         } catch let known as APIError { throw known }
         catch is CancellationError { throw CancellationError() }
         catch let urlError as URLError {
@@ -81,7 +86,7 @@ struct CinemanaAPI: Sendable {
                     group.addTask {
                         do {
                             let json = try await fetch("video/videoKind/\(k)/categoryNb/0/langNb/0/sortParam/\(sort)/itemsPerPage/20/searchTextValue/-/pageNumber/0")
-                            return .success((title, videos(json)))
+                            return .success((title, videos(fetchOrThrow: json, kind: String(k))))
                         } catch { return .failure(error) }
                     }
                 }
@@ -214,7 +219,8 @@ struct CinemanaAPI: Sendable {
             if depth > 5 || collected.count >= 35 { return }
             if let arr = value as? [Any] { arr.forEach { visit($0, depth: depth + 1, quality: quality) } }
             else if let dict = value as? [String: Any] {
-                let named = (dict["resolution"] ?? dict["quality"] ?? dict["height"] ?? dict["name"] ?? dict["label"]) as? String ?? ""
+                let value = dict["resolution"] ?? dict["quality"] ?? dict["height"] ?? dict["name"] ?? dict["label"]
+                let named = (value as? String) ?? (value as? NSNumber)?.stringValue ?? ""
                 let current = named.isEmpty ? quality : self.quality(named)
                 for key in paths { if let text = dict[key] as? String { add(text, quality: current) } }
                 for (k, v) in dict where keys.contains(k) { visit(v, depth: depth + 1, quality: current) }

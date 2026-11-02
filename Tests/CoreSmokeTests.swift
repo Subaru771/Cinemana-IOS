@@ -39,6 +39,30 @@ struct CoreSmokeTests {
         let libData = try JSONEncoder().encode(lib)
         let decodedLib = try JSONDecoder().decode(LibrarySnapshot.self, from: libData)
         precondition(decodedLib.recent.count == 1)
-        print("PASS: iOS core models, search/filter, stream format checks, catalog and library persistence (22 checks)")
+        let source2160 = Stream(url: URL(string: "https://cdn.example/2160.mp4")!, quality: 2160)
+        let source1080 = Stream(url: URL(string: "https://cdn.example/1080.m3u8")!, quality: 1080)
+        let source720 = Stream(url: URL(string: "https://cdn.example/720.m3u8")!, quality: 720)
+        let unsupported = Stream(url: URL(string: "https://cdn.example/film.mpd")!, quality: 1080)
+        let sources = [source2160, source1080, source720, unsupported]
+        precondition(PlaybackPlanner.preferred(from: sources)?.id == source1080.id)
+        precondition(PlaybackPlanner.preferred(from: [source2160, source720])?.id == source720.id)
+        precondition(PlaybackPlanner.preferred(from: [source2160])?.id == source2160.id)
+        precondition(PlaybackPlanner.preferred(from: [unsupported]) == nil)
+        precondition(PlaybackPlanner.fallback(from: sources, failed: source1080,
+                                              tried: [source1080.id])?.id == source720.id)
+        precondition(PlaybackPlanner.fallback(from: sources, failed: source1080,
+                                              tried: [source1080.id, source720.id])?.id == source2160.id)
+        precondition(PlaybackPlanner.fallback(from: sources, failed: source720,
+                                              tried: Set(sources.map(\.id))) == nil)
+        let series = Video(json: ["nb": "series-1", "en_title": "Test Series", "kind": "2"])!
+        let ep1 = Video(json: ["nb": "ep-1", "en_title": "Pilot", "kind": "2", "season": 1, "episode": 1])!
+        let ep2 = Video(json: ["nb": "ep-2", "en_title": "Next", "kind": "2", "season": 1, "episode": 2])!
+        precondition(PlaybackPlanner.playTarget(for: series, episodes: [ep2, ep1], recent: [])?.id == ep1.id)
+        precondition(PlaybackPlanner.playTarget(for: series, episodes: [], recent: []) == nil)
+        let savedEp2 = PlaybackRecord(video: ep2, seconds: 240, duration: 1000, updatedAt: Date())
+        precondition(PlaybackPlanner.playTarget(for: series, episodes: [ep1, ep2], recent: [savedEp2])?.id == ep2.id)
+        precondition(PlaybackPlanner.playTarget(for: movie, episodes: [], recent: [])?.id == movie.id)
+        precondition(PlaybackPlanner.playTarget(for: ep1, episodes: [], recent: [])?.id == ep1.id)
+        print("PASS: core models, serialization, filters, iOS stream formats, quality fallback, and series episode selection (33 assertions)")
     }
 }

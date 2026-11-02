@@ -64,9 +64,25 @@ struct CatalogView: View {
                             }
                         }
                     }
-                    if isLoading && rows.isEmpty { ProgressView().padding(30) }
+                    if isLoading && rows.isEmpty {
+                        VStack(alignment: .leading, spacing: 18) {
+                            ProgressView("Loading catalog…").tint(mint)
+                            ScrollView(.horizontal, showsIndicators: false) {
+                                HStack(spacing: 12) {
+                                    ForEach(0..<4, id: \.self) { _ in
+                                        RoundedRectangle(cornerRadius: 12)
+                                            .fill(tile).frame(width: 132, height: 195)
+                                    }
+                                }
+                            }
+                        }.padding(.horizontal, 16).padding(.vertical, 18)
+                    }
                     if let error {
                         ErrorMessage(text: error) { Task { await refresh() } }
+                    }
+                    if rows.isEmpty && !isLoading && error == nil {
+                        EmptyStateView(symbol: "film.stack", title: "Nothing to show yet",
+                                       message: "Refresh the catalog or check your connection.")
                     }
                     if let hero = rows.first?.videos.first {
                         NavigationLink(value: hero) {
@@ -119,7 +135,7 @@ struct CatalogView: View {
             error = nil
             await CatalogCache.shared.save(fresh, kind: kind)
         } catch {
-            if rows.isEmpty && !Task.isCancelled { self.error = error.localizedDescription }
+            if !Task.isCancelled { self.error = error.localizedDescription }
         }
     }
 }
@@ -153,8 +169,13 @@ struct RemotePoster: View {
             if case .success(let image) = phase {
                 image.resizable().scaledToFill()
             } else {
-                Rectangle().fill(tile)
-                    .overlay { Image(systemName: "film").foregroundStyle(mint.opacity(0.6)) }
+                Rectangle().fill(
+                    LinearGradient(colors: [tile, ink], startPoint: .topLeading, endPoint: .bottomTrailing)
+                ).overlay {
+                    Image(systemName: "film.stack")
+                        .font(.system(size: 29, weight: .ultraLight))
+                        .foregroundStyle(mint.opacity(0.55))
+                }
             }
         }
         .clipped()
@@ -186,6 +207,17 @@ struct MovieDetailView: View {
     @State private var episodes: [Video] = []
     @State private var related: [Video] = []
     @State private var watch: Video?
+    @State private var selectedSeason = 1
+    @State private var synopsisExpanded = false
+    @State private var loadingEpisodes = false
+
+    private var isSeries: Bool { (detail ?? video).kind == "2" }
+    private var sortedSeasons: [Int] { Array(Set(episodes.map(\.season))).sorted() }
+    private var visibleEpisodes: [Video] { episodes.filter { $0.season == selectedSeason } }
+    private var playTarget: Video? {
+        PlaybackPlanner.playTarget(for: detail ?? video,
+                                   episodes: episodes, recent: library.snapshot.recent)
+    }
 
     var body: some View {
         ScrollView {
@@ -201,10 +233,15 @@ struct MovieDetailView: View {
                         .filter { !$0.isEmpty }.joined(separator: "  •  "))
                         .foregroundStyle(mint)
                     HStack(spacing: 12) {
-                        Button { watch = detail ?? video } label: {
-                            Label(library.playback(for: video.id) == nil ? "Play" : "Resume", systemImage: "play.fill")
+                        Button {
+                            if let target = playTarget { watch = target }
+                        } label: {
+                            Label(isSeries ? (playTarget.flatMap { library.playback(for: $0.id) } == nil ? "Play Episode" : "Resume Episode")
+                                   : (library.playback(for: video.id) == nil ? "Play" : "Resume"),
+                                  systemImage: "play.fill")
                                 .frame(maxWidth: .infinity).padding(7)
                         }
+                        .disabled(playTarget == nil)
                         .buttonStyle(.borderedProminent)
                         .tint(mint).foregroundStyle(ink)
                         Button { library.toggle(detail ?? video) } label: {
@@ -216,26 +253,59 @@ struct MovieDetailView: View {
                         .accessibilityLabel(library.isSaved(video) ? "Remove from My List" : "Add to My List")
                     }
                     if !(detail ?? video).overview.isEmpty {
-                        Text((detail ?? video).overview).foregroundStyle(.secondary)
+                        VStack(alignment: .leading, spacing: 5) {
+                            Text((detail ?? video).overview)
+                                .lineLimit(synopsisExpanded ? nil : 4)
+                                .foregroundStyle(.secondary)
+                            Button(synopsisExpanded ? "Show less" : "Read more") {
+                                withAnimation(.easeInOut(duration: 0.15)) { synopsisExpanded.toggle() }
+                            }
+                            .font(.footnote.weight(.semibold)).tint(mint)
+                        }
                     }
                     if !(detail ?? video).genres.isEmpty {
                         Text((detail ?? video).genres.joined(separator: "  •  "))
                             .font(.footnote).foregroundStyle(mint)
                     }
-                    if !episodes.isEmpty {
-                        Text("Episodes").font(.title2.weight(.bold)).padding(.top, 10)
-                        ForEach(episodes) { ep in
+                    if isSeries {
+                        HStack {
+                            Text("Episodes").font(.title2.weight(.bold))
+                            Spacer()
+                            if sortedSeasons.count > 1 {
+                                Menu {
+                                    ForEach(sortedSeasons, id: \.self) { season in
+                                        Button("Season \(season)") { selectedSeason = season }
+                                    }
+                                } label: {
+                                    Label("Season \(selectedSeason)", systemImage: "chevron.down")
+                                        .font(.subheadline).foregroundStyle(mint)
+                                }
+                            }
+                        }.padding(.top, 10)
+                        if loadingEpisodes {
+                            ProgressView("Loading episodes…").tint(mint)
+                        } else if episodes.isEmpty {
+                            Text("No episodes available on this connection.")
+                                .font(.subheadline).foregroundStyle(.secondary)
+                            Button("Retry episodes") { Task { await reloadEpisodes() } }
+                                .buttonStyle(.bordered)
+                        }
+                        ForEach(visibleEpisodes) { ep in
                             Button { watch = ep } label: {
                                 HStack(spacing: 12) {
-                                    RemotePoster(url: ep.poster)
+                                    RemotePoster(url: ep.poster ?? (detail ?? video).poster)
                                         .frame(width: 96, height: 65).clipShape(RoundedRectangle(cornerRadius: 8))
                                     VStack(alignment: .leading, spacing: 4) {
-                                        Text("S\(ep.season) E\(ep.episode)").font(.caption).foregroundStyle(mint)
+                                        Text("S\(ep.season) · E\(ep.episode)")
+                                            .font(.caption).foregroundStyle(mint)
                                         Text(ep.title).font(.subheadline).lineLimit(2)
+                                        if let record = library.playback(for: ep.id) {
+                                            ProgressView(value: record.fraction).tint(mint)
+                                        }
                                     }
                                     Spacer()
-                                    Image(systemName: "play.circle.fill")
-                                }
+                                    Image(systemName: "play.circle.fill").foregroundStyle(mint)
+                                }.padding(.vertical, 5)
                             }.buttonStyle(.plain)
                         }
                     }
@@ -259,14 +329,48 @@ struct MovieDetailView: View {
         .navigationDestination(for: Video.self) { MovieDetailView(video: $0) }
         .fullScreenCover(item: $watch) { VideoPlaybackView(video: $0) }
         .task(id: video.id) {
-            async let info = CinemanaAPI.shared.detail(video)
-            async let eps = CinemanaAPI.shared.episodes(video.id)
-            async let similar = CinemanaAPI.shared.related(video.id)
-            detail = await info
-            episodes = await eps
-            related = await similar
+            detail = video
+            synopsisExpanded = false
+            related = []
+            episodes = []
+            loadingEpisodes = video.kind == "2"
+            // Each section updates independently as its network request finishes.
+            await withTaskGroup(of: DetailLoadResult.self) { group in
+                group.addTask { .detail(await CinemanaAPI.shared.detail(video)) }
+                group.addTask { .episodes(await CinemanaAPI.shared.episodes(video.id)) }
+                group.addTask { .related(await CinemanaAPI.shared.related(video.id)) }
+                for await update in group {
+                    guard !Task.isCancelled else { break }
+                    switch update {
+                    case .detail(let value): detail = value
+                    case .episodes(let list):
+                        episodes = list
+                        selectedSeason = list.first?.season ?? 1
+                        loadingEpisodes = false
+                    case .related(let list): related = list
+                    }
+                }
+            }
+            loadingEpisodes = false
         }
     }
+
+    @MainActor
+    private func reloadEpisodes() async {
+        loadingEpisodes = true
+        let list = await CinemanaAPI.shared.episodes(video.id)
+        if !Task.isCancelled {
+            episodes = list
+            selectedSeason = list.first?.season ?? 1
+        }
+        loadingEpisodes = false
+    }
+}
+
+private enum DetailLoadResult: Sendable {
+    case detail(Video)
+    case episodes([Video])
+    case related([Video])
 }
 
 struct SearchCatalogView: View {
@@ -275,6 +379,7 @@ struct SearchCatalogView: View {
     @State private var options = SearchOptions()
     @State private var loading = false
     @State private var error: String?
+    @FocusState private var searchFocused: Bool
 
     private var genres: [String] {
         Array(Set(results.flatMap(\.genres))).sorted()
@@ -289,6 +394,9 @@ struct SearchCatalogView: View {
                     TextField("Search movies and series", text: $query)
                         .textInputAutocapitalization(.never)
                         .autocorrectionDisabled()
+                        .submitLabel(.search)
+                        .focused($searchFocused)
+                        .onSubmit { searchFocused = false }
                     if !query.isEmpty {
                         Button { query = "" } label: { Image(systemName: "xmark.circle.fill") }
                     }
@@ -306,8 +414,15 @@ struct SearchCatalogView: View {
                             }
                         } label: { FilterLabel(text: options.type.rawValue, active: options.type != .all) }
                         Button { options.recent.toggle() } label: { FilterLabel(text: "2025+", active: options.recent) }
-                        Button { options.minRating = options.minRating == 8 ? 0 : 8 } label: {
-                            FilterLabel(text: "★ 8+", active: options.minRating == 8)
+                        Menu {
+                            ForEach([0.0, 6.0, 7.0, 8.0, 9.0], id: \.self) { value in
+                                Button(value == 0 ? "Any rating" : "★ \(Int(value))+") {
+                                    options.minRating = value
+                                }
+                            }
+                        } label: {
+                            FilterLabel(text: options.minRating == 0 ? "Rating" : "★ \(Int(options.minRating))+",
+                                        active: options.minRating > 0)
                         }
                         Menu {
                             Picker("Sort", selection: $options.sort) {
@@ -326,40 +441,70 @@ struct SearchCatalogView: View {
                     }
                     .padding(.horizontal, 16)
                 }
-                if loading { ProgressView().padding(.horizontal, 16) }
-                if let error { ErrorMessage(text: error) { Task { await search() } } }
-                Text("\(filtered.count) results")
-                    .font(.footnote).foregroundStyle(.secondary)
-                    .padding(.horizontal, 16)
-                ScrollView {
-                    LazyVGrid(columns: [GridItem(.adaptive(minimum: 125), spacing: 12)], alignment: .leading, spacing: 20) {
-                        ForEach(filtered) { item in
-                            NavigationLink(value: item) { PosterCard(video: item) }.buttonStyle(.plain)
-                        }
-                    }
-                    .padding(16)
+                if loading { ProgressView("Searching…").tint(mint).padding(.horizontal, 16) }
+                if let error { ErrorMessage(text: error) { Task { await search(query) } } }
+                if !results.isEmpty {
+                    Text("\(filtered.count) of \(results.count) matches")
+                        .font(.footnote).foregroundStyle(.secondary)
+                        .padding(.horizontal, 16)
                 }
+                ScrollView {
+                    if query.trimmingCharacters(in: .whitespacesAndNewlines).count < 2 {
+                        EmptyStateView(symbol: "magnifyingglass", title: "Find something to watch",
+                                       message: "Search by movie or series title.")
+                    } else if !loading && error == nil && filtered.isEmpty {
+                        EmptyStateView(symbol: "line.3.horizontal.decrease.circle", title: "No matching titles",
+                                       message: results.isEmpty ? "Try another title." : "Try clearing your filters.")
+                        if !results.isEmpty {
+                            Button("Reset filters") { options = SearchOptions() }
+                                .buttonStyle(.bordered).tint(mint)
+                                .frame(maxWidth: .infinity)
+                        }
+                    } else {
+                        LazyVGrid(columns: [GridItem(.adaptive(minimum: 125), spacing: 12)], alignment: .leading, spacing: 20) {
+                            ForEach(filtered) { item in
+                                NavigationLink(value: item) { PosterCard(video: item) }.buttonStyle(.plain)
+                            }
+                        }
+                        .padding(16)
+                    }
+                }
+                .scrollDismissesKeyboard(.interactively)
             }
             .background(ink)
             .navigationTitle("Search")
             .navigationDestination(for: Video.self) { MovieDetailView(video: $0) }
             .task(id: query) {
-                guard query.trimmingCharacters(in: .whitespaces).count >= 2 else {
-                    results = []; error = nil; return
+                let submitted = query.trimmingCharacters(in: .whitespacesAndNewlines)
+                guard submitted.count >= 2 else {
+                    results = []; error = nil; loading = false; return
                 }
-                try? await Task.sleep(for: .milliseconds(350))
+                loading = true
+                error = nil
+                // Cancel stale searches when a new character arrives.
+                do { try await Task.sleep(for: .milliseconds(300)) }
+                catch { return }
                 guard !Task.isCancelled else { return }
-                await search()
+                await search(submitted)
             }
         }
     }
 
     @MainActor
-    private func search() async {
+    private func search(_ submitted: String) async {
         loading = true
-        defer { loading = false }
-        do { results = try await CinemanaAPI.shared.search(query); error = nil }
-        catch { if !Task.isCancelled { self.error = error.localizedDescription } }
+        do {
+            let found = try await CinemanaAPI.shared.search(submitted)
+            guard !Task.isCancelled, submitted == query.trimmingCharacters(in: .whitespacesAndNewlines) else { return }
+            results = found
+            error = nil
+            loading = false
+        } catch {
+            guard !Task.isCancelled, submitted == query.trimmingCharacters(in: .whitespacesAndNewlines) else { return }
+            results = []
+            self.error = error.localizedDescription
+            loading = false
+        }
     }
 }
 
@@ -394,133 +539,206 @@ struct NativePlayerView: UIViewControllerRepresentable {
     }
 }
 
+/// The native AVPlayer controls keep seeking, volume, AirPlay, and embedded subtitle
+/// selection consistent with iOS. Stream recovery is managed separately from SwiftUI.
 struct VideoPlaybackView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.scenePhase) private var scenePhase
     @EnvironmentObject private var library: LibraryStore
+    @StateObject private var session = PlaybackSession()
     let video: Video
-    @State private var player: AVPlayer?
-    @State private var timeObserver: Any?
-    @State private var streams: [Stream] = []
-    @State private var selected: Stream?
-    @State private var error: String?
-    @State private var loading = true
 
     var body: some View {
         NavigationStack {
             VStack(spacing: 0) {
-                if let player {
+                if let player = session.player {
                     NativePlayerView(player: player)
                         .frame(maxWidth: .infinity)
                         .aspectRatio(16 / 9, contentMode: .fit)
-                } else if loading {
+                } else if session.loading {
                     ProgressView("Finding a compatible stream…")
+                        .tint(mint)
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
                 } else {
-                    ErrorMessage(text: error ?? "No compatible stream available") {
-                        Task { await load() }
-                    }.frame(maxWidth: .infinity, maxHeight: .infinity)
+                    ErrorMessage(text: session.error ?? "No compatible stream available") {
+                        Task { await session.load(video: video, library: library) }
+                    }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
                 }
-                Spacer(minLength: 12)
-                if player != nil {
-                    VStack(alignment: .leading, spacing: 10) {
-                        Text(video.title).font(.title2.weight(.bold))
-                        if let selected {
-                            Label("Playing \(selected.label)", systemImage: "checkmark.circle.fill")
-                                .font(.caption).foregroundStyle(mint)
+                if session.player != nil {
+                    VStack(alignment: .leading, spacing: 14) {
+                        Text(video.title).font(.title2.weight(.bold)).lineLimit(2)
+                        if let selected = session.selected {
+                            Label("\(selected.label) quality", systemImage: "checkmark.circle.fill")
+                                .font(.subheadline).foregroundStyle(mint)
                         }
-                        Text("Use native playback controls to seek, adjust volume, or select AirPlay.")
+                        if let notice = session.notice {
+                            Label(notice, systemImage: "arrow.triangle.2.circlepath")
+                                .font(.caption).foregroundStyle(.yellow)
+                        }
+                        Text("Tap the video for seeking, AirPlay, and available audio or subtitles.")
                             .font(.caption).foregroundStyle(.secondary)
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(.horizontal, 20)
-                    Spacer(minLength: 12)
+                    .padding(20)
                 }
+                Spacer(minLength: 0)
             }
             .background(.black)
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
-                    Button("Done") { savePosition(); dismiss() }
+                    Button("Done") { session.close(library: library); dismiss() }
                 }
                 ToolbarItem(placement: .topBarTrailing) {
                     Menu {
-                        ForEach(streams) { stream in
-                            Button { select(stream) } label: {
-                                if selected?.id == stream.id {
+                        ForEach(session.streams) { stream in
+                            Button { session.select(stream, video: video, library: library) } label: {
+                                if session.selected?.id == stream.id {
                                     Label(stream.label, systemImage: "checkmark")
                                 } else { Text(stream.label) }
                             }
                         }
-                    } label: { Label(selected?.label ?? "Quality", systemImage: "gearshape") }
-                        .disabled(streams.isEmpty)
+                    } label: {
+                        Label(session.selected?.label ?? "Quality", systemImage: "gearshape")
+                    }
+                    .disabled(session.streams.isEmpty)
                 }
             }
         }
-        .task(id: video.id) { await load() }
-        .onDisappear { cleanup() }
+        .task(id: video.id) { await session.load(video: video, library: library) }
+        .onDisappear { session.close(library: library) }
         .onChange(of: scenePhase) { phase in
-            if phase != .active { savePosition() }
+            if phase != .active { session.save(library: library) }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .AVPlayerItemFailedToPlayToEndTime)) { note in
+            if let item = note.object as? AVPlayerItem {
+                session.failed(item: item, library: library,
+                               reason: (note.userInfo?[AVPlayerItemFailedToPlayToEndTimeErrorKey] as? Error)?.localizedDescription)
+            }
         }
     }
+}
 
-    @MainActor
-    private func load() async {
-        loading = true
-        error = nil
-        defer { loading = false }
+@MainActor
+final class PlaybackSession: ObservableObject {
+    @Published private(set) var player: AVPlayer?
+    @Published private(set) var streams: [Stream] = []
+    @Published private(set) var selected: Stream?
+    @Published private(set) var loading = true
+    @Published private(set) var error: String?
+    @Published private(set) var notice: String?
+
+    private var timeObserver: Any?
+    private var itemObservation: NSKeyValueObservation?
+    private var attempted = Set<String>()
+    private var video: Video?
+
+    func load(video: Video, library: LibraryStore) async {
+        close(library: library)
+        self.video = video
+        self.loading = true
+        self.error = nil
+        self.notice = nil
         do {
-            let available = try await CinemanaAPI.shared.streams(video.id)
-            guard !Task.isCancelled else { return }
-            streams = available
-            guard let best = streams.first(where: { $0.quality > 0 && $0.quality <= 1080 })
-                ?? streams.first else { throw CinemanaAPI.APIError.noStream }
-            select(best)
+            let found = try await CinemanaAPI.shared.streams(video.id)
+            guard !Task.isCancelled, self.video?.id == video.id else { return }
+            self.streams = found
+            guard let preferred = PlaybackPlanner.preferred(from: found) else {
+                throw CinemanaAPI.APIError.noStream
+            }
+            select(preferred, video: video, library: library)
         } catch {
-            if !Task.isCancelled { self.error = error.localizedDescription }
+            if !Task.isCancelled {
+                self.error = error.localizedDescription
+                self.loading = false
+            }
         }
     }
 
-    @MainActor
-    private func select(_ stream: Stream) {
-        let previous = player?.currentTime().seconds
-        let resume = (previous?.isFinite == true && (previous ?? 0) > 0)
-            ? previous! : (library.playback(for: video.id)?.seconds ?? 0)
-        savePosition()
-        if let token = timeObserver, let player { player.removeTimeObserver(token) }
-        timeObserver = nil
-        player?.pause()
+    func select(_ stream: Stream, video: Video, library: LibraryStore) {
+        attempted = [stream.id]
+        notice = nil
+        start(stream, video: video, library: library)
+    }
 
-        let next = AVPlayer(url: stream.url)
+    private func start(_ stream: Stream, video: Video, library: LibraryStore) {
+        let current = player?.currentTime().seconds ?? 0
+        let resume = current.isFinite && current > 10
+            ? current : (library.playback(for: video.id)?.seconds ?? 0)
+        save(library: library)
+        detachPlayer()
+        self.video = video
+        self.selected = stream
+        self.loading = false
+        self.error = nil
+
+        let item = AVPlayerItem(url: stream.url)
+        let next = AVPlayer(playerItem: item)
         player = next
-        selected = stream
-        timeObserver = next.addPeriodicTimeObserver(forInterval: CMTime(seconds: 10, preferredTimescale: 600),
-                                                    queue: .main) { [weak next] _ in
-            Task { @MainActor in
-                guard let next else { return }
-                let sec = next.currentTime().seconds
-                let duration = next.currentItem?.duration.seconds ?? .nan
-                library.record(video, position: sec, duration: duration)
+        let resumePoint = resume
+        itemObservation = item.observe(\.status, options: [.initial, .new]) { [weak self, weak item] _, _ in
+            Task { @MainActor [weak self, weak item, weak next] in
+                guard let self, let item, let next, self.player === next else { return }
+                switch item.status {
+                case .readyToPlay:
+                    if resumePoint.isFinite && resumePoint > 10 {
+                        let seekTo = CMTime(seconds: resumePoint, preferredTimescale: 600)
+                        next.seek(to: seekTo) { [weak next] completed in
+                            if completed { next?.play() }
+                        }
+                    } else { next.play() }
+                case .failed:
+                    self.failed(item: item, library: library,
+                                reason: item.error?.localizedDescription)
+                default: break
+                }
             }
         }
-        if resume.isFinite && resume > 10 {
-            next.seek(to: CMTime(seconds: resume, preferredTimescale: 600)) { finished in
-                if finished { next.play() }
+        timeObserver = next.addPeriodicTimeObserver(
+            forInterval: CMTime(seconds: 5, preferredTimescale: 600), queue: .main
+        ) { [weak self, weak next] _ in
+            Task { @MainActor [weak self, weak next] in
+                guard let self, let next, self.player === next else { return }
+                self.save(library: library)
             }
-        } else {
-            next.play()
         }
     }
 
-    @MainActor
-    private func savePosition() {
-        guard let player else { return }
+    func failed(item: AVPlayerItem, library: LibraryStore, reason: String?) {
+        guard player?.currentItem === item, let failedStream = selected, let video else { return }
+        if let fallback = PlaybackPlanner.fallback(from: streams, failed: failedStream, tried: attempted) {
+            attempted.insert(fallback.id)
+            notice = "\(failedStream.label) unavailable. Trying \(fallback.label)…"
+            start(fallback, video: video, library: library)
+        } else {
+            save(library: library)
+            detachPlayer()
+            selected = nil
+            error = "Playback failed on the available sources. \(reason ?? "Check your connection or try again.")"
+            notice = nil
+        }
+    }
+
+    func save(library: LibraryStore) {
+        guard let video, let player else { return }
         library.record(video, position: player.currentTime().seconds,
                        duration: player.currentItem?.duration.seconds ?? .nan)
     }
 
-    @MainActor
-    private func cleanup() {
-        savePosition()
+    func close(library: LibraryStore) {
+        save(library: library)
+        detachPlayer()
+        streams = []
+        selected = nil
+        video = nil
+        attempted.removeAll()
+        notice = nil
+    }
+
+    private func detachPlayer() {
+        // Dispose observations before replacing the item so stale errors cannot
+        // trigger additional quality changes after the player has been dismissed.
+        itemObservation = nil
         if let token = timeObserver, let player { player.removeTimeObserver(token) }
         timeObserver = nil
         player?.pause()
@@ -588,25 +806,69 @@ struct LibraryView: View {
 }
 
 struct AboutView: View {
+    @EnvironmentObject private var library: LibraryStore
+    @State private var confirmHistory = false
+    @State private var confirmWatchlist = false
+    @State private var cacheCleared = false
+
     var body: some View {
-        NavigationStack {
-            Form {
-                Section("Cinemana Mobile") {
-                    LabeledContent("Version", value: "iOS 1.1.0")
-                    LabeledContent("Player", value: "AVPlayer / HLS / MP4")
-                }
-                Section("Connection") {
-                    Text("The content provider may restrict access by ISP or require authorization. The app does not bypass those restrictions.")
-                    Text("Some Android-compatible video formats, including MPEG-DASH, are not supported by the native iOS player.")
-                    Text("External subtitle import is not yet available in this build.")
-                    Text("The local watchlist and resume positions remain on this device.")
-                }
-                Section("Distribution") {
-                    Text("An Apple signing identity is required for installation on physical iPhones. App Store distribution also requires suitable content rights.")
-                }
+        Form {
+            Section("Cinemana iOS") {
+                LabeledContent("Version", value: "1.2.0")
+                LabeledContent("Player", value: "Apple AVPlayer")
+                LabeledContent("Saved titles", value: "\(library.snapshot.favorites.count)")
+                LabeledContent("Continue Watching", value: "\(library.snapshot.recent.count)")
             }
-            .navigationTitle("More")
+            Section("Local storage") {
+                Button("Clear cached catalog") {
+                    Task {
+                        await CatalogCache.shared.clear()
+                        cacheCleared = true
+                    }
+                }
+                if cacheCleared {
+                    Text("Catalog cache cleared. It will refresh the next time you open a catalog.")
+                        .font(.footnote).foregroundStyle(.secondary)
+                }
+                Button("Clear Continue Watching", role: .destructive) { confirmHistory = true }
+                Button("Clear My List", role: .destructive) { confirmWatchlist = true }
+                Text("Your list and playback progress stay on this device.")
+                    .font(.footnote).foregroundStyle(.secondary)
+            }
+            Section("Connection and playback") {
+                Text("The content provider may restrict access by ISP or require authorization. Cinemana iOS does not bypass restrictions.")
+                Text("Playback supports compatible HLS and progressive files. MPEG-DASH, MKV, and external subtitles are not supported by this native player build.")
+            }
+            Section("Distribution") {
+                Text("Installing on an iPhone requires valid Apple signing. Public distribution requires appropriate content rights.")
+            }
         }
+        .navigationTitle("Settings")
+        .confirmationDialog("Remove all Continue Watching progress?", isPresented: $confirmHistory) {
+            Button("Clear playback progress", role: .destructive) { library.clearHistory() }
+            Button("Cancel", role: .cancel) { }
+        }
+        .confirmationDialog("Remove every title from My List?", isPresented: $confirmWatchlist) {
+            Button("Clear My List", role: .destructive) { library.clearWatchlist() }
+            Button("Cancel", role: .cancel) { }
+        }
+    }
+}
+
+struct EmptyStateView: View {
+    let symbol: String
+    let title: String
+    let message: String
+    var body: some View {
+        VStack(spacing: 12) {
+            Image(systemName: symbol)
+                .font(.system(size: 40, weight: .ultraLight)).foregroundStyle(mint)
+            Text(title).font(.headline)
+            Text(message).font(.subheadline).foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.horizontal, 24).padding(.vertical, 65)
     }
 }
 

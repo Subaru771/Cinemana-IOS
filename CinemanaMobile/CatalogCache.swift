@@ -20,6 +20,12 @@ actor CatalogCache {
         return snapshot.rows
     }
 
+    func clear() {
+        for kind in [nil, 1, 2] as [Int?] {
+            if let file = url(for: kind) { try? FileManager.default.removeItem(at: file) }
+        }
+    }
+
     func save(_ rows: [CatalogRow], kind: Int?) {
         guard !rows.isEmpty, let file = url(for: kind),
               let data = try? JSONEncoder().encode(Snapshot(savedAt: Date(), rows: rows)) else { return }

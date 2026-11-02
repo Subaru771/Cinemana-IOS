@@ -43,6 +43,18 @@ final class LibraryStore: ObservableObject {
         commit(next)
     }
 
+    func clearHistory() {
+        var next = snapshot
+        next.recent = []
+        commit(next)
+    }
+
+    func clearWatchlist() {
+        var next = snapshot
+        next.favorites = []
+        commit(next)
+    }
+
     func removeRecent(_ id: String) {
         var next = snapshot
         next.recent.removeAll { $0.id == id }
