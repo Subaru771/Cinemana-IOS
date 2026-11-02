@@ -14,6 +14,7 @@ targets:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: app.cinemana.mobile.ios
         SWIFT_VERSION: '5.9'
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         TARGETED_DEVICE_FAMILY: '1,2'
         CODE_SIGN_STYLE: Automatic
         IPHONEOS_DEPLOYMENT_TARGET: '16.0'
@@ -21,8 +22,11 @@ targets:
       path: CinemanaMobile/Info.plist
       properties:
         CFBundleDisplayName: Cinemana
-        CFBundleShortVersionString: '1.5.1'
-        CFBundleVersion: '7'
+        CFBundleShortVersionString: '1.6.0'
+        CFBundleVersion: '8'
+        CFBundleLocalizations:
+          - en
+          - ar
         UILaunchScreen: {}
         UIBackgroundModes:
           - audio
