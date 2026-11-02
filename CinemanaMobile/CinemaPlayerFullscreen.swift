@@ -39,11 +39,14 @@ final class CinemanaRenderView: UIView {
 struct CinemanaVideoCanvas: UIViewRepresentable {
     let player: AVPlayer?
     var fillScreen: Bool
+    var onLayer: ((AVPlayerLayer) -> Void)? = nil
 
     func makeUIView(context: Context) -> CinemanaRenderView {
         let view = CinemanaRenderView()
         view.backgroundColor = .black
         view.renderLayer.videoGravity = .resizeAspect
+        let callback = onLayer
+        DispatchQueue.main.async { callback?(view.renderLayer) }
         return view
     }
 
@@ -66,6 +69,49 @@ struct CinemanaAirPlayButton: UIViewRepresentable {
     func updateUIView(_ uiView: AVRoutePickerView, context: Context) {}
 }
 
+/// Brightness / volume indicator shown while swiping.
+struct LevelHUD: Equatable {
+    let symbol: String
+    let level: Float
+}
+
+/// Draws external (SRT/VTT) subtitles. It owns its own clock so the main player view does not
+/// re-render every tenth of a second.
+struct SubtitleOverlay: View {
+    @ObservedObject var controller: SubtitleController
+    let player: AVPlayer?
+    let scale: Double
+    let lift: CGFloat
+
+    var body: some View {
+        TimelineView(.periodic(from: .now, by: 0.12)) { _ in
+            VStack {
+                Spacer()
+                if let text = currentText() {
+                    Text(text)
+                        .font(.system(size: 21 * scale, weight: .semibold))
+                        .foregroundStyle(.white)
+                        .multilineTextAlignment(.center)
+                        .shadow(color: .black, radius: 2)
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 6)
+                        .background(.black.opacity(0.45), in: RoundedRectangle(cornerRadius: 8))
+                        .padding(.horizontal, 44)
+                }
+            }
+            .padding(.bottom, lift)
+        }
+        .allowsHitTesting(false)
+    }
+
+    private func currentText() -> String? {
+        guard controller.selected != nil, let player else { return nil }
+        let time = player.currentTime().seconds - controller.offset
+        guard time.isFinite else { return nil }
+        return controller.cue(at: time)?.text
+    }
+}
+
 /// The full-screen cover presents this view immediately, even while the stream URL is loading.
 struct CinemaPlayerScreen: View {
     @Environment(\.dismiss) private var dismiss
@@ -73,6 +119,14 @@ struct CinemaPlayerScreen: View {
     @EnvironmentObject private var library: LibraryStore
     @ObservedObject private var downloads = DownloadCenter.shared
     @StateObject private var session = PlaybackSession()
+    @StateObject private var subtitles = SubtitleController()
+    @StateObject private var pip = PictureInPictureController()
+
+    @AppStorage("cinemana-speed") private var savedSpeed = 1.0
+    @AppStorage("cinemana-auto-landscape") private var autoLandscape = true
+    @AppStorage("cinemana-sub-scale") private var subtitleScale = 1.0
+
+    @State private var current: Video
     @State private var showsControls = true
     @State private var isScrubbing = false
     @State private var seekPreview = 0.0
@@ -80,7 +134,6 @@ struct CinemaPlayerScreen: View {
     @State private var duration = 0.0
     @State private var playing = false
     @State private var waiting = false
-    @State private var speed: Float = 1
     @State private var cropVideo = false
     @State private var locked = false
     @State private var hideTask: Task<Void, Never>?
@@ -90,55 +143,58 @@ struct CinemaPlayerScreen: View {
     @State private var audioGroup: AVMediaSelectionGroup?
     @State private var selectedCaption: AVMediaSelectionOption?
     @State private var selectedAudio: AVMediaSelectionOption?
+    @State private var upNext: Video?
+    @State private var countdown = 0
+    @State private var countdownTask: Task<Void, Never>?
+    @State private var hud: LevelHUD?
+    @State private var hudTask: Task<Void, Never>?
+    @State private var dragBase: Float?
+    @State private var flash: String?
+    @State private var flashTask: Task<Void, Never>?
+    @State private var appliedPlayer: ObjectIdentifier?
+    @State private var originalBrightness: CGFloat = 0.5
 
-    let video: Video
+    private let playlist: [Video]
 
+    init(video: Video, playlist: [Video] = []) {
+        _current = State(initialValue: video)
+        self.playlist = playlist
+    }
+
+    private var speed: Float { Float(savedSpeed) }
     private var timeLimit: Double { max(1, duration) }
-    private var isDownloaded: Bool { downloads.localURL(for: video.id) != nil }
+    private var isDownloaded: Bool { downloads.localURL(for: current.id) != nil }
+    private var nextEpisode: Video? { PlaybackPlanner.nextEpisode(after: current, in: playlist) }
+    private var subtitleLift: CGFloat { showsControls && !locked ? 150 : 46 }
+
+    // MARK: Body
 
     var body: some View {
         GeometryReader { geometry in
             ZStack {
                 Color.black.ignoresSafeArea()
-                CinemanaVideoCanvas(player: session.player, fillScreen: cropVideo)
+                CinemanaVideoCanvas(player: session.player, fillScreen: cropVideo,
+                                    onLayer: { pip.attach($0) })
                     .frame(width: geometry.size.width, height: geometry.size.height)
                     .ignoresSafeArea()
-                    .contentShape(Rectangle())
-                    .onTapGesture { toggleControls() }
 
-                if session.loading && session.player == nil {
-                    loadingState
-                } else if let problem = session.error, session.player == nil {
-                    errorState(problem)
-                }
+                gestureLayer(height: geometry.size.height)
 
-                if waiting && session.player != nil && !session.loading {
-                    ProgressView().tint(cinemaAccent).scaleEffect(1.4)
-                        .allowsHitTesting(false)
-                }
+                SubtitleOverlay(controller: subtitles, player: session.player,
+                                scale: subtitleScale, lift: subtitleLift)
+                    .animation(.easeOut(duration: 0.18), value: subtitleLift)
+
+                VolumeHost().frame(width: 1, height: 1).allowsHitTesting(false)
+
+                stateOverlays
 
                 if showsControls {
-                    if locked {
-                        VStack {
-                            HStack {
-                                Button {
-                                    locked = false
-                                    showControls()
-                                } label: {
-                                    Label("Unlock", systemImage: "lock.open.fill")
-                                        .font(.subheadline.weight(.bold))
-                                }
-                                .buttonStyle(.borderedProminent)
-                                .tint(cinemaAccent)
-                                Spacer()
-                            }.padding(24)
-                            Spacer()
-                        }
-                    } else {
-                        controlOverlay
-                            .transition(.opacity)
-                    }
+                    if locked { lockedOverlay } else { controlOverlay.transition(.opacity) }
                 }
+
+                if let next = upNext { upNextCard(next) }
+                if let hud { hudView(hud) }
+                if let flash { flashView(flash) }
             }
             .frame(width: geometry.size.width, height: geometry.size.height)
         }
@@ -148,27 +204,20 @@ struct CinemaPlayerScreen: View {
         .persistentSystemOverlays(.hidden)
         .defersSystemGestures(on: .all)
         .preferredColorScheme(.dark)
-        .task(id: video.id) {
-            do {
-                try AVAudioSession.sharedInstance().setCategory(.playback, mode: .moviePlayback)
-                try AVAudioSession.sharedInstance().setActive(true)
-            } catch { /* Playback may still work with the previous audio session. */ }
-            await session.load(video: video, library: library)
-            if session.player != nil { showControls() }
-        }
+        .task(id: current.id) { await startPlayback() }
+        .onAppear { prepareScreen() }
         .onReceive(Timer.publish(every: 0.35, on: .main, in: .common).autoconnect()) { _ in
             updateProgress()
         }
         .onChange(of: session.selected?.id) { _ in
             Task { await loadTracks() }
         }
+        .onChange(of: playing) { _ in refreshNowPlaying() }
+        .onChange(of: duration > 0) { _ in refreshNowPlaying() }
         .onChange(of: scenePhase) { phase in
             if phase != .active { session.save(library: library) }
         }
-        .onDisappear {
-            hideTask?.cancel()
-            session.close(library: library)
-        }
+        .onDisappear { teardown() }
         .onReceive(NotificationCenter.default.publisher(for: .AVPlayerItemFailedToPlayToEndTime)) { note in
             if let item = note.object as? AVPlayerItem {
                 session.failed(item: item, library: library,
@@ -179,7 +228,157 @@ struct CinemaPlayerScreen: View {
             if let item = note.object as? AVPlayerItem, session.player?.currentItem === item {
                 playing = false
                 showControls()
+                if let next = nextEpisode { beginUpNext(next) }
             }
+        }
+    }
+
+    // MARK: Lifecycle
+
+    private func startPlayback() async {
+        do {
+            try AVAudioSession.sharedInstance().setCategory(.playback, mode: .moviePlayback)
+            try AVAudioSession.sharedInstance().setActive(true)
+        } catch { /* Playback may still work with the previous audio session. */ }
+        let id = current.id
+        Task { await subtitles.load(for: id) }
+        await session.load(video: current, library: library)
+        if session.player != nil { showControls() }
+        refreshNowPlaying()
+    }
+
+    private func prepareScreen() {
+        originalBrightness = UIScreen.main.brightness
+        UIApplication.shared.isIdleTimerDisabled = true
+        if autoLandscape { PlayerOrientation.request(.landscape) }
+        let sessionRef = session
+        NowPlayingBridge.shared.activate(
+            player: { sessionRef.player },
+            next: { [self] in
+                guard let next = nextEpisode else { return false }
+                DispatchQueue.main.async { play(next) }
+                return true
+            }
+        )
+    }
+
+    private func teardown() {
+        hideTask?.cancel()
+        countdownTask?.cancel()
+        hudTask?.cancel()
+        flashTask?.cancel()
+        session.close(library: library)
+        subtitles.reset()
+        pip.stop()
+        NowPlayingBridge.shared.deactivate()
+        UIApplication.shared.isIdleTimerDisabled = false
+        UIScreen.main.brightness = originalBrightness
+        if autoLandscape { PlayerOrientation.request(.portrait) }
+    }
+
+    // MARK: Gestures
+
+    private func gestureLayer(height: CGFloat) -> some View {
+        HStack(spacing: 0) {
+            tapZone(rightSide: false, height: height)
+            tapZone(rightSide: true, height: height)
+        }
+        .ignoresSafeArea()
+    }
+
+    private func tapZone(rightSide: Bool, height: CGFloat) -> some View {
+        Color.clear
+            .contentShape(Rectangle())
+            .onTapGesture(count: 2) {
+                guard !locked, session.player != nil else { return }
+                skip(rightSide ? 10 : -10)
+            }
+            .onTapGesture { toggleControls() }
+            .gesture(levelDrag(rightSide: rightSide, height: height))
+    }
+
+    /// Left half changes brightness, right half changes volume.
+    private func levelDrag(rightSide: Bool, height: CGFloat) -> some Gesture {
+        DragGesture(minimumDistance: 14)
+            .onChanged { value in
+                guard !locked else { return }
+                if dragBase == nil {
+                    // Ignore mostly-horizontal drags so they cannot change the levels.
+                    guard abs(value.translation.height) > abs(value.translation.width) else { return }
+                    dragBase = rightSide ? SystemVolume.current : Float(UIScreen.main.brightness)
+                }
+                guard let base = dragBase else { return }
+                let delta = Float(-value.translation.height / (height * 0.75))
+                let level = min(1, max(0, base + delta))
+                if rightSide {
+                    SystemVolume.set(level)
+                    showHUD(LevelHUD(symbol: level == 0 ? "speaker.slash.fill" : "speaker.wave.2.fill", level: level))
+                } else {
+                    UIScreen.main.brightness = CGFloat(level)
+                    showHUD(LevelHUD(symbol: "sun.max.fill", level: level))
+                }
+            }
+            .onEnded { _ in
+                dragBase = nil
+                hudTask?.cancel()
+                hudTask = Task { @MainActor in
+                    try? await Task.sleep(for: .seconds(0.8))
+                    guard !Task.isCancelled else { return }
+                    withAnimation(.easeOut(duration: 0.2)) { hud = nil }
+                }
+            }
+    }
+
+    private func showHUD(_ value: LevelHUD) {
+        hudTask?.cancel()
+        hud = value
+    }
+
+    private func flashMessage(_ text: String) {
+        flashTask?.cancel()
+        flash = text
+        flashTask = Task { @MainActor in
+            try? await Task.sleep(for: .seconds(0.7))
+            guard !Task.isCancelled else { return }
+            withAnimation(.easeOut(duration: 0.2)) { flash = nil }
+        }
+    }
+
+    private func skip(_ delta: Double) {
+        seek(to: livePosition() + delta)
+        flashMessage(delta > 0 ? "+\(Int(delta))s" : "−\(Int(-delta))s")
+    }
+
+    // MARK: Overlays
+
+    @ViewBuilder
+    private var stateOverlays: some View {
+        if session.loading && session.player == nil {
+            loadingState
+        } else if let problem = session.error, session.player == nil {
+            errorState(problem)
+        }
+        if waiting && session.player != nil && !session.loading {
+            ProgressView().tint(cinemaAccent).scaleEffect(1.4)
+                .allowsHitTesting(false)
+        }
+    }
+
+    private var lockedOverlay: some View {
+        VStack {
+            HStack {
+                Button {
+                    locked = false
+                    showControls()
+                } label: {
+                    Label("Unlock", systemImage: "lock.open.fill")
+                        .font(.subheadline.weight(.bold))
+                }
+                .buttonStyle(.borderedProminent)
+                .tint(cinemaAccent)
+                Spacer()
+            }.padding(24)
+            Spacer()
         }
     }
 
@@ -201,7 +400,7 @@ struct CinemaPlayerScreen: View {
             Text("Couldn't play this video").font(.title3.weight(.bold))
             Text(message).font(.callout).multilineTextAlignment(.center)
                 .foregroundStyle(.white.opacity(0.7))
-            Button("Try again") { Task { await session.load(video: video, library: library) } }
+            Button("Try again") { Task { await session.load(video: current, library: library) } }
                 .buttonStyle(.borderedProminent).tint(cinemaAccent)
             Button("Close player") { closePlayer() }.tint(.white)
         }
@@ -209,112 +408,67 @@ struct CinemaPlayerScreen: View {
         .frame(maxWidth: 450)
     }
 
+    private func hudView(_ value: LevelHUD) -> some View {
+        VStack(spacing: 10) {
+            Image(systemName: value.symbol).font(.title3)
+            ProgressView(value: Double(value.level)).tint(cinemaAccent).frame(width: 120)
+        }
+        .padding(16)
+        .background(.black.opacity(0.65), in: RoundedRectangle(cornerRadius: 14))
+        .allowsHitTesting(false)
+        .transition(.opacity)
+    }
+
+    private func flashView(_ text: String) -> some View {
+        Text(text)
+            .font(.title2.weight(.heavy))
+            .padding(.horizontal, 22)
+            .padding(.vertical, 12)
+            .background(.black.opacity(0.6), in: Capsule())
+            .allowsHitTesting(false)
+            .transition(.opacity)
+    }
+
+    private func upNextCard(_ next: Video) -> some View {
+        VStack {
+            Spacer()
+            HStack {
+                Spacer()
+                VStack(alignment: .leading, spacing: 10) {
+                    Text("UP NEXT").font(.caption.weight(.heavy)).foregroundStyle(cinemaAccent)
+                    Text(next.title).font(.headline).lineLimit(2)
+                    Text("Season \(next.season) · Episode \(next.episode)")
+                        .font(.caption).foregroundStyle(.white.opacity(0.7))
+                    HStack(spacing: 12) {
+                        Button { play(next) } label: {
+                            Label("Play now (\(countdown))", systemImage: "play.fill")
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .tint(cinemaAccent)
+                        .foregroundStyle(.black)
+                        Button("Cancel") { cancelUpNext() }
+                            .buttonStyle(.bordered)
+                            .tint(.white)
+                    }
+                }
+                .padding(16)
+                .frame(maxWidth: 340, alignment: .leading)
+                .background(.black.opacity(0.78), in: RoundedRectangle(cornerRadius: 16))
+            }
+            .padding(24)
+        }
+        .foregroundStyle(.white)
+    }
+
+    // MARK: Controls
+
     private var controlOverlay: some View {
         VStack(spacing: 0) {
-            HStack(spacing: 12) {
-                overlayButton("chevron.down", label: "Close") { closePlayer() }
-                CinemanaLogo(compact: true)
-                Spacer(minLength: 6)
-                if session.player != nil {
-                    Text(isDownloaded ? "OFFLINE" : (session.selected?.label ?? "AUTO"))
-                        .font(.caption2.weight(.bold))
-                        .foregroundStyle(cinemaAccent)
-                        .lineLimit(1)
-                }
-                CinemanaAirPlayButton().frame(width: 36, height: 36)
-                optionsMenu
-            }
-            .padding(.horizontal, 18)
-            .padding(.top, 30)
-
+            topBar
             Spacer(minLength: 10)
-
-            if session.player != nil {
-                HStack(spacing: 36) {
-                    overlayButton("gobackward.10", label: "Back 10 seconds", size: 29) {
-                        seek(to: currentTime - 10)
-                    }
-                    Button {
-                        if playing { session.player?.pause() }
-                        else {
-                            session.player?.play()
-                            session.player?.rate = speed
-                        }
-                        playing.toggle()
-                        showControls()
-                    } label: {
-                        Image(systemName: playing ? "pause.fill" : "play.fill")
-                            .font(.system(size: 27, weight: .bold))
-                            .foregroundStyle(.black)
-                            .frame(width: 76, height: 76)
-                            .background(cinemaAccent, in: Circle())
-                    }
-                    .accessibilityLabel(playing ? "Pause" : "Play")
-                    overlayButton("goforward.30", label: "Forward 30 seconds", size: 29) {
-                        seek(to: currentTime + 30)
-                    }
-                }
-                .tint(.white)
-            }
-
+            if session.player != nil { centerControls }
             Spacer(minLength: 10)
-
-            VStack(alignment: .leading, spacing: 12) {
-                if let notice = session.notice {
-                    Label(notice, systemImage: "arrow.triangle.2.circlepath")
-                        .font(.caption).foregroundStyle(.yellow)
-                        .lineLimit(2)
-                }
-                Text(video.title)
-                    .font(.headline.weight(.bold))
-                    .lineLimit(1)
-                if session.player != nil {
-                    Slider(value: $seekPreview, in: 0...timeLimit,
-                           onEditingChanged: { editing in
-                        isScrubbing = editing
-                        if editing { hideTask?.cancel() }
-                        else { seek(to: seekPreview) }
-                    })
-                    .tint(cinemaAccent)
-                    .accessibilityLabel("Video timeline")
-                    HStack {
-                        Text(formatTime(isScrubbing ? seekPreview : currentTime))
-                        Spacer()
-                        Text(duration > 0 ? "-\(formatTime(max(0, duration - (isScrubbing ? seekPreview : currentTime))))" : "LIVE")
-                    }
-                    .font(.caption.monospacedDigit())
-                    .foregroundStyle(.white.opacity(0.82))
-                }
-                HStack(spacing: 16) {
-                    Button { locked = true; showControls() } label: {
-                        Label("Lock", systemImage: "lock")
-                    }
-                    Button {
-                        cropVideo.toggle()
-                        showControls()
-                    } label: {
-                        Label(cropVideo ? "Fit" : "Fill", systemImage: "arrow.up.left.and.arrow.down.right")
-                    }
-                    Spacer()
-                    if let entry = downloads.entry(for: video.id), entry.isActive {
-                        ProgressView(value: entry.progress).frame(width: 42)
-                    } else if !isDownloaded {
-                        Button {
-                            Task { await downloads.begin(video) }
-                            showControls()
-                        } label: {
-                            Label("Download", systemImage: "arrow.down.to.line")
-                        }
-                    } else {
-                        Label("Downloaded", systemImage: "checkmark.circle.fill")
-                    }
-                }
-                .font(.caption.weight(.medium))
-                .buttonStyle(.plain)
-                .tint(.white)
-            }
-            .padding(.horizontal, 22)
-            .padding(.bottom, 40)
+            bottomBar
         }
         .foregroundStyle(.white)
         .background {
@@ -325,49 +479,143 @@ struct CinemaPlayerScreen: View {
         }
     }
 
+    private var topBar: some View {
+        HStack(spacing: 12) {
+            overlayButton("chevron.down", label: "Close") { closePlayer() }
+            CinemanaLogo(compact: true)
+            Spacer(minLength: 6)
+            if session.player != nil {
+                if savedSpeed != 1 {
+                    Text("\(savedSpeed.formatted())×")
+                        .font(.caption.weight(.bold))
+                        .padding(.horizontal, 8).padding(.vertical, 3)
+                        .background(.white.opacity(0.18), in: Capsule())
+                }
+                Text(isDownloaded ? "OFFLINE" : (session.selected?.label ?? "AUTO"))
+                    .font(.caption2.weight(.bold))
+                    .foregroundStyle(cinemaAccent)
+                    .lineLimit(1)
+            }
+            if pip.possible {
+                overlayButton("pip.enter", label: "Picture in Picture") { pip.toggle() }
+            }
+            CinemanaAirPlayButton().frame(width: 36, height: 36)
+            optionsMenu
+        }
+        .padding(.horizontal, 18)
+        .padding(.top, 30)
+    }
+
+    private var centerControls: some View {
+        HStack(spacing: 36) {
+            overlayButton("gobackward.10", label: "Back 10 seconds", size: 29) {
+                seek(to: livePosition() - 10)
+            }
+            Button {
+                togglePlayback()
+            } label: {
+                Image(systemName: playing ? "pause.fill" : "play.fill")
+                    .font(.system(size: 27, weight: .bold))
+                    .foregroundStyle(.black)
+                    .frame(width: 76, height: 76)
+                    .background(cinemaAccent, in: Circle())
+            }
+            .accessibilityLabel(playing ? "Pause" : "Play")
+            overlayButton("goforward.30", label: "Forward 30 seconds", size: 29) {
+                seek(to: livePosition() + 30)
+            }
+        }
+        .tint(.white)
+    }
+
+    private var bottomBar: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            if let notice = session.notice {
+                Label(notice, systemImage: "arrow.triangle.2.circlepath")
+                    .font(.caption).foregroundStyle(.yellow)
+                    .lineLimit(2)
+            }
+            Text(current.title)
+                .font(.headline.weight(.bold))
+                .lineLimit(1)
+            if session.player != nil { timeline }
+            actionRow
+        }
+        .padding(.horizontal, 22)
+        .padding(.bottom, 40)
+    }
+
+    private var timeline: some View {
+        VStack(spacing: 6) {
+            Slider(value: $seekPreview, in: 0...timeLimit,
+                   onEditingChanged: { editing in
+                isScrubbing = editing
+                if editing { hideTask?.cancel() }
+                else { seek(to: seekPreview) }
+            })
+            .tint(cinemaAccent)
+            .accessibilityLabel("Video timeline")
+            HStack {
+                Text(formatTime(isScrubbing ? seekPreview : currentTime))
+                Spacer()
+                Text(duration > 0
+                     ? "-\(formatTime(max(0, duration - (isScrubbing ? seekPreview : currentTime))))"
+                     : "LIVE")
+            }
+            .font(.caption.monospacedDigit())
+            .foregroundStyle(.white.opacity(0.82))
+        }
+    }
+
+    private var actionRow: some View {
+        HStack(spacing: 18) {
+            Button { locked = true; showControls() } label: {
+                Label("Lock", systemImage: "lock")
+            }
+            Button {
+                cropVideo.toggle()
+                showControls()
+            } label: {
+                Label(cropVideo ? "Fit" : "Fill", systemImage: "arrow.up.left.and.arrow.down.right")
+            }
+            if let next = nextEpisode {
+                Button { play(next) } label: {
+                    Label("Next episode", systemImage: "forward.end.fill")
+                }
+            }
+            Spacer()
+            downloadStatus
+        }
+        .font(.caption.weight(.medium))
+        .buttonStyle(.plain)
+        .tint(.white)
+    }
+
+    @ViewBuilder
+    private var downloadStatus: some View {
+        if let entry = downloads.entry(for: current.id), entry.isActive {
+            HStack(spacing: 8) {
+                ProgressView(value: entry.progress).frame(width: 42)
+                Text(entry.status == .paused ? "Paused" : "\(Int(entry.progress * 100))%")
+            }
+        } else if !isDownloaded {
+            Button {
+                downloads.enqueue(current)
+                showControls()
+            } label: {
+                Label("Download", systemImage: "arrow.down.to.line")
+            }
+        } else {
+            Label("Downloaded", systemImage: "checkmark.circle.fill")
+        }
+    }
+
     private var optionsMenu: some View {
         Menu {
-            Menu("Playback speed") {
-                ForEach([0.5, 0.75, 1.0, 1.25, 1.5, 2.0], id: \.self) { value in
-                    Button("\(value.formatted())×") {
-                        speed = Float(value)
-                        if playing { session.player?.rate = speed }
-                        showControls()
-                    }
-                }
-            }
-            if !isDownloaded && !session.streams.isEmpty {
-                Menu("Video quality") {
-                    ForEach(session.streams) { stream in
-                        Button {
-                            let position = currentTime
-                            session.select(stream, video: video, library: library)
-                            // Session retains the last playing position during the switch.
-                            currentTime = position
-                            showControls()
-                        } label: {
-                            if stream.id == session.selected?.id {
-                                Label(stream.label, systemImage: "checkmark")
-                            } else {
-                                Text(stream.label)
-                            }
-                        }
-                    }
-                }
-            }
-            Menu("Subtitles") {
-                Button("Off") { chooseCaption(nil) }
-                if captions.isEmpty { Text("No embedded subtitles") }
-                ForEach(captions.indices, id: \.self) { index in
-                    Button(captions[index].displayName) { chooseCaption(captions[index]) }
-                }
-            }
-            Menu("Audio track") {
-                if audioTracks.isEmpty { Text("Default audio") }
-                ForEach(audioTracks.indices, id: \.self) { index in
-                    Button(audioTracks[index].displayName) { chooseAudio(audioTracks[index]) }
-                }
-            }
+            speedMenu
+            if !isDownloaded && !session.streams.isEmpty { qualityMenu }
+            subtitleMenu
+            audioMenu
             Button(cropVideo ? "Fit original aspect ratio" : "Fill screen (crop edges)") {
                 cropVideo.toggle()
             }
@@ -378,6 +626,114 @@ struct CinemaPlayerScreen: View {
                 .frame(width: 42, height: 42)
         }
         .accessibilityLabel("Player settings")
+    }
+
+    private var speedMenu: some View {
+        Menu("Playback speed") {
+            ForEach([0.5, 0.75, 1.0, 1.25, 1.5, 1.75, 2.0], id: \.self) { value in
+                Button {
+                    setSpeed(value)
+                } label: {
+                    if abs(savedSpeed - value) < 0.01 {
+                        Label("\(value.formatted())×", systemImage: "checkmark")
+                    } else {
+                        Text("\(value.formatted())×")
+                    }
+                }
+            }
+        }
+    }
+
+    private var qualityMenu: some View {
+        Menu("Video quality") {
+            ForEach(session.streams) { stream in
+                Button {
+                    let position = livePosition()
+                    session.select(stream, video: current, library: library)
+                    // Session retains the last playing position during the switch.
+                    currentTime = position
+                    showControls()
+                } label: {
+                    if stream.id == session.selected?.id {
+                        Label(stream.label, systemImage: "checkmark")
+                    } else {
+                        Text(stream.label)
+                    }
+                }
+            }
+        }
+    }
+
+    private var subtitleMenu: some View {
+        Menu("Subtitles") {
+            Button {
+                chooseCaption(nil)
+            } label: {
+                if subtitles.selected == nil && selectedCaption == nil {
+                    Label("Off", systemImage: "checkmark")
+                } else {
+                    Text("Off")
+                }
+            }
+            if !subtitles.available.isEmpty {
+                Menu("Provider subtitles") {
+                    ForEach(subtitles.available) { item in
+                        Button {
+                            chooseExternal(item)
+                        } label: {
+                            if subtitles.selected?.id == item.id {
+                                Label(item.name, systemImage: "checkmark")
+                            } else {
+                                Text(item.name)
+                            }
+                        }
+                    }
+                }
+            }
+            if !captions.isEmpty {
+                Menu("Built-in subtitles") {
+                    ForEach(captions.indices, id: \.self) { index in
+                        Button(captions[index].displayName) { chooseCaption(captions[index]) }
+                    }
+                }
+            }
+            if subtitles.selected != nil {
+                Menu("Subtitle timing") {
+                    Button("Show 0.5 s earlier") { subtitles.adjustOffset(by: -0.5); showControls() }
+                    Button("Show 0.5 s later") { subtitles.adjustOffset(by: 0.5); showControls() }
+                    Button("Reset (\(subtitles.offset.formatted()) s)") {
+                        subtitles.adjustOffset(by: -subtitles.offset)
+                        showControls()
+                    }
+                }
+                Menu("Subtitle size") {
+                    ForEach([("Small", 0.8), ("Medium", 1.0), ("Large", 1.3), ("Extra large", 1.6)], id: \.0) { entry in
+                        Button {
+                            subtitleScale = entry.1
+                        } label: {
+                            if abs(subtitleScale - entry.1) < 0.01 {
+                                Label(entry.0, systemImage: "checkmark")
+                            } else {
+                                Text(entry.0)
+                            }
+                        }
+                    }
+                }
+            }
+            if subtitles.available.isEmpty && captions.isEmpty {
+                Text(subtitles.loading ? "Looking for subtitles…" : "No subtitles available")
+            }
+            if let failure = subtitles.failure { Text(failure) }
+        }
+    }
+
+    private var audioMenu: some View {
+        Menu("Audio track") {
+            if audioTracks.isEmpty { Text("Default audio") }
+            ForEach(audioTracks.indices, id: \.self) { index in
+                Button(audioTracks[index].displayName) { chooseAudio(audioTracks[index]) }
+            }
+        }
     }
 
     private func overlayButton(_ symbol: String, label: String, size: CGFloat = 21,
@@ -391,6 +747,32 @@ struct CinemaPlayerScreen: View {
         .accessibilityLabel(label)
     }
 
+    // MARK: Playback actions
+
+    private func livePosition() -> Double {
+        let value = session.player?.currentTime().seconds ?? currentTime
+        return value.isFinite ? value : currentTime
+    }
+
+    private func togglePlayback() {
+        guard let player = session.player else { return }
+        if playing { player.pause() }
+        else {
+            if duration > 0, livePosition() >= duration - 0.5 { seek(to: 0) }
+            player.defaultRate = speed
+            player.play()
+        }
+        playing.toggle()
+        showControls()
+    }
+
+    private func setSpeed(_ value: Double) {
+        savedSpeed = value
+        session.player?.defaultRate = Float(value)
+        if playing { session.player?.rate = Float(value) }
+        showControls()
+    }
+
     private func updateProgress() {
         guard let player = session.player else { return }
         let time = player.currentTime().seconds
@@ -401,6 +783,12 @@ struct CinemaPlayerScreen: View {
         let length = player.currentItem?.duration.seconds ?? 0
         duration = length.isFinite && length > 0 ? length : 0
         let nowPlaying = player.rate > 0
+        if nowPlaying && appliedPlayer != ObjectIdentifier(player) {
+            // Re-apply the remembered speed to every new player instance (quality change, next episode).
+            appliedPlayer = ObjectIdentifier(player)
+            player.defaultRate = speed
+            if speed != 1 { player.rate = speed }
+        }
         if nowPlaying != playing {
             playing = nowPlaying
             if nowPlaying { scheduleAutoHide() }
@@ -412,13 +800,63 @@ struct CinemaPlayerScreen: View {
     private func seek(to value: Double) {
         guard value.isFinite else { return }
         let bounded = max(0, duration > 0 ? min(value, duration) : value)
+        let tolerance = CMTime(seconds: 0.1, preferredTimescale: 600)
         session.player?.seek(to: CMTime(seconds: bounded, preferredTimescale: 600),
-                             toleranceBefore: CMTime(seconds: 0.1, preferredTimescale: 600),
-                             toleranceAfter: CMTime(seconds: 0.1, preferredTimescale: 600))
+                             toleranceBefore: tolerance, toleranceAfter: tolerance) { _ in
+            refreshNowPlaying()
+        }
         currentTime = bounded
         seekPreview = bounded
+        if upNext != nil { cancelUpNext() }
         showControls()
     }
+
+    private func refreshNowPlaying() {
+        guard session.player != nil else { return }
+        NowPlayingBridge.shared.update(video: current, position: livePosition(),
+                                       duration: duration,
+                                       rate: playing ? (session.player?.rate ?? 1) : 0)
+    }
+
+    // MARK: Episodes
+
+    private func play(_ next: Video) {
+        cancelUpNext()
+        session.player?.pause()
+        playing = false
+        currentTime = 0
+        seekPreview = 0
+        duration = 0
+        captions = []
+        audioTracks = []
+        selectedCaption = nil
+        selectedAudio = nil
+        current = next
+        showControls()
+    }
+
+    private func beginUpNext(_ next: Video) {
+        guard upNext == nil else { return }
+        upNext = next
+        countdown = 8
+        countdownTask?.cancel()
+        countdownTask = Task { @MainActor in
+            while countdown > 0 {
+                try? await Task.sleep(for: .seconds(1))
+                if Task.isCancelled { return }
+                countdown -= 1
+            }
+            if !Task.isCancelled, upNext?.id == next.id { play(next) }
+        }
+    }
+
+    private func cancelUpNext() {
+        countdownTask?.cancel()
+        countdownTask = nil
+        upNext = nil
+    }
+
+    // MARK: Chrome visibility
 
     private func toggleControls() {
         withAnimation(.easeOut(duration: 0.16)) { showsControls.toggle() }
@@ -444,8 +882,8 @@ struct CinemaPlayerScreen: View {
     private func formatTime(_ seconds: Double) -> String {
         guard seconds.isFinite && seconds >= 0 else { return "0:00" }
         let x = Int(seconds)
-        if x >= 3600 { return String(format: "%d:%02d:%02d", x/3600, (x%3600)/60, x%60) }
-        return String(format: "%d:%02d", x/60, x%60)
+        if x >= 3600 { return String(format: "%d:%02d:%02d", x / 3600, (x % 3600) / 60, x % 60) }
+        return String(format: "%d:%02d", x / 60, x % 60)
     }
 
     private func closePlayer() {
@@ -453,6 +891,8 @@ struct CinemaPlayerScreen: View {
         session.close(library: library)
         dismiss()
     }
+
+    // MARK: Tracks
 
     private func loadTracks() async {
         captions = []
@@ -469,11 +909,22 @@ struct CinemaPlayerScreen: View {
         audioTracks = audible?.options ?? []
     }
 
+    /// Selects a built-in subtitle (or turns every subtitle off when `option` is nil).
     private func chooseCaption(_ option: AVMediaSelectionOption?) {
         if let group = captionGroup {
             session.player?.currentItem?.select(option, in: group)
         }
         selectedCaption = option
+        Task { await subtitles.select(nil) }
+        showControls()
+    }
+
+    private func chooseExternal(_ subtitle: Subtitle) {
+        if let group = captionGroup {
+            session.player?.currentItem?.select(nil, in: group)
+        }
+        selectedCaption = nil
+        Task { await subtitles.select(subtitle) }
         showControls()
     }
 

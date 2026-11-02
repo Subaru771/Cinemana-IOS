@@ -27,4 +27,12 @@ enum PlaybackPlanner {
            let matching = episodes.first(where: { $0.id == resumed.id }) { return matching }
         return episodes.sorted { ($0.season, $0.episode) < ($1.season, $1.episode) }.first
     }
+
+    /// The episode that follows `current` in season/episode order, if any.
+    static func nextEpisode(after current: Video, in episodes: [Video]) -> Video? {
+        let ordered = episodes.sorted { ($0.season, $0.episode) < ($1.season, $1.episode) }
+        guard let index = ordered.firstIndex(where: { $0.id == current.id }),
+              index + 1 < ordered.count else { return nil }
+        return ordered[index + 1]
+    }
 }

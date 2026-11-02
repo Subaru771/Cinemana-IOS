@@ -36,7 +36,7 @@ struct CinemanaAPI: Sendable {
         guard let url = URL(string: base + path) else { throw APIError.invalidResponse }
         var req = URLRequest(url: url)
         req.timeoutInterval = 18
-        req.setValue("CinemanaMobile/1.2 (iOS)", forHTTPHeaderField: "User-Agent")
+        req.setValue("CinemanaMobile/1.5 (iOS)", forHTTPHeaderField: "User-Agent")
         do {
             let (data, response) = try await URLSession.shared.data(for: req)
             guard let http = response as? HTTPURLResponse else { throw APIError.invalidResponse }
@@ -241,5 +241,44 @@ struct CinemanaAPI: Sendable {
             .filter(\.playableOnIOS)
         guard !fallback.isEmpty else { throw APIError.noStream }
         return fallback
+    }
+    // MARK: Subtitles
+
+    /// External SRT/VTT subtitle files the provider publishes for a title (may be empty).
+    func subtitles(_ id: String) async -> [Subtitle] {
+        for path in ["translationFiles/id/\(segment(id))", "allVideoInfo/id/\(segment(id))"] {
+            if let json = try? await fetch(path) {
+                let found = parseSubtitles(json)
+                if !found.isEmpty { return found }
+            }
+        }
+        return []
+    }
+
+    private func parseSubtitles(_ root: Any) -> [Subtitle] {
+        var found = [Subtitle]()
+        var seen = Set<String>()
+        func visit(_ value: Any, depth: Int) {
+            if depth > 6 || found.count >= 40 { return }
+            if let list = value as? [Any] {
+                list.forEach { visit($0, depth: depth + 1) }
+            } else if let dict = value as? [String: Any] {
+                let declared = ((dict["extention"] ?? dict["extension"] ?? dict["type"]) as? String)?.lowercased() ?? ""
+                let file = (dict["file"] ?? dict["url"] ?? dict["path"] ?? dict["link"]) as? String
+                if let file, let url = URL(string: file),
+                   url.scheme?.lowercased().hasPrefix("http") == true,
+                   ["srt", "vtt"].contains(url.pathExtension.lowercased()) || ["srt", "vtt"].contains(declared),
+                   seen.insert(file).inserted {
+                    let label = (dict["name"] ?? dict["language"] ?? dict["label"] ?? dict["lang"]) as? String
+                    let name = (label?.isEmpty == false) ? label! : "Subtitle \(found.count + 1)"
+                    found.append(Subtitle(name: name, url: url))
+                }
+                for (_, child) in dict where child is [Any] || child is [String: Any] {
+                    visit(child, depth: depth + 1)
+                }
+            }
+        }
+        visit(root, depth: 0)
+        return found.sorted { $0.name.localizedStandardCompare($1.name) == .orderedAscending }
     }
 }
