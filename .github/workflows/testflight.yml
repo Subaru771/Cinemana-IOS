@@ -1,0 +1,144 @@
+name: Cinemana — TestFlight Upload
+
+# Explicitly manual. No upload or public distribution on pushes.
+on:
+  workflow_dispatch:
+    inputs:
+      authorized_distribution:
+        type: boolean
+        description: "I have the provider's permission to distribute streaming, artwork and downloading."
+        default: false
+        required: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: cinemana-testflight
+  cancel-in-progress: false
+
+jobs:
+  upload:
+    if: ${{ inputs.authorized_distribution == true }}
+    runs-on: macos-26
+    timeout-minutes: 60
+    environment: app-store-release
+    env:
+      APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+      CERTIFICATE_B64: ${{ secrets.APPLE_DISTRIBUTION_P12_BASE64 }}
+      CERTIFICATE_PASSWORD: ${{ secrets.APPLE_DISTRIBUTION_P12_PASSWORD }}
+      PROFILE_B64: ${{ secrets.APPLE_APPSTORE_PROFILE_BASE64 }}
+      KEYCHAIN_PASSWORD: ${{ secrets.APPLE_SIGNING_KEYCHAIN_PASSWORD }}
+      API_KEY_ID: ${{ secrets.APPSTORE_API_KEY_ID }}
+      API_ISSUER_ID: ${{ secrets.APPSTORE_API_ISSUER_ID }}
+      API_P8_B64: ${{ secrets.APPSTORE_API_P8_BASE64 }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Verify configuration
+        shell: bash
+        run: |
+          set -euo pipefail
+          for name in APPLE_TEAM_ID CERTIFICATE_B64 CERTIFICATE_PASSWORD PROFILE_B64 KEYCHAIN_PASSWORD API_KEY_ID API_ISSUER_ID API_P8_B64; do
+            if [[ -z "$(printenv "$name")" ]]; then
+              echo "::error::Missing distribution secret for $name. Read DISTRIBUTION.md."
+              exit 1
+            fi
+          done
+          xcodebuild -version
+          major="$(xcodebuild -version | awk '/Xcode/{print $2}' | cut -d. -f1)"
+          if [[ -z "$major" || "$major" -lt 26 ]]; then
+            echo "::error::An Xcode 26+ runner is required for App Store Connect uploads."
+            exit 1
+          fi
+
+      - name: Import distribution signing materials
+        shell: bash
+        run: |
+          set -euo pipefail
+          KEYCHAIN="$RUNNER_TEMP/cinemana-signing.keychain-db"
+          CERT="$RUNNER_TEMP/distribution.p12"
+          PROFILE="$RUNNER_TEMP/distribution.mobileprovision"
+          printf '%s' "$CERTIFICATE_B64" | base64 -D > "$CERT"
+          printf '%s' "$PROFILE_B64" | base64 -D > "$PROFILE"
+          security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN"
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN"
+          security import "$CERT" -k "$KEYCHAIN" -P "$CERTIFICATE_PASSWORD" -A -T /usr/bin/codesign
+          security set-key-partition-list -S apple-tool:,apple: -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN"
+          security list-keychains -d user -s "$KEYCHAIN"
+          security default-keychain -d user -s "$KEYCHAIN"
+          security cms -D -i "$PROFILE" > "$RUNNER_TEMP/profile.plist"
+          PROFILE_UUID=$(/usr/libexec/PlistBuddy -c 'Print :UUID' "$RUNNER_TEMP/profile.plist")
+          PROFILE_NAME=$(/usr/libexec/PlistBuddy -c 'Print :Name' "$RUNNER_TEMP/profile.plist")
+          PROFILE_TEAM=$(/usr/libexec/PlistBuddy -c 'Print :TeamIdentifier:0' "$RUNNER_TEMP/profile.plist")
+          [[ "$PROFILE_TEAM" == "$APPLE_TEAM_ID" ]] || { echo "::error::Provisioning profile team does not match."; exit 1; }
+          mkdir -p "$HOME/Library/MobileDevice/Provisioning Profiles"
+          cp "$PROFILE" "$HOME/Library/MobileDevice/Provisioning Profiles/$PROFILE_UUID.mobileprovision"
+          echo "PROFILE_NAME=$PROFILE_NAME" >> "$GITHUB_ENV"
+          echo "SIGNING_KEYCHAIN=$KEYCHAIN" >> "$GITHUB_ENV"
+
+      - name: Build and sign archive
+        shell: bash
+        run: |
+          set -euo pipefail
+          brew install xcodegen
+          swift scripts/make_app_icon.swift
+          xcodegen generate
+          xcodebuild \
+            -project CinemanaMobile.xcodeproj \
+            -scheme CinemanaMobile \
+            -configuration Release \
+            -sdk iphoneos \
+            -destination 'generic/platform=iOS' \
+            -archivePath "$RUNNER_TEMP/Cinemana.xcarchive" \
+            DEVELOPMENT_TEAM="$APPLE_TEAM_ID" \
+            CODE_SIGN_STYLE=Manual \
+            PROVISIONING_PROFILE_SPECIFIER="$PROFILE_NAME" \
+            CODE_SIGNING_ALLOWED=YES \
+            archive
+
+      - name: Export signed App Store IPA
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import os, plistlib
+          options = {
+            "method": "app-store-connect", "destination": "export",
+            "signingStyle": "manual", "signingCertificate": "Apple Distribution",
+            "teamID": os.environ["APPLE_TEAM_ID"],
+            "provisioningProfiles": {
+              "app.cinemana.mobile.ios": os.environ["PROFILE_NAME"]
+            }
+          }
+          with open(os.path.join(os.environ["RUNNER_TEMP"], "ExportOptions.plist"), "wb") as out:
+            plistlib.dump(options, out)
+          PY
+          xcodebuild -exportArchive \
+            -archivePath "$RUNNER_TEMP/Cinemana.xcarchive" \
+            -exportPath "$RUNNER_TEMP/CinemanaExport" \
+            -exportOptionsPlist "$RUNNER_TEMP/ExportOptions.plist"
+          test -f "$RUNNER_TEMP/CinemanaExport/CinemanaMobile.ipa"
+
+      - name: Upload to App Store Connect
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$HOME/.appstoreconnect/private_keys"
+          printf '%s' "$API_P8_B64" | base64 -D > "$HOME/.appstoreconnect/private_keys/AuthKey_$API_KEY_ID.p8"
+          chmod 600 "$HOME/.appstoreconnect/private_keys/AuthKey_$API_KEY_ID.p8"
+          xcrun altool --upload-app --type ios \
+            --file "$RUNNER_TEMP/CinemanaExport/CinemanaMobile.ipa" \
+            --apiKey "$API_KEY_ID" --apiIssuer "$API_ISSUER_ID"
+          echo "App Store Connect upload accepted. Beta processing and TestFlight invitation still require action in App Store Connect."
+
+      - name: Remove signing materials
+        if: always()
+        shell: bash
+        run: |
+          rm -f "$RUNNER_TEMP/distribution.p12" "$RUNNER_TEMP/distribution.mobileprovision" "$RUNNER_TEMP/profile.plist"
+          rm -rf "$HOME/.appstoreconnect/private_keys/AuthKey_$API_KEY_ID.p8"
+          if [[ -n "$SIGNING_KEYCHAIN" ]]; then
+            security delete-keychain "$SIGNING_KEYCHAIN" || true
+          fi
