@@ -153,6 +153,9 @@ struct CinemaPlayerScreen: View {
     @State private var flashTask: Task<Void, Never>?
     @State private var appliedPlayer: ObjectIdentifier?
     @State private var originalBrightness: CGFloat = 0.5
+    @State private var stalledSince: Date?
+    @State private var watchedPlayerID: ObjectIdentifier?
+    @State private var showDiagnostics = false
 
     private let playlist: [Video]
 
@@ -218,6 +221,12 @@ struct CinemaPlayerScreen: View {
             if phase != .active { session.save(library: library) }
         }
         .onDisappear { teardown() }
+        .alert("Playback diagnostics", isPresented: $showDiagnostics) {
+            Button("Copy report") { UIPasteboard.general.string = diagnosticsReport }
+            Button("Close", role: .cancel) { }
+        } message: {
+            Text(diagnosticsReport)
+        }
         .onReceive(NotificationCenter.default.publisher(for: .AVPlayerItemFailedToPlayToEndTime)) { note in
             if let item = note.object as? AVPlayerItem {
                 session.failed(item: item, library: library,
@@ -547,6 +556,12 @@ struct CinemaPlayerScreen: View {
 
     private var timeline: some View {
         VStack(spacing: 6) {
+            if isScrubbing {
+                Text("Seek to \(formatTime(seekPreview))")
+                    .font(.callout.monospacedDigit().weight(.semibold))
+                    .foregroundStyle(cinemaAccent)
+                    .frame(maxWidth: .infinity)
+            }
             Slider(value: $seekPreview, in: 0...timeLimit,
                    onEditingChanged: { editing in
                 isScrubbing = editing
@@ -616,6 +631,12 @@ struct CinemaPlayerScreen: View {
             if !isDownloaded && !session.streams.isEmpty { qualityMenu }
             subtitleMenu
             audioMenu
+            Button {
+                showDiagnostics = true
+                showControls()
+            } label: {
+                Label("Playback diagnostics", systemImage: "waveform.path.ecg")
+            }
             Button(cropVideo ? "Fit original aspect ratio" : "Fill screen (crop edges)") {
                 cropVideo.toggle()
             }
@@ -774,7 +795,29 @@ struct CinemaPlayerScreen: View {
     }
 
     private func updateProgress() {
-        guard let player = session.player else { return }
+        guard let player = session.player else {
+            stalledSince = nil
+            watchedPlayerID = nil
+            return
+        }
+        let playerID = ObjectIdentifier(player)
+        if watchedPlayerID != playerID {
+            watchedPlayerID = playerID
+            stalledSince = nil
+        }
+        if player.timeControlStatus == .waitingToPlayAtSpecifiedRate,
+           player.currentItem?.status == .readyToPlay, scenePhase == .active {
+            if let start = stalledSince {
+                if Date().timeIntervalSince(start) > 14 {
+                    stalledSince = nil
+                    session.recoverFromStall(library: library)
+                }
+            } else {
+                stalledSince = Date()
+            }
+        } else {
+            stalledSince = nil
+        }
         let time = player.currentTime().seconds
         if time.isFinite && time >= 0 {
             currentTime = time
@@ -877,6 +920,24 @@ struct CinemaPlayerScreen: View {
             guard !Task.isCancelled else { return }
             withAnimation(.easeOut(duration: 0.18)) { showsControls = false }
         }
+    }
+
+    private var diagnosticsReport: String {
+        var lines = [
+            "Title: \(current.title)",
+            "Source: \(isDownloaded ? "Offline" : (session.selected?.label ?? "Unknown"))",
+            "Player state: \(waiting ? "Buffering" : (playing ? "Playing" : "Paused"))",
+            "Recoveries: \(session.recoveryCount)",
+            "Position: \(formatTime(currentTime)) / \(formatTime(duration))"
+        ]
+        if let reason = session.lastRecoveryReason { lines.append("Last recovery: \(reason)") }
+        if let event = session.player?.currentItem?.accessLog()?.events.last {
+            lines.append("Observed bitrate: \(Int(max(0, event.observedBitrate / 1000))) kb/s")
+            lines.append("Stream stalls: \(event.numberOfStalls)")
+            lines.append("Dropped frames: \(event.numberOfDroppedVideoFrames)")
+        }
+        if let error = session.error { lines.append("Error: \(error)") }
+        return lines.joined(separator: "\n")
     }
 
     private func formatTime(_ seconds: Double) -> String {
