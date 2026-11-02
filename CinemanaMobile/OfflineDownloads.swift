@@ -236,6 +236,12 @@ final class DownloadCenter: NSObject, ObservableObject, URLSessionDownloadDelega
         persist()
     }
 
+    /// Delete only completed offline files, leaving active/queued downloads intact.
+    func removeCompleted() {
+        let completedIDs = items.filter { $0.status == .ready }.map(\.id)
+        for id in completedIDs { remove(id) }
+    }
+
     func removeAll() {
         for item in items { remove(item.id) }
     }
