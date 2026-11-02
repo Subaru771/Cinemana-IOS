@@ -17,6 +17,9 @@ jobs:
       - name: Checkout source
         uses: actions/checkout@v4
 
+      - name: Validate English and Arabic website
+        run: python3 scripts/check_landing_locales.py
+
       - name: Install XcodeGen
         run: brew install xcodegen
 
