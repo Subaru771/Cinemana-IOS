@@ -30,6 +30,7 @@ jobs:
             CinemanaMobile/CinemanaAPI.swift \
             CinemanaMobile/PlaybackPlanner.swift \
             CinemanaMobile/OfflineModels.swift \
+            CinemanaMobile/Subtitles.swift \
             Tests/CoreSmokeTests.swift
           /tmp/cinemana-core-tests
 
