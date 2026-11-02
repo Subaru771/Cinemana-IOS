@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#07120f">
+<meta name="description" content="دليل تثبيت LiveContainer وSideStore على الآيفون لتجهيز تشغيل تطبيق Cinemana، مع خطوات واضحة على ويندوز وماك.">
+<title>دليل تثبيت LiveContainer — Cinemana iOS</title>
+<style>
+:root{color-scheme:dark;--bg:#07120f;--surface:#102019;--line:#2f4c3d;--mint:#94f2b5;--fg:#eef9f0;--muted:#bacdc0}
+*{box-sizing:border-box}
+body{margin:0;background:radial-gradient(ellipse at 75% 0,#1a3c2a,transparent 55%),var(--bg);color:var(--fg);font:16px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif}
+a{color:var(--mint)}a:focus-visible,button:focus-visible{outline:3px solid var(--mint);outline-offset:4px}
+main{max-width:840px;padding:48px 20px 80px;margin:auto}
+.nav{font-weight:700;text-decoration:none;font-size:14px}
+.eyebrow{text-transform:uppercase;letter-spacing:1.6px;color:var(--mint);font-size:12px;font-weight:800;margin-top:62px}
+h1{font-size:clamp(35px,6vw,60px);letter-spacing:-.05em;line-height:1.1;margin:12px 0 20px}
+h2{letter-spacing:-.02em;line-height:1.3;margin:0 0 12px;font-size:23px}
+p{color:var(--muted)}
+.lead{font-size:18px;max-width:700px}
+.notice{background:#122a1e;border:1px solid #36704c;padding:18px;border-radius:16px;margin:28px 0}
+.notice strong{color:var(--mint)}
+.optionrow{display:flex;flex-wrap:wrap;gap:10px;margin:25px 0}
+.btn{display:inline-flex;align-items:center;justify-content:center;padding:12px 17px;min-height:48px;border-radius:13px;border:1px solid var(--line);text-decoration:none;font-weight:750;color:var(--fg);font-size:14px}
+.btn.primary{background:var(--mint);color:#082115;border-color:var(--mint)}
+.btn.disabled{opacity:.66;cursor:default}
+.card{background:linear-gradient(135deg,#14291e,#0d1b14);border:1px solid var(--line);padding:24px;border-radius:18px;margin:18px 0}
+.card p{margin:8px 0}
+.steps{counter-reset:step;list-style:none;padding:0;margin:22px 0 0}
+.steps li{counter-increment:step;padding:0 0 24px 45px;position:relative;min-height:64px}
+.steps li::before{content:counter(step);position:absolute;top:0;left:0;width:30px;height:30px;border-radius:50%;border:1px solid #4c8a5b;color:var(--mint);display:grid;place-items:center;font-weight:800;font-size:14px}
+.steps li strong{color:var(--fg);display:block}.steps li p{margin:4px 0 0}
+.small{font-size:13px;color:var(--muted)}
+details{background:var(--surface);border:1px solid var(--line);border-radius:14px;margin:10px 0;padding:16px}
+summary{font-weight:750;cursor:pointer}
+footer{border-top:1px solid var(--line);padding:27px 0;margin-top:60px;color:var(--muted);font-size:13px}
+footer a{color:var(--muted)}
+code{color:var(--mint);word-break:break-all}
+[dir="rtl"] .steps li{padding:0 45px 24px 0}
+[dir="rtl"] .steps li::before{left:auto;right:0}
+[dir="rtl"] code,[dir="rtl"] bdi{direction:ltr;unicode-bidi:isolate}
+.lang-switch{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:20px}
+.lang-switch a{display:inline-flex;align-items:center;min-height:40px;padding:7px 14px;border:1px solid var(--line);border-radius:12px;text-decoration:none;font-size:14px}
+.lang-switch [aria-current="page"]{background:#254c35;color:var(--mint);font-weight:800}
+[dir="rtl"] body{font-family:Tahoma,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+</style>
+<link rel="alternate" hreflang="en" href="livecontainer.html">
+<link rel="alternate" hreflang="ar" href="livecontainer-ar.html">
+</head>
+<body>
+<main>
+<nav class="lang-switch" aria-label="لغة الصفحة">
+<a href="livecontainer.html" lang="en" hreflang="en">English</a>
+<a href="livecontainer-ar.html" lang="ar" aria-current="page">العربية</a>
+</nav>
+<a class="nav" href="./index-ar.html">العودة إلى سينمانا ←</a>
+<div class="eyebrow">طريقة تثبيت بديلة للآيفون · iOS 16 وأحدث</div>
+<h1>جهّز آيفونك لتشغيل Cinemana باستخدام LiveContainer</h1>
+<p class="lead">إذا تفضّل تثبيت التطبيقات مجاناً من خارج المتجر، يمكنك استخدام النسخة الرسمية المدمجة من <bdi>LiveContainer + SideStore</bdi>. بعد إكمال إعدادها مرة واحدة، تستطيع استيراد ملفات <bdi>IPA</bdi> المتوافقة داخل LiveContainer.</p>
+<div class="notice">
+<strong>مهم:</strong> LiveContainer مو بديلاً عن توقيع تطبيقات iOS. لازم تثبّت LiveContainer نفسه بطريقة توقيع مدعومة، وغالباً تحتاج كمبيوتر بأول مرة. الحساب المجاني من Apple قد يحتاج تجديد التوقيع بصورة دورية. <strong>حالياً ما عدنا رابط تنزيل عام لملف Cinemana IPA.</strong>
+</div>
+
+<div class="optionrow">
+<a class="btn primary" href="https://livecontainer.github.io/docs/installation/lc_sidestore" target="_blank" rel="noopener noreferrer">دليل LiveContainer + SideStore الرسمي ↗</a>
+<a class="btn" href="https://github.com/LiveContainer/LiveContainer" target="_blank" rel="noopener noreferrer">صفحة LiveContainer الرسمية على GitHub ↗</a>
+</div>
+
+<section class="card">
+<h2>١. تثبيت LiveContainer + SideStore</h2>
+<ol class="steps">
+<li><strong>جهّز كمبيوتر ويندوز أو ماك</strong><p>على ويندوز، ثبّت تعريفات أجهزة Apple عبر iTunes، بعدها وصّل الآيفون بالكمبيوتر واضغط «وثوق» إذا ظهر طلب السماح.</p></li>
+<li><strong>نزّل ملف IPA الرسمي لـ LiveContainer + SideStore</strong><p>استخدم رابط التنزيل الموجود بالدليل الرسمي فقط، وتجنّب النسخ المعدّلة أو المصادر غير الموثوقة.</p></li>
+<li><strong>ثبّت التطبيق باستخدام Impactor أو iloader</strong><p>اتبع تعليمات الدليل الرسمي خطوة بخطوة. أدوات التثبيت تتعامل مع التوقيع الأولي باستخدام حساب Apple الخاص بك. لا تحذف ملحقات التطبيق المطلوبة، وتأكد من صلاحية ملف تعريف المطوّر في إعدادات iOS.</p></li>
+<li><strong>كمّل إعداد SideStore المدمج</strong><p>افتح SideStore من داخل LiveContainer، وسجّل الدخول بالطريقة المدعومة، واتصل بـ <bdi>LocalDevVPN</bdi>، وبعدها جدّد التطبيق المثبّت حسب إرشاداتهم.</p></li>
+<li><strong>فعّل التشغيل بدون JIT</strong><p>افتح <bdi>LiveContainer → Settings → Import Certificate from SideStore</bdi>، وبعدها شغّل فحص <bdi>JIT-Less Mode Diagnose</bdi> وتأكد أنه ناجح.</p></li>
+</ol>
+<p class="small">إذا LiveContainer مثبت عندك أصلاً، انتقل مباشرة للخطوة الثانية. طرق التثبيت والإصدارات المدعومة ممكن تتغير؛ اعتمد الدليل الرسمي المحدّث بدلاً من فيديوهات قديمة.</p>
+</section>
+
+<section class="card">
+<h2>٢. إضافة ملف IPA متوافق إلى LiveContainer</h2>
+<ol class="steps">
+<li><strong>نزّل ملف IPA من المطوّر المصرّح له</strong><p>احفظه من Safari أو تطبيق «الملفات». لا تستخدم ملفات Cinemana مجهولة المصدر أو معدّلة أو معاد توقيعها من جهة غير موثوقة.</p></li>
+<li><strong>افتح <bdi>LiveContainer → Apps → +</bdi></strong><p>اختَر ملف IPA من «الملفات» ودع LiveContainer يستورده، بعدها حدّد التطبيق للتشغيل التالي.</p></li>
+<li><strong>أضف اختصاراً للشاشة الرئيسية (اختياري)</strong><p>تقدر تستخدم دليل اختصارات LiveContainer حتى يظهر للتطبيق رمز على الشاشة الرئيسية، ويسهل فتحه.</p></li>
+</ol>
+<div class="optionrow">
+<a class="btn" href="https://livecontainer.github.io/docs/guides/add-to-home-screen" target="_blank" rel="noopener noreferrer">دليل اختصار الشاشة الرئيسية ↗</a>
+<a class="btn" href="https://livecontainer.github.io/docs/guides/sources" target="_blank" rel="noopener noreferrer">الدليل الرسمي للمصادر ↗</a>
+</div>
+<p class="small">ملف IPA غير الموقّع الذي نبنيه حالياً هو نسخة تطوير، مو إصدار مثبت توافقه مع LiveContainer. تشغيل الفيديو والتنزيل بالخلفية يحتاجان اختباراً منفصلاً داخل LiveContainer.</p>
+</section>
+
+<section class="card">
+<h2>٣. تحديثات Cinemana بنقرة واحدة مستقبلاً</h2>
+<p>LiveContainer يدعم مصادر تطبيقات شبيهة بـ AltStore، ويدعم رابط إضافة مصدر بصيغة <code><bdi>livecontainer://source?url=…</bdi></code>. بعد توفير ملف Cinemana IPA عام ومصرّح بتوزيعه، وإعداد مصدر جرى اختباره، راح نقدر نضيف زر <strong>«أضف مصدر Cinemana»</strong> حتى يستطيع مستخدم LiveContainer تنزيل التطبيق وتحديثه من قسم المصادر.</p>
+<span class="btn disabled" aria-disabled="true">إضافة مصدر Cinemana — لم يصدر بعد</span>
+<p class="small">هذا الزر ما يثبّت LiveContainer نفسه، ولا يغني عن خطوات التوقيع الأولى.</p>
+</section>
+
+<h2>الأسئلة الشائعة</h2>
+<details><summary>أكدر أثبّت LiveContainer من Safari بضغطة وحدة؟</summary><p>مو على آيفون اعتيادي بدون طريقة توقيع أو توزيع مهيّأة مسبقاً. لازم أولاً تثبّت LiveContainer بأداة توقيع مدعومة.</p></details>
+<details><summary>أكدر أستخدم Sideloadly لتثبيت LiveContainer؟</summary><p>الدليل الرسمي لـ LiveContainer لا ينصح حالياً بـ Sideloadly أو 3uTools أو أغلب مواقع التوقيع. استخدم طريقة Impactor أو iloader المذكورة بالدليل الرسمي.</p></details>
+<details><summary>هل تشغيل التطبيق هنا نفس تشغيله من App Store؟</summary><p>لا. LiveContainer يشغّل تطبيقات متوافقة داخل بيئته الخاصة. بعض صلاحيات التطبيقات والتنزيل بالخلفية وملحقات النظام ممكن تختلف، لذلك ما نكدر نضمن توافق كل الميزات.</p></details>
+<details><summary>لازم أدخل Apple ID بموقع Cinemana؟</summary><p>لا. لا تدخل معلومات حساب Apple بموقع Cinemana أو بخدمات توقيع مجهولة. أي تسجيل دخول ضروري للتوقيع لازم يكون فقط داخل إعدادات الأداة الرسمية.</p></details>
+
+<footer>هذا دليل تثبيت مستقل. LiveContainer وSideStore مشروعان لطرف ثالث، وCinemana غير تابع لهما. نشر التطبيقات وبث المحتوى يتطلبان التصاريح اللازمة. <a href="privacy-ar.html">سياسة الخصوصية</a>.</footer>
+</main>
+</body></html>
