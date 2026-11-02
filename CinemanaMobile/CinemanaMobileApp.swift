@@ -76,6 +76,10 @@ struct CatalogView: View {
                     }
                     if isLoading && rows.isEmpty {
                         VStack(alignment: .leading, spacing: 18) {
+                            if kind == nil {
+                                CinemanaLogo(compact: false)
+                                    .padding(.bottom, 8)
+                            }
                             ProgressView("Loading catalog…").tint(mint)
                             ScrollView(.horizontal, showsIndicators: false) {
                                 HStack(spacing: 12) {
@@ -906,6 +910,9 @@ struct AboutView: View {
                     .font(.footnote).foregroundStyle(.secondary)
             }
             Section("Connection and playback") {
+                NavigationLink { ConnectionDiagnosticsView() } label: {
+                    Label("Network diagnostics", systemImage: "network")
+                }
                 Text("The content provider may restrict access by ISP or require authorization. Cinemana iOS does not bypass restrictions.")
                 Text("Playback supports compatible HLS and progressive files, plus external SRT/VTT subtitles when the provider publishes them. MPEG-DASH and MKV are not supported by this native player build.")
             }
