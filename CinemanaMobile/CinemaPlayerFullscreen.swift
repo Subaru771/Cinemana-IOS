@@ -358,14 +358,14 @@ struct CinemaPlayerScreen: View {
             Menu("Subtitles") {
                 Button("Off") { chooseCaption(nil) }
                 if captions.isEmpty { Text("No embedded subtitles") }
-                ForEach(Array(captions.enumerated()), id: \.offset) { _, option in
-                    Button(option.displayName) { chooseCaption(option) }
+                ForEach(captions.indices, id: \.self) { index in
+                    Button(captions[index].displayName) { chooseCaption(captions[index]) }
                 }
             }
             Menu("Audio track") {
                 if audioTracks.isEmpty { Text("Default audio") }
-                ForEach(Array(audioTracks.enumerated()), id: \.offset) { _, option in
-                    Button(option.displayName) { chooseAudio(option) }
+                ForEach(audioTracks.indices, id: \.self) { index in
+                    Button(audioTracks[index].displayName) { chooseAudio(audioTracks[index]) }
                 }
             }
             Button(cropVideo ? "Fit original aspect ratio" : "Fill screen (crop edges)") {
