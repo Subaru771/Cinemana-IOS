@@ -901,7 +901,7 @@ struct AboutView: View {
                     .foregroundStyle(.secondary)
             }
             Section("Cinemana iOS") {
-                LabeledContent("Version", value: "1.6.1")
+                LabeledContent("Version", value: Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "—")
                 LabeledContent("Player", value: "AVPlayer · Cinema controls · PiP")
                 LabeledContent("Offline videos", value: "\(DownloadCenter.shared.items.filter { $0.status == .ready }.count)")
                 LabeledContent("Saved titles", value: "\(library.snapshot.favorites.count)")
