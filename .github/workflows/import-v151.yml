@@ -17,20 +17,19 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          base64 --decode .cinemana-v151-source.b64 | tar -xJf -
+          base64 --decode .cinemana-v151-source.b64 | tar -xJf - --exclude='.github/workflows/ios.yml'
           test -s CinemanaMobile/OfflineDownloads.swift
           test -s CinemanaMobile/CinemaPlayerFullscreen.swift
           test -s CinemanaMobile/Subtitles.swift
           grep -q "1.5.1" project.yml
           rm .cinemana-v151-source.b64
-          rm .github/workflows/import-v151.yml
-      - name: Commit complete source to the upgrade branch
+                - name: Commit complete source to the upgrade branch
         shell: bash
         run: |
           set -euo pipefail
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add -A
+          git add -A -- CinemanaMobile Tests project.yml .cinemana-v151-source.b64
           if ! git diff --cached --quiet; then
             git commit -m "Import Cinemana iOS 1.5.1 source and stability fixes"
             git push origin HEAD:upgrade/cinemana-ios-1.5.1
