@@ -63,6 +63,31 @@ struct CoreSmokeTests {
         precondition(PlaybackPlanner.playTarget(for: series, episodes: [ep1, ep2], recent: [savedEp2])?.id == ep2.id)
         precondition(PlaybackPlanner.playTarget(for: movie, episodes: [], recent: [])?.id == movie.id)
         precondition(PlaybackPlanner.playTarget(for: ep1, episodes: [], recent: [])?.id == ep1.id)
-        print("PASS: core models, serialization, filters, iOS stream formats, quality fallback, and series episode selection (33 assertions)")
+        // v1.5: next episode, subtitles, download paths and policy
+        precondition(PlaybackPlanner.nextEpisode(after: ep1, in: [ep2, ep1])?.id == ep2.id)
+        precondition(PlaybackPlanner.nextEpisode(after: ep2, in: [ep1, ep2]) == nil)
+        precondition(PlaybackPlanner.nextEpisode(after: movie, in: [ep1, ep2]) == nil)
+        let srt = "1\n00:00:01,000 --> 00:00:03,500\nHello <i>world</i>\n\n2\n00:00:04,000 --> 00:00:06,000\n{\\an8}Second line\nwraps\n"
+        let cues = SubtitleParser.parse(srt)
+        precondition(cues.count == 2)
+        precondition(cues[0].text == "Hello world")
+        precondition(cues[1].text == "Second line\nwraps")
+        precondition(SubtitleParser.cue(at: 2, in: cues)?.start == 1)
+        precondition(SubtitleParser.cue(at: 3.7, in: cues) == nil)
+        precondition(SubtitleParser.cue(at: 5, in: cues)?.text.hasPrefix("Second") == true)
+        precondition(SubtitleParser.cue(at: 0.2, in: cues) == nil)
+        let vtt = "WEBVTT\n\n00:01.000 --> 00:02.000 align:start\nHi\n\n"
+        precondition(SubtitleParser.parse(vtt).first?.end == 2)
+        precondition(SubtitleParser.decodeText(Data([0xEF, 0xBB, 0xBF, 0x68, 0x69])) == "hi")
+        precondition(DownloadPolicy.format(for: URL(string: "https://x.test/a.m3u8")!) == .hls)
+        precondition(DownloadPolicy.format(for: URL(string: "https://x.test/a.mp4")!) == .file)
+        precondition(DownloadPolicy.format(for: URL(string: "https://x.test/a.mkv")!) == nil)
+        let sample = URL(fileURLWithPath: NSHomeDirectory()).appendingPathComponent("Library/x.mp4")
+        precondition(OfflinePath.store(sample) == "Library/x.mp4")
+        precondition(OfflinePath.resolve("Library/x.mp4").path.hasSuffix("/Library/x.mp4"))
+        precondition(OfflineEntry.Status(rawValue: "ready") == .ready)
+        precondition(OfflineEntry.Status(rawValue: "queued") == .queued)
+        precondition(ByteFormat.duration(75) == "1 min")
+        print("PASS: core models, serialization, filters, iOS stream formats, quality fallback, and series episode selection plus v1.5 next-episode, subtitle parser and download path checks")
     }
 }

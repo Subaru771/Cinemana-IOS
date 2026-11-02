@@ -292,6 +292,15 @@ struct FeaturedPoster: View {
                         HStack {
                             Text("Episodes").font(.title2.weight(.bold))
                             Spacer()
+                            if !visibleEpisodes.isEmpty {
+                                Button {
+                                    downloads.enqueue(visibleEpisodes)
+                                } label: {
+                                    Image(systemName: "arrow.down.circle")
+                                        .font(.title3).foregroundStyle(mint)
+                                }
+                                .accessibilityLabel("Download season \(selectedSeason)")
+                            }
                             if sortedSeasons.count > 1 {
                                 Menu {
                                     ForEach(sortedSeasons, id: \.self) { season in
@@ -351,7 +360,7 @@ struct FeaturedPoster: View {
         .background(ink)
         .navigationBarTitleDisplayMode(.inline)
         .navigationDestination(for: Video.self) { MovieDetailView(video: $0) }
-        .fullScreenCover(item: $watch) { CinemaPlayerScreen(video: $0) }
+        .fullScreenCover(item: $watch) { CinemaPlayerScreen(video: $0, playlist: episodes) }
         .task(id: video.id) {
             detail = video
             synopsisExpanded = false
@@ -545,150 +554,70 @@ struct FilterLabel: View {
     }
 }
 
-/// Full iOS playback controls, including native scrubbing and AirPlay when available.
-
 struct DownloadAction: View {
     let video: Video
     @ObservedObject private var center = DownloadCenter.shared
 
     var body: some View {
-        HStack(spacing: 10) {
-            let entry = center.entry(for: video.id)
-            if entry?.status == .ready && center.localURL(for: video.id) != nil {
-                Label("Available offline", systemImage: "checkmark.circle.fill").foregroundStyle(.green)
-            } else if entry?.isActive == true {
-                ProgressView(value: entry?.progress ?? 0).tint(.green)
-                Text("Downloading \(Int((entry?.progress ?? 0) * 100))%").font(.caption)
-                Button("Cancel") { center.cancel(video.id) }.buttonStyle(.bordered)
-            } else {
-                Button {
-                    Task { await center.begin(video) }
-                } label: {
-                    Label(entry?.status == .failed ? "Retry download" : "Download", systemImage: "arrow.down.to.line")
-                }
+        let entry = center.entry(for: video.id)
+        HStack(spacing: 10) { content(entry) }
+            .padding(.vertical, 4)
+    }
+
+    @ViewBuilder
+    private func content(_ entry: OfflineEntry?) -> some View {
+        if let entry, entry.status == .ready, center.localURL(for: video.id) != nil {
+            Label("Available offline", systemImage: "checkmark.circle.fill").foregroundStyle(.green)
+            Spacer(minLength: 4)
+            Button(role: .destructive) { center.remove(video.id) } label: {
+                Image(systemName: "trash")
+            }
+            .buttonStyle(.borderless)
+            .accessibilityLabel("Delete download")
+        } else if let entry, entry.isActive {
+            activeRow(entry)
+        } else {
+            Button { center.enqueue(video) } label: {
+                Label(entry?.status == .failed ? "Retry download" : "Download", systemImage: "arrow.down.to.line")
+            }
+            .buttonStyle(.bordered)
+            if let entry, entry.status == .failed, let message = entry.message {
+                Text(message).font(.caption2).foregroundStyle(.orange).lineLimit(2)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func activeRow(_ entry: OfflineEntry) -> some View {
+        if entry.status == .queued || entry.status == .preparing {
+            ProgressView().controlSize(.small)
+            Text(entry.status == .preparing ? "Preparing…" : (entry.message ?? "Waiting in queue"))
+                .font(.caption)
+        } else {
+            ProgressView(value: entry.progress).tint(.green).frame(maxWidth: 140)
+            Text(progressText(entry)).font(.caption)
+        }
+        Spacer(minLength: 4)
+        if entry.status == .downloading {
+            Button { center.pause(video.id) } label: { Image(systemName: "pause.fill") }
                 .buttonStyle(.bordered)
-            }
+                .accessibilityLabel("Pause download")
         }
-        .padding(.vertical, 4)
-    }
-}
-
-struct NativePlayerView: UIViewControllerRepresentable {
-    let player: AVPlayer
-
-    func makeUIViewController(context: Context) -> AVPlayerViewController {
-        let controller = AVPlayerViewController()
-        controller.showsPlaybackControls = true
-        controller.videoGravity = .resizeAspect
-        controller.allowsPictureInPicturePlayback = true
-        controller.player = player
-        return controller
+        if entry.status == .paused {
+            Button { center.resume(video.id) } label: { Image(systemName: "play.fill") }
+                .buttonStyle(.bordered)
+                .accessibilityLabel("Resume download")
+        }
+        Button("Cancel") { center.cancel(video.id) }.buttonStyle(.bordered)
     }
 
-    func updateUIViewController(_ controller: AVPlayerViewController, context: Context) {
-        if controller.player !== player { controller.player = player }
-    }
-}
-
-/// The native AVPlayer controls keep seeking, volume, AirPlay, and embedded subtitle
-/// selection consistent with iOS. Stream recovery is managed separately from SwiftUI.
-struct VideoPlaybackView: View {
-    @Environment(\.dismiss) private var dismiss
-    @Environment(\.scenePhase) private var scenePhase
-    @EnvironmentObject private var library: LibraryStore
-    @StateObject private var session = PlaybackSession()
-    let video: Video
-
-    var body: some View {
-        NavigationStack {
-            VStack(spacing: 0) {
-                if let player = session.player {
-                    NativePlayerView(player: player)
-                        .frame(maxWidth: .infinity)
-                        .aspectRatio(16 / 9, contentMode: .fit)
-                } else if session.loading {
-                    ProgressView("Finding a compatible stream…")
-                        .tint(mint)
-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
-                } else {
-                    ErrorMessage(text: session.error ?? "No compatible stream available") {
-                        Task { await session.load(video: video, library: library) }
-                    }
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-                }
-                if session.player != nil {
-                    VStack(alignment: .leading, spacing: 14) {
-                        Text(video.title).font(.title2.weight(.bold)).lineLimit(2)
-                        if let selected = session.selected {
-                            Label("\(selected.label) quality", systemImage: "checkmark.circle.fill")
-                                .font(.subheadline).foregroundStyle(mint)
-                        }
-                        if let notice = session.notice {
-                            Label(notice, systemImage: "arrow.triangle.2.circlepath")
-                                .font(.caption).foregroundStyle(.yellow)
-                        }
-                        HStack(spacing: 22) {
-                            if let player = session.player {
-                                Button {
-                                    let seconds = max(0, player.currentTime().seconds - 10)
-                                    player.seek(to: CMTime(seconds: seconds, preferredTimescale: 600))
-                                } label: { Label("Back 10s", systemImage: "gobackward.10") }
-                                Button {
-                                    if player.rate == 0 { player.play() } else { player.pause() }
-                                } label: { Label("Play/Pause", systemImage: "playpause.fill") }
-                                Button {
-                                    let current = player.currentTime().seconds
-                                    let duration = player.currentItem?.duration.seconds ?? 0
-                                    let target = duration.isFinite && duration > 0 ? min(duration, current + 30) : current + 30
-                                    player.seek(to: CMTime(seconds: max(0, target), preferredTimescale: 600))
-                                } label: { Label("Forward 30s", systemImage: "goforward.30") }
-                                Menu {
-                                    ForEach([0.5, 0.75, 1.0, 1.25, 1.5, 2.0], id: \.self) { rate in
-                                        Button("\(rate.formatted())×") { player.defaultRate = Float(rate); player.rate = Float(rate) }
-                                    }
-                                } label: { Label("Speed", systemImage: "speedometer") }
-                            }
-                        }.font(.caption).buttonStyle(.borderless)
-                        Text("Tap the video for seeking, AirPlay, and available audio or subtitles.")
-                            .font(.caption).foregroundStyle(.secondary)
-                    }
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(20)
-                }
-                Spacer(minLength: 0)
-            }
-            .background(.black)
-            .toolbar {
-                ToolbarItem(placement: .topBarLeading) {
-                    Button("Done") { session.close(library: library); dismiss() }
-                }
-                ToolbarItem(placement: .topBarTrailing) {
-                    Menu {
-                        ForEach(session.streams) { stream in
-                            Button { session.select(stream, video: video, library: library) } label: {
-                                if session.selected?.id == stream.id {
-                                    Label(stream.label, systemImage: "checkmark")
-                                } else { Text(stream.label) }
-                            }
-                        }
-                    } label: {
-                        Label(session.selected?.label ?? "Quality", systemImage: "gearshape")
-                    }
-                    .disabled(session.streams.isEmpty)
-                }
-            }
+    private func progressText(_ entry: OfflineEntry) -> String {
+        let percent = "\(Int(entry.progress * 100))%"
+        if entry.status == .paused { return "Paused · \(percent)" }
+        if let rate = center.rates[video.id], rate > 0 {
+            return "\(percent) · \(ByteFormat.string(Int64(rate)))/s"
         }
-        .task(id: video.id) { await session.load(video: video, library: library) }
-        .onDisappear { session.close(library: library) }
-        .onChange(of: scenePhase) { phase in
-            if phase != .active { session.save(library: library) }
-        }
-        .onReceive(NotificationCenter.default.publisher(for: .AVPlayerItemFailedToPlayToEndTime)) { note in
-            if let item = note.object as? AVPlayerItem {
-                session.failed(item: item, library: library,
-                               reason: (note.userInfo?[AVPlayerItemFailedToPlayToEndTimeErrorKey] as? Error)?.localizedDescription)
-            }
-        }
+        return percent
     }
 }
 
@@ -895,6 +824,8 @@ final class PlaybackSession: ObservableObject {
 struct AboutView: View {
     @EnvironmentObject private var library: LibraryStore
     @AppStorage("cinemana-max-download-quality") private var downloadQuality = 1080
+    @AppStorage("cinemana-wifi-only") private var wifiOnly = false
+    @AppStorage("cinemana-auto-landscape") private var autoLandscape = true
     @State private var confirmHistory = false
     @State private var confirmWatchlist = false
     @State private var cacheCleared = false
@@ -902,8 +833,8 @@ struct AboutView: View {
     var body: some View {
         Form {
             Section("Cinemana iOS") {
-                LabeledContent("Version", value: "1.3.0")
-                LabeledContent("Player", value: "AVPlayer · Cinema controls")
+                LabeledContent("Version", value: "1.5.1")
+                LabeledContent("Player", value: "AVPlayer · Cinema controls · PiP")
                 LabeledContent("Offline videos", value: "\(DownloadCenter.shared.items.filter { $0.status == .ready }.count)")
                 LabeledContent("Saved titles", value: "\(library.snapshot.favorites.count)")
                 LabeledContent("Continue Watching", value: "\(library.snapshot.recent.count)")
@@ -934,12 +865,19 @@ struct AboutView: View {
                     Text("1080p").tag(1080)
                     Text("2160p").tag(2160)
                 }
+                Toggle("Download on Wi-Fi only", isOn: $wifiOnly)
+                    .onChange(of: wifiOnly) { _ in DownloadCenter.shared.updateNetworkPolicy() }
                 Text("Downloads require provider-authorized MP4 or HLS media. Some streams cannot be saved.")
+                    .font(.footnote).foregroundStyle(.secondary)
+            }
+            Section("Player") {
+                Toggle("Rotate to landscape when playing", isOn: $autoLandscape)
+                Text("Double-tap the left or right side to skip 10 seconds. Swipe up or down on the left side for brightness and on the right side for volume.")
                     .font(.footnote).foregroundStyle(.secondary)
             }
             Section("Connection and playback") {
                 Text("The content provider may restrict access by ISP or require authorization. Cinemana iOS does not bypass restrictions.")
-                Text("Playback supports compatible HLS and progressive files. MPEG-DASH, MKV, and external subtitles are not supported by this native player build.")
+                Text("Playback supports compatible HLS and progressive files, plus external SRT/VTT subtitles when the provider publishes them. MPEG-DASH and MKV are not supported by this native player build.")
             }
             Section("Distribution") {
                 Text("Installing on an iPhone requires valid Apple signing. Public distribution requires appropriate content rights.")

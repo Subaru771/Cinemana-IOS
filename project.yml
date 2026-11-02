@@ -21,9 +21,11 @@ targets:
       path: CinemanaMobile/Info.plist
       properties:
         CFBundleDisplayName: Cinemana
-        CFBundleShortVersionString: '1.4.0'
-        CFBundleVersion: '5'
+        CFBundleShortVersionString: '1.5.1'
+        CFBundleVersion: '7'
         UILaunchScreen: {}
+        UIBackgroundModes:
+          - audio
         NSAppTransportSecurity:
           NSAllowsArbitraryLoadsForMedia: true
         UISupportedInterfaceOrientations:
