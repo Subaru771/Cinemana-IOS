@@ -1,0 +1,37 @@
+name: CinemanaMobile
+options:
+  bundleIdPrefix: app.cinemana
+  deploymentTarget:
+    iOS: '16.0'
+  developmentLanguage: en
+targets:
+  CinemanaMobile:
+    type: application
+    platform: iOS
+    sources:
+      - CinemanaMobile
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: app.cinemana.mobile.ios
+        SWIFT_VERSION: '5.9'
+        TARGETED_DEVICE_FAMILY: '1,2'
+        CODE_SIGN_STYLE: Automatic
+        IPHONEOS_DEPLOYMENT_TARGET: '16.0'
+    info:
+      path: CinemanaMobile/Info.plist
+      properties:
+        CFBundleDisplayName: Cinemana Mobile
+        CFBundleShortVersionString: '1.1.0'
+        CFBundleVersion: '2'
+        UILaunchScreen: {}
+        NSAppTransportSecurity:
+          NSAllowsArbitraryLoadsForMedia: true
+        UISupportedInterfaceOrientations:
+          - UIInterfaceOrientationPortrait
+          - UIInterfaceOrientationLandscapeLeft
+          - UIInterfaceOrientationLandscapeRight
+        UISupportedInterfaceOrientations~ipad:
+          - UIInterfaceOrientationPortrait
+          - UIInterfaceOrientationPortraitUpsideDown
+          - UIInterfaceOrientationLandscapeLeft
+          - UIInterfaceOrientationLandscapeRight
