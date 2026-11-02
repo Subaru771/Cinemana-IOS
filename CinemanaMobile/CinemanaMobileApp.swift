@@ -122,6 +122,13 @@ struct CatalogView: View {
             }
             .background(ink)
             .navigationTitle(title)
+            .toolbar {
+                if kind == nil {
+                    ToolbarItem(placement: .principal) {
+                        CinemanaLogo(compact: true)
+                    }
+                }
+            }
             .navigationDestination(for: Video.self) { MovieDetailView(video: $0) }
             .refreshable { await refresh() }
             .task(id: kind) {
@@ -344,7 +351,7 @@ struct FeaturedPoster: View {
         .background(ink)
         .navigationBarTitleDisplayMode(.inline)
         .navigationDestination(for: Video.self) { MovieDetailView(video: $0) }
-        .fullScreenCover(item: $watch) { VideoPlaybackView(video: $0) }
+        .fullScreenCover(item: $watch) { CinemaPlayerScreen(video: $0) }
         .task(id: video.id) {
             detail = video
             synopsisExpanded = false
