@@ -20,6 +20,19 @@ jobs:
       - name: Install XcodeGen
         run: brew install xcodegen
 
+      - name: Generate Cinemana icon
+        run: swift scripts/make_app_icon.swift
+
+      - name: Run portable core tests
+        run: |
+          swiftc -o /tmp/cinemana-core-tests \
+            CinemanaMobile/Models.swift \
+            CinemanaMobile/CinemanaAPI.swift \
+            CinemanaMobile/PlaybackPlanner.swift \
+            CinemanaMobile/OfflineModels.swift \
+            Tests/CoreSmokeTests.swift
+          /tmp/cinemana-core-tests
+
       - name: Generate Xcode project
         run: xcodegen generate
 
@@ -45,5 +58,5 @@ jobs:
       - name: Upload IPA
         uses: actions/upload-artifact@v4
         with:
-          name: Cinemana-iOS-v1.5.1-Unsigned
+          name: Cinemana-iOS-v1.6-Unsigned
           path: dist/Cinemana-iOS.ipa
