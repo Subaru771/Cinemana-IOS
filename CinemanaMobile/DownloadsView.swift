@@ -6,6 +6,7 @@ struct DownloadsView: View {
     @AppStorage("cinemana-wifi-only") private var wifiOnly = false
     @State private var watch: Video?
     @State private var confirmDeleteAll = false
+    @State private var confirmClearFinished = false
 
     private var queue: [OfflineEntry] { center.items.filter { $0.status != .ready } }
     private var finished: [OfflineEntry] { center.items.filter { $0.status == .ready } }
@@ -20,6 +21,10 @@ struct DownloadsView: View {
             .background(Color.black)
             .toolbar { toolbarMenu }
             .fullScreenCover(item: $watch) { CinemaPlayerScreen(video: $0) }
+            .confirmationDialog("Remove completed offline videos?", isPresented: $confirmClearFinished) {
+                Button("Remove completed videos", role: .destructive) { center.removeCompleted() }
+                Button("Cancel", role: .cancel) { }
+            }
             .confirmationDialog("Delete every download?", isPresented: $confirmDeleteAll) {
                 Button("Delete all downloads", role: .destructive) { center.removeAll() }
                 Button("Cancel", role: .cancel) { }
@@ -88,6 +93,16 @@ struct DownloadsView: View {
                 }
             }
             .font(.subheadline)
+            if let free = center.freeBytes, free > 0 {
+                ProgressView(value: Double(max(0, center.usedBytes)),
+                             total: Double(free) + Double(max(0, center.usedBytes)))
+                    .tint(.mint)
+                if free < 1_073_741_824 {
+                    Label("Storage nearly full — remove old videos before downloading.",
+                          systemImage: "exclamationmark.triangle")
+                        .font(.caption).foregroundStyle(.orange)
+                }
+            }
             if wifiOnly {
                 Label("Wi-Fi only", systemImage: "wifi")
                     .font(.caption).foregroundStyle(.secondary)
@@ -104,6 +119,10 @@ struct DownloadsView: View {
                 Button { center.resumeAll() } label: { Label("Resume all", systemImage: "play.fill") }
                 Toggle(isOn: $wifiOnly) { Label("Wi-Fi only", systemImage: "wifi") }
                 Divider()
+                Button(role: .destructive) { confirmClearFinished = true } label: {
+                    Label("Remove completed only", systemImage: "checkmark.circle")
+                }
+                .disabled(finished.isEmpty)
                 Button(role: .destructive) { confirmDeleteAll = true } label: {
                     Label("Delete all", systemImage: "trash")
                 }
