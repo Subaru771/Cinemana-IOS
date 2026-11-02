@@ -85,6 +85,8 @@ jobs:
           brew install xcodegen
           swift scripts/make_app_icon.swift
           xcodegen generate
+          # Each TestFlight upload needs a fresh bundle build number.
+          plutil -replace CFBundleVersion -string "$GITHUB_RUN_NUMBER" CinemanaMobile/Info.plist
           xcodebuild \
             -project CinemanaMobile.xcodeproj \
             -scheme CinemanaMobile \
