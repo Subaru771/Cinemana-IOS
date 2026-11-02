@@ -633,6 +633,9 @@ final class PlaybackSession: ObservableObject {
     private var timeObserver: Any?
     private var itemObservation: NSKeyValueObservation?
     private var attempted = Set<String>()
+    private var stallRestarted = false
+    @Published private(set) var recoveryCount = 0
+    @Published private(set) var lastRecoveryReason: String?
     private var video: Video?
 
     func load(video: Video, library: LibraryStore) async {
@@ -641,6 +644,9 @@ final class PlaybackSession: ObservableObject {
         self.loading = true
         self.error = nil
         self.notice = nil
+        stallRestarted = false
+        recoveryCount = 0
+        lastRecoveryReason = nil
         if let local = DownloadCenter.shared.localURL(for: video.id) {
             let stream = Stream(url: local, quality: 0)
             self.streams = [stream]
@@ -666,6 +672,7 @@ final class PlaybackSession: ObservableObject {
 
     func select(_ stream: Stream, video: Video, library: LibraryStore) {
         attempted = [stream.id]
+        stallRestarted = false
         notice = nil
         start(stream, video: video, library: library)
     }
@@ -713,6 +720,28 @@ final class PlaybackSession: ObservableObject {
         }
     }
 
+    /// Called only for a ready-to-play item that has been stalled long enough.
+    /// Bound recovery attempts; never loop indefinitely or treat a 403 as a retryable stall.
+    func recoverFromStall(library: LibraryStore) {
+        guard let video, let current = selected, let item = player?.currentItem,
+              item.status == .readyToPlay else { return }
+        if let fallback = PlaybackPlanner.fallback(from: streams, failed: current, tried: attempted) {
+            attempted.insert(fallback.id)
+            recoveryCount += 1
+            lastRecoveryReason = "Slow stream: switched from \(current.label) to \(fallback.label)"
+            start(fallback, video: video, library: library)
+            notice = "Buffering too long. Trying \(fallback.label)…"
+        } else if !stallRestarted {
+            stallRestarted = true
+            recoveryCount += 1
+            lastRecoveryReason = "Reconnected \(current.label) once"
+            start(current, video: video, library: library)
+            notice = "Reconnecting stalled video…"
+        } else {
+            failed(item: item, library: library, reason: "Video stalled repeatedly. Check your connection.")
+        }
+    }
+
     func failed(item: AVPlayerItem, library: LibraryStore, reason: String?) {
         guard player?.currentItem === item, let failedStream = selected, let video else { return }
         if let fallback = PlaybackPlanner.fallback(from: streams, failed: failedStream, tried: attempted) {
@@ -741,6 +770,7 @@ final class PlaybackSession: ObservableObject {
         selected = nil
         video = nil
         attempted.removeAll()
+        stallRestarted = false
         notice = nil
     }
 
