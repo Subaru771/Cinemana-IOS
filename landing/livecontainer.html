@@ -36,10 +36,19 @@ summary{font-weight:750;cursor:pointer}
 footer{border-top:1px solid var(--line);padding:27px 0;margin-top:60px;color:var(--muted);font-size:13px}
 footer a{color:var(--muted)}
 code{color:var(--mint);word-break:break-all}
+.lang-switch{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:20px}
+.lang-switch a{display:inline-flex;align-items:center;min-height:40px;padding:7px 14px;border:1px solid var(--line);border-radius:12px;text-decoration:none;font-size:14px}
+.lang-switch [aria-current="page"]{background:#254c35;color:var(--mint);font-weight:800}
 </style>
+<link rel="alternate" hreflang="en" href="livecontainer.html">
+<link rel="alternate" hreflang="ar" href="livecontainer-ar.html">
 </head>
 <body>
 <main>
+<nav class="lang-switch" aria-label="Page language">
+<a href="livecontainer.html" lang="en" aria-current="page">English</a>
+<a href="livecontainer-ar.html" lang="ar" hreflang="ar">العربية</a>
+</nav>
 <a class="nav" href="./index.html">← CINEMANA HOME</a>
 <div class="eyebrow">Alternative iOS setup · iOS 16+</div>
 <h1>Get ready for Cinemana with LiveContainer.</h1>
