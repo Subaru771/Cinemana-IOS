@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#07120f">
+<meta name="description" content="Set up official LiveContainer + SideStore for Cinemana iOS. A practical Windows and iPhone installation guide.">
+<title>LiveContainer Setup — Cinemana iOS</title>
+<style>
+:root{color-scheme:dark;--bg:#07120f;--surface:#102019;--line:#2f4c3d;--mint:#94f2b5;--fg:#eef9f0;--muted:#bacdc0}
+*{box-sizing:border-box}
+body{margin:0;background:radial-gradient(ellipse at 75% 0,#1a3c2a,transparent 55%),var(--bg);color:var(--fg);font:16px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif}
+a{color:var(--mint)}a:focus-visible,button:focus-visible{outline:3px solid var(--mint);outline-offset:4px}
+main{max-width:840px;padding:48px 20px 80px;margin:auto}
+.nav{font-weight:700;text-decoration:none;font-size:14px}
+.eyebrow{text-transform:uppercase;letter-spacing:1.6px;color:var(--mint);font-size:12px;font-weight:800;margin-top:62px}
+h1{font-size:clamp(35px,6vw,60px);letter-spacing:-.05em;line-height:1.1;margin:12px 0 20px}
+h2{letter-spacing:-.02em;line-height:1.3;margin:0 0 12px;font-size:23px}
+p{color:var(--muted)}
+.lead{font-size:18px;max-width:700px}
+.notice{background:#122a1e;border:1px solid #36704c;padding:18px;border-radius:16px;margin:28px 0}
+.notice strong{color:var(--mint)}
+.optionrow{display:flex;flex-wrap:wrap;gap:10px;margin:25px 0}
+.btn{display:inline-flex;align-items:center;justify-content:center;padding:12px 17px;min-height:48px;border-radius:13px;border:1px solid var(--line);text-decoration:none;font-weight:750;color:var(--fg);font-size:14px}
+.btn.primary{background:var(--mint);color:#082115;border-color:var(--mint)}
+.btn.disabled{opacity:.66;cursor:default}
+.card{background:linear-gradient(135deg,#14291e,#0d1b14);border:1px solid var(--line);padding:24px;border-radius:18px;margin:18px 0}
+.card p{margin:8px 0}
+.steps{counter-reset:step;list-style:none;padding:0;margin:22px 0 0}
+.steps li{counter-increment:step;padding:0 0 24px 45px;position:relative;min-height:64px}
+.steps li::before{content:counter(step);position:absolute;top:0;left:0;width:30px;height:30px;border-radius:50%;border:1px solid #4c8a5b;color:var(--mint);display:grid;place-items:center;font-weight:800;font-size:14px}
+.steps li strong{color:var(--fg);display:block}.steps li p{margin:4px 0 0}
+.small{font-size:13px;color:var(--muted)}
+details{background:var(--surface);border:1px solid var(--line);border-radius:14px;margin:10px 0;padding:16px}
+summary{font-weight:750;cursor:pointer}
+footer{border-top:1px solid var(--line);padding:27px 0;margin-top:60px;color:var(--muted);font-size:13px}
+footer a{color:var(--muted)}
+code{color:var(--mint);word-break:break-all}
+</style>
+</head>
+<body>
+<main>
+<a class="nav" href="./index.html">← CINEMANA HOME</a>
+<div class="eyebrow">Alternative iOS setup · iOS 16+</div>
+<h1>Get ready for Cinemana with LiveContainer.</h1>
+<p class="lead">For people who prefer free sideloading, use the official <strong>LiveContainer + SideStore</strong> package. Set it up once, then import compatible IPA files inside LiveContainer.</p>
+<div class="notice">
+<strong>Important:</strong> LiveContainer is not an App Store installer. iOS still requires a valid signing setup for LiveContainer itself. The first installation generally needs a computer, and free Apple provisioning may require refreshes. There is currently <strong>no public Cinemana IPA install link</strong> on this site.
+</div>
+
+<div class="optionrow">
+<a class="btn primary" href="https://livecontainer.github.io/docs/installation/lc_sidestore" target="_blank" rel="noopener noreferrer">Official LiveContainer + SideStore guide ↗</a>
+<a class="btn" href="https://github.com/LiveContainer/LiveContainer" target="_blank" rel="noopener noreferrer">Official LiveContainer GitHub ↗</a>
+</div>
+
+<section class="card">
+<h2>1. Install LiveContainer + SideStore</h2>
+<ol class="steps">
+<li><strong>Prepare a Windows PC or Mac</strong><p>For Windows, install Apple device drivers through iTunes, then connect the iPhone and trust the computer.</p></li>
+<li><strong>Download the official LiveContainer + SideStore IPA</strong><p>Use the download links on the official installation guide, not third-party modified or closed-source builds.</p></li>
+<li><strong>Install with Impactor or iloader</strong><p>Follow the official guide exactly. These tools handle the initial signing with your Apple account. Keep the required app extensions and verify the developer profile in iOS settings.</p></li>
+<li><strong>Complete built-in SideStore setup</strong><p>Open SideStore from LiveContainer, sign in through its supported workflow, connect LocalDevVPN, and refresh the installed app.</p></li>
+<li><strong>Enable JIT-less app launching</strong><p>Open LiveContainer Settings → Import Certificate from SideStore, then run <em>JIT-Less Mode Diagnose</em> until it passes.</p></li>
+</ol>
+<p class="small">Already installed LiveContainer? Skip to step 2. Official installers and supported iOS versions can change; follow their current documentation rather than outdated video tutorials.</p>
+</section>
+
+<section class="card">
+<h2>2. Install compatible IPA files</h2>
+<ol class="steps">
+<li><strong>Download a trustworthy IPA from its authorized developer</strong><p>Download it in Safari or Files. Do not install unknown, re-signed, or modified Cinemana builds.</p></li>
+<li><strong>Open LiveContainer → Apps → +</strong><p>Select the IPA from Files and let LiveContainer import it, then choose it for the next launch.</p></li>
+<li><strong>Add it to your Home Screen (optional)</strong><p>Use LiveContainer's Launch App Shortcut guide to create a convenient Home Screen icon.</p></li>
+</ol>
+<div class="optionrow">
+<a class="btn" href="https://livecontainer.github.io/docs/guides/add-to-home-screen" target="_blank" rel="noopener noreferrer">Official Home Screen shortcut guide ↗</a>
+<a class="btn" href="https://livecontainer.github.io/docs/guides/sources" target="_blank" rel="noopener noreferrer">Official Sources guide ↗</a>
+</div>
+<p class="small">Cinemana's compiled unsigned IPA is a development artifact, not a verified LiveContainer-compatible release. Stream playback and background downloads still require separate testing in LiveContainer.</p>
+</section>
+
+<section class="card">
+<h2>3. Future one-tap Cinemana updates</h2>
+<p>LiveContainer supports an AltStore-style catalog and an official <code>livecontainer://source?url=…</code> deep link. Once we have a publicly hosted, authorized Cinemana IPA and a verified catalog, this page can show an <strong>Add Cinemana Source</strong> button. LiveContainer users could then install and receive updates from its Sources tab.</p>
+<span class="btn disabled" aria-disabled="true">Add Cinemana Source — not released yet</span>
+<p class="small">This does not install LiveContainer itself, and it cannot replace the initial signing steps.</p>
+</section>
+
+<h2>Frequently asked questions</h2>
+<details><summary>Can I install LiveContainer with one tap from Safari?</summary><p>Not on an ordinary iPhone without a previously established signing/distribution method. LiveContainer must be installed through a supported signing tool first.</p></details>
+<details><summary>Can I use Sideloadly for LiveContainer?</summary><p>The official LiveContainer guide currently lists Sideloadly, 3uTools and most online signers as unsupported. Use the recommended Impactor/iloader workflow.</p></details>
+<details><summary>Is this the same as the App Store version?</summary><p>No. LiveContainer runs compatible iOS guests within its own app. Guest entitlements, background tasks, app extensions and system integrations may behave differently, so compatibility is not guaranteed.</p></details>
+<details><summary>Do I need to enter my Apple ID on the Cinemana website?</summary><p>No. Never enter Apple credentials into a Cinemana page, a random certificate-selling service or an unofficial LiveContainer build. Any required signing/login is performed in the official tool's own setup.</p></details>
+
+<footer>Independent installation guide. LiveContainer and SideStore are third-party projects. Cinemana is not affiliated with them. App distribution and streaming must be appropriately authorized. <a href="privacy.html">Privacy</a>.</footer>
+</main>
+</body></html>
