@@ -1,12 +1,22 @@
 import SwiftUI
 import AVKit
+import UIKit
 
 private let mint = Color(red: 0.55, green: 0.96, blue: 0.69)
 private let ink = Color(red: 0.035, green: 0.065, blue: 0.06)
 private let tile = Color(red: 0.09, green: 0.13, blue: 0.12)
 
+final class CinemanaAppDelegate: NSObject, UIApplicationDelegate {
+    func application(_ application: UIApplication,
+                     handleEventsForBackgroundURLSession identifier: String,
+                     completionHandler: @escaping () -> Void) {
+        DownloadCenter.shared.registerCompletion(identifier, handler: completionHandler)
+    }
+}
+
 @main
 struct CinemanaMobileApp: App {
+    @UIApplicationDelegateAdaptor(CinemanaAppDelegate.self) private var appDelegate
     @StateObject private var library = LibraryStore()
 
     var body: some Scene {
@@ -200,7 +210,8 @@ struct FeaturedPoster: View {
     }
 }
 
-struct MovieDetailView: View {
+ struct MovieDetailView: View {
+    @ObservedObject private var downloads = DownloadCenter.shared
     @EnvironmentObject private var library: LibraryStore
     let video: Video
     @State private var detail: Video?
@@ -251,6 +262,9 @@ struct MovieDetailView: View {
                         .buttonStyle(.bordered)
                         .tint(mint)
                         .accessibilityLabel(library.isSaved(video) ? "Remove from My List" : "Add to My List")
+                    }
+                    if let target = playTarget {
+                        DownloadAction(video: target)
                     }
                     if !(detail ?? video).overview.isEmpty {
                         VStack(alignment: .leading, spacing: 5) {
@@ -522,6 +536,33 @@ struct FilterLabel: View {
 }
 
 /// Full iOS playback controls, including native scrubbing and AirPlay when available.
+
+struct DownloadAction: View {
+    let video: Video
+    @ObservedObject private var center = DownloadCenter.shared
+
+    var body: some View {
+        HStack(spacing: 10) {
+            let entry = center.entry(for: video.id)
+            if entry?.status == .ready && center.localURL(for: video.id) != nil {
+                Label("Available offline", systemImage: "checkmark.circle.fill").foregroundStyle(.green)
+            } else if entry?.isActive == true {
+                ProgressView(value: entry?.progress ?? 0).tint(.green)
+                Text("Downloading \(Int((entry?.progress ?? 0) * 100))%").font(.caption)
+                Button("Cancel") { center.cancel(video.id) }.buttonStyle(.bordered)
+            } else {
+                Button {
+                    Task { await center.begin(video) }
+                } label: {
+                    Label(entry?.status == .failed ? "Retry download" : "Download", systemImage: "arrow.down.to.line")
+                }
+                .buttonStyle(.bordered)
+            }
+        }
+        .padding(.vertical, 4)
+    }
+}
+
 struct NativePlayerView: UIViewControllerRepresentable {
     let player: AVPlayer
 
@@ -576,6 +617,28 @@ struct VideoPlaybackView: View {
                             Label(notice, systemImage: "arrow.triangle.2.circlepath")
                                 .font(.caption).foregroundStyle(.yellow)
                         }
+                        HStack(spacing: 22) {
+                            if let player = session.player {
+                                Button {
+                                    let seconds = max(0, player.currentTime().seconds - 10)
+                                    player.seek(to: CMTime(seconds: seconds, preferredTimescale: 600))
+                                } label: { Label("Back 10s", systemImage: "gobackward.10") }
+                                Button {
+                                    if player.rate == 0 { player.play() } else { player.pause() }
+                                } label: { Label("Play/Pause", systemImage: "playpause.fill") }
+                                Button {
+                                    let current = player.currentTime().seconds
+                                    let duration = player.currentItem?.duration.seconds ?? 0
+                                    let target = duration.isFinite && duration > 0 ? min(duration, current + 30) : current + 30
+                                    player.seek(to: CMTime(seconds: max(0, target), preferredTimescale: 600))
+                                } label: { Label("Forward 30s", systemImage: "goforward.30") }
+                                Menu {
+                                    ForEach([0.5, 0.75, 1.0, 1.25, 1.5, 2.0], id: \.self) { rate in
+                                        Button("\(rate.formatted())×") { player.defaultRate = Float(rate); player.rate = Float(rate) }
+                                    }
+                                } label: { Label("Speed", systemImage: "speedometer") }
+                            }
+                        }.font(.caption).buttonStyle(.borderless)
                         Text("Tap the video for seeking, AirPlay, and available audio or subtitles.")
                             .font(.caption).foregroundStyle(.secondary)
                     }
@@ -639,6 +702,13 @@ final class PlaybackSession: ObservableObject {
         self.loading = true
         self.error = nil
         self.notice = nil
+        if let local = DownloadCenter.shared.localURL(for: video.id) {
+            let stream = Stream(url: local, quality: 0)
+            self.streams = [stream]
+            start(stream, video: video, library: library)
+            self.notice = "Playing downloaded copy"
+            return
+        }
         do {
             let found = try await CinemanaAPI.shared.streams(video.id)
             guard !Task.isCancelled, self.video?.id == video.id else { return }
@@ -747,12 +817,19 @@ final class PlaybackSession: ObservableObject {
     }
 }
 
-struct LibraryView: View {
+ struct LibraryView: View {
     @EnvironmentObject private var library: LibraryStore
     var body: some View {
         NavigationStack {
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: 20) {
+                    NavigationLink { DownloadsView() } label: {
+                        Label("Downloads", systemImage: "arrow.down.to.line.compact")
+                            .font(.headline)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding(16)
+                            .background(.gray.opacity(0.16), in: RoundedRectangle(cornerRadius: 12))
+                    }
                     if library.snapshot.favorites.isEmpty && library.snapshot.recent.isEmpty {
                         VStack(spacing: 12) {
                             Image(systemName: "bookmark.circle")
@@ -814,8 +891,9 @@ struct AboutView: View {
     var body: some View {
         Form {
             Section("Cinemana iOS") {
-                LabeledContent("Version", value: "1.2.0")
-                LabeledContent("Player", value: "Apple AVPlayer")
+                LabeledContent("Version", value: "1.3.0")
+                LabeledContent("Player", value: "AVPlayer · Cinema controls")
+                LabeledContent("Offline videos", value: "\(DownloadCenter.shared.items.filter { $0.status == .ready }.count)")
                 LabeledContent("Saved titles", value: "\(library.snapshot.favorites.count)")
                 LabeledContent("Continue Watching", value: "\(library.snapshot.recent.count)")
             }
