@@ -18,6 +18,16 @@ final class CinemanaAppDelegate: NSObject, UIApplicationDelegate {
 struct CinemanaMobileApp: App {
     @UIApplicationDelegateAdaptor(CinemanaAppDelegate.self) private var appDelegate
     @StateObject private var library = LibraryStore()
+    @AppStorage("cinemana-app-language") private var appLanguage = "system"
+
+    private var selectedLocale: Locale {
+        Locale(identifier: appLanguage == "system" ? Locale.current.identifier : appLanguage)
+    }
+
+    private var isRightToLeft: Bool {
+        appLanguage == "ar" || (appLanguage == "system" &&
+                               Locale.current.languageCode == "ar")
+    }
 
     var body: some Scene {
         WindowGroup {
@@ -34,6 +44,10 @@ struct CinemanaMobileApp: App {
                     .tabItem { Label("My List", systemImage: "bookmark.fill") }
             }
             .environmentObject(library)
+            .environment(\.locale, selectedLocale)
+            .environment(\.layoutDirection, isRightToLeft ? .rightToLeft : .leftToRight)
+            // Rebuild static navigation and tab labels as soon as language changes.
+            .id(appLanguage)
             .tint(mint)
             .preferredColorScheme(.dark)
         }
@@ -107,7 +121,7 @@ struct CatalogView: View {
                     }
                     ForEach(rows) { row in
                         VStack(alignment: .leading, spacing: 12) {
-                            Text(row.title)
+                            Text(LocalizedStringKey(row.title))
                                 .font(.title3.weight(.bold))
                                 .padding(.horizontal, 16)
                             ScrollView(.horizontal, showsIndicators: false) {
@@ -125,11 +139,19 @@ struct CatalogView: View {
                 .padding(.vertical, 14)
             }
             .background(ink)
-            .navigationTitle(title)
+            .navigationTitle(LocalizedStringKey(title))
             .toolbar {
                 if kind == nil {
                     ToolbarItem(placement: .principal) {
                         CinemanaLogo(compact: true)
+                    }
+                    ToolbarItem(placement: .topBarTrailing) {
+                        NavigationLink {
+                            AboutView()
+                        } label: {
+                            Image(systemName: "gearshape")
+                        }
+                        .accessibilityLabel("Settings")
                     }
                 }
             }
@@ -860,14 +882,26 @@ struct AboutView: View {
     @AppStorage("cinemana-max-download-quality") private var downloadQuality = 1080
     @AppStorage("cinemana-wifi-only") private var wifiOnly = false
     @AppStorage("cinemana-auto-landscape") private var autoLandscape = true
+    @AppStorage("cinemana-app-language") private var appLanguage = "system"
     @State private var confirmHistory = false
     @State private var confirmWatchlist = false
     @State private var cacheCleared = false
 
     var body: some View {
         Form {
+            Section("Language") {
+                Picker("App Language", selection: $appLanguage) {
+                    Text("Follow iPhone Language").tag("system")
+                    Text("English").tag("en")
+                    Text("العربية").tag("ar")
+                }
+                .pickerStyle(.menu)
+                Text("Choose a language for Cinemana. Changes apply immediately.")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+            }
             Section("Cinemana iOS") {
-                LabeledContent("Version", value: "1.5.1")
+                LabeledContent("Version", value: Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "—")
                 LabeledContent("Player", value: "AVPlayer · Cinema controls · PiP")
                 LabeledContent("Offline videos", value: "\(DownloadCenter.shared.items.filter { $0.status == .ready }.count)")
                 LabeledContent("Saved titles", value: "\(library.snapshot.favorites.count)")
@@ -940,7 +974,7 @@ struct EmptyStateView: View {
         VStack(spacing: 12) {
             Image(systemName: symbol)
                 .font(.system(size: 40, weight: .ultraLight)).foregroundStyle(mint)
-            Text(title).font(.headline)
+            Text(LocalizedStringKey(title)).font(.headline)
             Text(message).font(.subheadline).foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
         }

@@ -37,6 +37,11 @@ jobs:
             Tests/CoreSmokeTests.swift
           /tmp/cinemana-core-tests
 
+      - name: Validate native English and Arabic translations
+        run: |
+          plutil -lint CinemanaMobile/en.lproj/Localizable.strings
+          plutil -lint CinemanaMobile/ar.lproj/Localizable.strings
+
       - name: Generate Xcode project
         run: xcodegen generate
 
@@ -62,5 +67,5 @@ jobs:
       - name: Upload IPA
         uses: actions/upload-artifact@v4
         with:
-          name: Cinemana-iOS-v1.6-Unsigned
+          name: Cinemana-iOS-v1.6.1-Unsigned
           path: dist/Cinemana-iOS.ipa
