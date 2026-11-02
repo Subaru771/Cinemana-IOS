@@ -20,7 +20,7 @@ struct ConnectionDiagnosticsView: View {
             Section("Catalog server") {
                 Label(succeeded == nil ? "Not checked" : (succeeded == true ? "Reachable" : "Unavailable"),
                       systemImage: succeeded == nil ? "questionmark.circle" : (succeeded == true ? "checkmark.circle" : "exclamationmark.triangle"))
-                    .foregroundStyle(succeeded == false ? .orange : .primary)
+                    .foregroundStyle(succeeded == false ? Color.orange : Color.primary)
                 Text(result).font(.footnote).textSelection(.enabled)
                 if let lastChecked {
                     Text(lastChecked.formatted(date: .abbreviated, time: .shortened))
