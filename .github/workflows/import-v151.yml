@@ -1,0 +1,37 @@
+name: Import Cinemana iOS v1.5.1 source
+on:
+  push:
+    branches:
+      - upgrade/cinemana-ios-1.5.1
+permissions:
+  contents: write
+jobs:
+  unpack:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+      - name: Unpack the uploaded source archive
+        shell: bash
+        run: |
+          set -euo pipefail
+          base64 --decode .cinemana-v151-source.b64 | tar -xJf -
+          test -s CinemanaMobile/OfflineDownloads.swift
+          test -s CinemanaMobile/CinemaPlayerFullscreen.swift
+          test -s CinemanaMobile/Subtitles.swift
+          grep -q "1.5.1" project.yml
+          rm .cinemana-v151-source.b64
+          rm .github/workflows/import-v151.yml
+      - name: Commit complete source to the upgrade branch
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          if ! git diff --cached --quiet; then
+            git commit -m "Import Cinemana iOS 1.5.1 source and stability fixes"
+            git push origin HEAD:upgrade/cinemana-ios-1.5.1
+          fi
