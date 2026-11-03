@@ -193,7 +193,7 @@ struct DownloadsView: View {
             case .queued, .preparing:
                 Button("Cancel") { center.cancel(entry.id) }
             case .failed, .cancelled:
-                Button { center.enqueue(entry.video) } label: { Label("Retry", systemImage: "arrow.clockwise") }
+                DownloadQualityMenu(video: entry.video, compact: true, title: "Retry download")
                 Button("Remove", role: .destructive) { center.remove(entry.id) }
             case .ready:
                 Button { play(entry) } label: { Label("Play", systemImage: "play.fill") }
