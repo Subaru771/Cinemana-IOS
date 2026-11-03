@@ -46,9 +46,12 @@ let manifest = """
 """
 try manifest.write(to: artworkDir.appendingPathComponent("Contents.json"), atomically: true, encoding: .utf8)
 
+// Use AppKit's supported 4-channel drawing surface for legacy developer builds.
+// The supplied release source instead ships a verified, alpha-free 1024px RGB PNG.
+// Do not claim this compressed fallback is an App Store-ready icon.
 let pixels = 1024
 guard let bitmap = NSBitmapImageRep(bitmapDataPlanes: nil, pixelsWide: pixels, pixelsHigh: pixels,
-                                    bitsPerSample: 8, samplesPerPixel: 3, hasAlpha: false,
+                                    bitsPerSample: 8, samplesPerPixel: 4, hasAlpha: true,
                                     isPlanar: false, colorSpaceName: .deviceRGB,
                                     bytesPerRow: 0, bitsPerPixel: 0),
       let graphics = NSGraphicsContext(bitmapImageRep: bitmap) else {
