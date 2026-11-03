@@ -401,34 +401,22 @@ struct FeaturedPoster: View {
         .navigationDestination(for: Video.self) { MovieDetailView(video: $0) }
         .fullScreenCover(item: $watch) { CinemaPlayerScreen(video: $0, playlist: episodes) }
         .task(id: video.id) {
+            // Selecting a poster opens this details page, never the video player.
+            // Playback starts only from Play/Resume or an episode's Play row.
             detail = video
             synopsisExpanded = false
             related = []
             episodes = []
             supplementaryLoaded = false
-            if video.kind != "2" || video.episode > 0 {
-                // Movies and individual episodes start immediately.
-                await Task.yield()
-                guard !Task.isCancelled else { return }
-                watch = video
-            } else {
-                // Series fetch only their episode list before autoplay.
-                loadingEpisodes = true
-                let list = await CinemanaAPI.shared.episodes(video.id)
-                guard !Task.isCancelled else { return }
-                episodes = list
-                selectedSeason = list.first?.season ?? 1
-                loadingEpisodes = false
-                if let target = PlaybackPlanner.playTarget(for: video,
-                                 episodes: list, recent: library.snapshot.recent) {
-                    watch = target
-                }
+            loadingEpisodes = false
+
+            if video.kind == "2" && video.episode == 0 {
+                // Fetch episodes for the details page; do not autoplay one.
+                await reloadEpisodes()
             }
-        }
-        .onChange(of: watch?.id) { selected in
-            if selected == nil && !supplementaryLoaded {
-                Task { await loadSupplementaryDetails() }
-            }
+            guard !Task.isCancelled else { return }
+            // Fill in synopsis and related titles while the detail page is open.
+            await loadSupplementaryDetails()
         }
     }
 
