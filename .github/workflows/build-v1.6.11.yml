@@ -1,0 +1,87 @@
+name: Cinemana iOS v1.6.11 IPA
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/build-v1.6.11.yml'
+      - 'ci-sources/Cinemana-iOS-v1.6.11.zip'
+  workflow_dispatch:
+
+jobs:
+  build-v1_6_11:
+    runs-on: macos-15
+    timeout-minutes: 40
+    steps:
+      - name: Checkout build branch
+        uses: actions/checkout@v4
+
+      - name: Verify and extract the exact v1.6.11 source snapshot
+        shell: bash
+        run: |
+          echo "59358ebb38ba47b1d1347ab2d89a348d59b469ade5c9a78ce2a95d54c3afa4b1  ci-sources/Cinemana-iOS-v1.6.11.zip" | shasum -a 256 -c -
+          mkdir -p "$RUNNER_TEMP/cinemana-v1.6.11"
+          unzip -q "ci-sources/Cinemana-iOS-v1.6.11.zip" -d "$RUNNER_TEMP/cinemana-v1.6.11"
+          cp -R "$RUNNER_TEMP/cinemana-v1.6.11/Cinemana-iOS-v1.6.11/." "$GITHUB_WORKSPACE/"
+          grep -q "CFBundleShortVersionString: '1.6.11'" project.yml
+
+      - name: Validate web locales and download menu
+        run: |
+          python3 scripts/check_landing_locales.py
+          python3 scripts/check_download_menu.py
+
+      - name: Verify cinematic launch and autoplay behavior
+        run: |
+          python3 scripts/check_launch_autoplay.py
+          python3 scripts/validate_branding.py
+
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
+      - name: Validate icon and core source
+        run: |
+          swift scripts/make_app_icon.swift
+          swiftc -o /tmp/cinemana-core-tests \
+            CinemanaMobile/Models.swift \
+            CinemanaMobile/CinemanaAPI.swift \
+            CinemanaMobile/PlaybackPlanner.swift \
+            CinemanaMobile/OfflineModels.swift \
+            CinemanaMobile/Subtitles.swift \
+            CinemanaMobile/HLSQuality.swift \
+            Tests/CoreSmokeTests.swift
+          /tmp/cinemana-core-tests
+          plutil -lint CinemanaMobile/en.lproj/Localizable.strings
+          plutil -lint CinemanaMobile/ar.lproj/Localizable.strings
+
+      - name: Generate Xcode project and build unsigned device app
+        run: |
+          xcodegen generate
+          xcodebuild \
+            -project CinemanaMobile.xcodeproj \
+            -scheme CinemanaMobile \
+            -configuration Release \
+            -sdk iphoneos \
+            -destination 'generic/platform=iOS' \
+            -derivedDataPath build \
+            CODE_SIGNING_ALLOWED=NO \
+            build
+
+      - name: Verify exact version and package IPA
+        shell: bash
+        run: |
+          APP=build/Build/Products/Release-iphoneos/CinemanaMobile.app
+          test "$(plutil -extract CFBundleShortVersionString raw -o - "$APP/Info.plist")" = "1.6.11"
+          test "$(plutil -extract CFBundleDisplayName raw -o - "$APP/Info.plist")" = "Cinemana iOS"
+          mkdir -p dist/Payload
+          cp -R "$APP" dist/Payload/
+          cd dist
+          zip -q -r Cinemana-iOS-v1.6.11-Unsigned.ipa Payload
+          unzip -tq Cinemana-iOS-v1.6.11-Unsigned.ipa
+
+      - name: Upload installable unsigned IPA
+        uses: actions/upload-artifact@v4
+        with:
+          name: Cinemana-iOS-v1.6.11-Unsigned
+          path: dist/Cinemana-iOS-v1.6.11-Unsigned.ipa
+          if-no-files-found: error
+          retention-days: 30
