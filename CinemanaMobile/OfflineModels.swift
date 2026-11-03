@@ -16,6 +16,8 @@ struct OfflineEntry: Codable, Identifiable {
     var bytesExpected: Int64
     var message: String?
     var updatedAt: Date
+    /// Nil means use the default quality in Settings. Old saved entries remain decodable.
+    var requestedQuality: Int? = nil
     var id: String { video.id }
 
     /// A transfer is actually running (or resolving its source) right now.

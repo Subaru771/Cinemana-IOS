@@ -131,22 +131,23 @@ final class DownloadCenter: NSObject, ObservableObject, URLSessionDownloadDelega
     // MARK: - Public actions
 
     /// Adds a video to the download queue. Safe to call repeatedly.
-    func enqueue(_ video: Video) {
+    func enqueue(_ video: Video, preferredQuality: Int? = nil) {
         if localURL(for: video.id) != nil { return }
         if let existing = entry(for: video.id), existing.isActive { return }
         items.removeAll { $0.id == video.id }
         items.insert(OfflineEntry(video: video, status: .queued, format: nil, progress: 0,
                                   localPath: nil, bytesReceived: 0, bytesExpected: 0,
-                                  message: nil, updatedAt: Date()), at: 0)
+                                  message: nil, updatedAt: Date(),
+                                  requestedQuality: preferredQuality), at: 0)
         attempts[video.id] = 0
         retryAfter[video.id] = nil
         persist()
         pump()
     }
 
-    func enqueue(_ videos: [Video]) {
+    func enqueue(_ videos: [Video], preferredQuality: Int? = nil) {
         // Insert in reverse so the first episode ends up first in the queue.
-        for video in videos.reversed() { enqueue(video) }
+        for video in videos.reversed() { enqueue(video, preferredQuality: preferredQuality) }
     }
 
     func pause(_ id: String) {
@@ -290,8 +291,9 @@ final class DownloadCenter: NSObject, ObservableObject, URLSessionDownloadDelega
                 return
             }
             let configured = UserDefaults.standard.integer(forKey: "cinemana-max-download-quality")
+            let ceiling = entry(for: id)?.requestedQuality ?? (configured > 0 ? configured : 1080)
             guard let stream = PlaybackPlanner.preferred(from: available,
-                                                         maximumQuality: configured > 0 ? configured : 1080),
+                                                         maximumQuality: ceiling),
                   let format = DownloadPolicy.format(for: stream.url) else {
                 fail(id, "The provider has no downloadable MP4 or HLS source for this title.")
                 return

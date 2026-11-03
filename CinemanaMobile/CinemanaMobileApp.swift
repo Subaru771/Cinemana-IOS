@@ -19,6 +19,8 @@ struct CinemanaMobileApp: App {
     @UIApplicationDelegateAdaptor(CinemanaAppDelegate.self) private var appDelegate
     @StateObject private var library = LibraryStore()
     @State private var showBrandSplash = true
+    @State private var showHubWelcome = false
+    @AppStorage("cinemana-hub-promo-hidden") private var hideHubWelcome = false
     @AppStorage("cinemana-app-language") private var appLanguage = "system"
 
     private var selectedLocale: Locale {
@@ -61,7 +63,16 @@ struct CinemanaMobileApp: App {
                 guard showBrandSplash else { return }
                 // Run on top of catalog initialization, never block API calls.
                 try? await Task.sleep(for: .milliseconds(1100))
+                guard !Task.isCancelled else { return }
                 withAnimation(.easeOut(duration: 0.30)) { showBrandSplash = false }
+                // Show after the splash has finished; initial app/catalog loading
+                // continues independently. Opted-out users are never interrupted.
+                if !hideHubWelcome { showHubWelcome = true }
+            }
+            .sheet(isPresented: $showHubWelcome) {
+                CinemaHubWelcomeView()
+                    .presentationDetents([.large])
+                    .presentationDragIndicator(.visible)
             }
             .tint(mint)
             .preferredColorScheme(.dark)
@@ -334,13 +345,9 @@ struct FeaturedPoster: View {
                             Text("Episodes").font(.title2.weight(.bold))
                             Spacer()
                             if !visibleEpisodes.isEmpty {
-                                Button {
-                                    downloads.enqueue(visibleEpisodes)
-                                } label: {
-                                    Image(systemName: "arrow.down.circle")
-                                        .font(.title3).foregroundStyle(mint)
-                                }
-                                .accessibilityLabel("Download season \(selectedSeason)")
+                                DownloadQualityMenu(videos: visibleEpisodes, compact: true,
+                                                    title: "Download season \(selectedSeason)")
+                                    .foregroundStyle(mint)
                             }
                             if sortedSeasons.count > 1 {
                                 Menu {
@@ -618,10 +625,9 @@ struct DownloadAction: View {
         } else if let entry, entry.isActive {
             activeRow(entry)
         } else {
-            Button { center.enqueue(video) } label: {
-                Label(entry?.status == .failed ? "Retry download" : "Download", systemImage: "arrow.down.to.line")
-            }
-            .buttonStyle(.bordered)
+            DownloadQualityMenu(video: video,
+                                title: entry?.status == .failed ? "Retry with quality" : "Download options")
+                .buttonStyle(.bordered)
             if let entry, entry.status == .failed, let message = entry.message {
                 Text(message).font(.caption2).foregroundStyle(.orange).lineLimit(2)
             }
@@ -905,6 +911,7 @@ struct AboutView: View {
     @AppStorage("cinemana-wifi-only") private var wifiOnly = false
     @AppStorage("cinemana-auto-landscape") private var autoLandscape = true
     @AppStorage("cinemana-app-language") private var appLanguage = "system"
+    @AppStorage("cinemana-hub-promo-hidden") private var hideHubWelcome = false
     @State private var confirmHistory = false
     @State private var confirmWatchlist = false
     @State private var cacheCleared = false
@@ -971,6 +978,17 @@ struct AboutView: View {
                 }
                 Text("The content provider may restrict access by ISP or require authorization. Cinemana iOS does not bypass restrictions.")
                 Text("Playback supports compatible HLS and progressive files, plus external SRT/VTT subtitles when the provider publishes them. MPEG-DASH and MKV are not supported by this native player build.")
+            }
+            Section("Cinema Hub") {
+                Link(destination: URL(string: "https://t.me/CinemanaHub")!) {
+                    Label("Cinema Hub on Telegram", systemImage: "paperplane.fill")
+                }
+                Button("Show welcome popup next launch") {
+                    hideHubWelcome = false
+                }
+                Text("Telegram is optional. You can dismiss the welcome message or choose not to show it again.")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
             }
             Section("Distribution") {
                 Text("Installing on an iPhone requires valid Apple signing. Public distribution requires appropriate content rights.")

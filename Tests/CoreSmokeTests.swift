@@ -63,6 +63,22 @@ struct CoreSmokeTests {
         precondition(PlaybackPlanner.playTarget(for: series, episodes: [ep1, ep2], recent: [savedEp2])?.id == ep2.id)
         precondition(PlaybackPlanner.playTarget(for: movie, episodes: [], recent: [])?.id == movie.id)
         precondition(PlaybackPlanner.playTarget(for: ep1, episodes: [], recent: [])?.id == ep1.id)
+        // v1.6.4: per-video download quality survives app restarts, and old
+        // download index records (without requestedQuality) still decode.
+        let requested = OfflineEntry(video: movie, status: .queued, format: nil,
+            progress: 0, localPath: nil, bytesReceived: 0, bytesExpected: 0,
+            message: nil, updatedAt: Date(), requestedQuality: 720)
+        let requestedJSON = try JSONEncoder().encode(requested)
+        let requestedRestored = try JSONDecoder().decode(OfflineEntry.self, from: requestedJSON)
+        precondition(requestedRestored.requestedQuality == 720)
+        var legacyRecord = try JSONSerialization.jsonObject(with: requestedJSON) as! [String: Any]
+        legacyRecord.removeValue(forKey: "requestedQuality")
+        let legacyJSON = try JSONSerialization.data(withJSONObject: legacyRecord)
+        let decodedLegacyEntry = try JSONDecoder().decode(OfflineEntry.self, from: legacyJSON)
+        precondition(decodedLegacyEntry.requestedQuality == nil)
+        precondition(PlaybackPlanner.preferred(from: sources, maximumQuality: 720)?.id == source720.id)
+        precondition(PlaybackPlanner.preferred(from: sources, maximumQuality: Int.max)?.id == source2160.id)
+
         // v1.5: next episode, subtitles, download paths and policy
         precondition(PlaybackPlanner.nextEpisode(after: ep1, in: [ep2, ep1])?.id == ep2.id)
         precondition(PlaybackPlanner.nextEpisode(after: ep2, in: [ep1, ep2]) == nil)

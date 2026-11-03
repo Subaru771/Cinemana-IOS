@@ -140,3 +140,21 @@
 "Run the connection test to check catalog access." = "شغّل اختبار الاتصال للتحقق من الوصول إلى المكتبة.";
 "Wait for download" = "انتظار التنزيل";
 "Use the device language" = "استخدام لغة الجهاز";
+
+// Cinema Hub onboarding and download quality options
+"Cinema Hub" = "سينما هب";
+"Cinema Hub on Telegram" = "سينما هب على تلغرام";
+"Show welcome popup next launch" = "أظهر رسالة الترحيب عند الفتح التالي";
+"Telegram is optional. You can dismiss the welcome message or choose not to show it again." = "تلغرام اختياري. يمكنك إغلاق الرسالة أو اختيار عدم عرضها مرة أخرى.";
+"Download options" = "خيارات التنزيل";
+"Download season" = "تنزيل الموسم";
+"Download quality" = "جودة التنزيل";
+"Use preferred quality" = "استخدم الجودة المفضلة";
+"Best available" = "أفضل جودة متاحة";
+"Retry with quality" = "إعادة المحاولة بجودة محددة";
+"Retry download" = "إعادة محاولة التنزيل";
+"Not Now" = "ليس الآن";
+"Don't show this next time" = "لا تظهر هذه الرسالة مرة أخرى";
+"Follow our Telegram Channel" = "تابع قناتنا على تلغرام";
+"Join on Telegram" = "انضم إلى تلغرام";
+"Optional channel. Cinemana works without Telegram." = "قناة اختيارية. يعمل سينمانا من دون تلغرام.";
