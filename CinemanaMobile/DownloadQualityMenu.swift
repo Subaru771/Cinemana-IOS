@@ -1,14 +1,13 @@
 import SwiftUI
 
-/// Shared quality and network chooser for an individual video or a full season.
-/// The chosen resolution is a ceiling; a lower available source is used if needed.
+/// Four explicit resolution ceilings. The selection is stored with each
+/// download, and no legacy default / best / network menu items are displayed.
 struct DownloadQualityMenu: View {
     private let videos: [Video]
     private let compact: Bool
     private let title: String
 
     @ObservedObject private var center = DownloadCenter.shared
-    @AppStorage("cinemana-wifi-only") private var wifiOnly = false
 
     init(video: Video, compact: Bool = false, title: String = "Download options") {
         self.videos = [video]
@@ -24,28 +23,12 @@ struct DownloadQualityMenu: View {
 
     var body: some View {
         Menu {
-            Section("Download quality") {
+            ForEach([480, 720, 1080, 2160], id: \.self) { quality in
                 Button {
-                    center.enqueue(videos)
+                    center.enqueue(videos, preferredQuality: quality)
                 } label: {
-                    Label("Use preferred quality", systemImage: "gearshape")
+                    Text("Up to \(quality)p")
                 }
-                Button {
-                    center.enqueue(videos, preferredQuality: Int.max)
-                } label: {
-                    Label("Best available", systemImage: "sparkles.tv")
-                }
-                ForEach([480, 720, 1080, 2160], id: \.self) { quality in
-                    Button {
-                        center.enqueue(videos, preferredQuality: quality)
-                    } label: {
-                        Text("Up to \(quality)p")
-                    }
-                }
-            }
-            Divider()
-            Toggle(isOn: $wifiOnly) {
-                Label("Wi-Fi only", systemImage: "wifi")
             }
         } label: {
             if compact {
@@ -57,6 +40,5 @@ struct DownloadQualityMenu: View {
                 Label(title, systemImage: "arrow.down.to.line")
             }
         }
-        .onChange(of: wifiOnly) { _ in center.updateNetworkPolicy() }
     }
 }
