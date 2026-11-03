@@ -1,6 +1,18 @@
-# Cinemana iOS v1.6.0
+# Cinemana iOS v1.6.5
 
 Native SwiftUI (iPhone/iPad) browsing and AVPlayer. Created from the v1.1 project with improved series playback, smarter quality fallback, faster concurrent details, search polish, local watchlist and Settings.
+
+## v1.6.5 quality control and reliability
+
+- MP4 download resolution ceiling is enforced: unavailable sizes fail explicitly rather than downloading above your chosen limit.
+- HLS master playlists are inspected for a concrete rendition at or below the selected ceiling. Provider-labeled single-rendition playlists are also supported.
+- Download menus: Use preferred quality, Best available, 480/720/1080/2160p and Wi-Fi-only.
+- Video stream discovery combines results from both provider endpoints, using a short grace period for fast playback and a longer bounded wait for download source selection.
+- Optional Cinema Hub invitation appears only once by default. Settings lets you re-enable it.
+- Portable core tests cover limits, HLS playlist parsing, and merged results.
+- High-resolution artwork is included in the downloadable v1.6.5 source package; see the separate branding asset instructions for replacing the bundled compact fallback.
+
+See [v1.6.5 release notes](docs/RELEASE-v1.6.5.md).
 
 ## v1.6 player, diagnostics and branding
 
@@ -44,7 +56,7 @@ xcodebuild -project CinemanaMobile.xcodeproj -scheme CinemanaMobile -configurati
 ## Offline portable Swift tests
 
 ```sh
-swiftc -o /tmp/cinemana-core CinemanaMobile/Models.swift CinemanaMobile/CinemanaAPI.swift CinemanaMobile/PlaybackPlanner.swift Tests/CoreSmokeTests.swift
+swiftc -o /tmp/cinemana-core CinemanaMobile/Models.swift CinemanaMobile/CinemanaAPI.swift CinemanaMobile/PlaybackPlanner.swift CinemanaMobile/OfflineModels.swift CinemanaMobile/Subtitles.swift CinemanaMobile/HLSQuality.swift Tests/CoreSmokeTests.swift
 /tmp/cinemana-core
 ```
 
