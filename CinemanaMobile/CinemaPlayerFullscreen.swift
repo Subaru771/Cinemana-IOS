@@ -4,29 +4,30 @@ import AVKit
 import UIKit
 import Combine
 
-private let cinemaAccent = Color(red: 0.55, green: 0.96, blue: 0.69)
+private let cinemaAccent = Color(red: 1.00, green: 0.18, blue: 0.25)
 
-/// Brand mark drawn in SwiftUI so it remains sharp on every screen size.
+/// Shared header mark. The original green logo has been replaced by the
+/// red film-strip identity used for Cinemana iOS.
 struct CinemanaLogo: View {
     var compact = false
     var body: some View {
-        HStack(spacing: compact ? 6 : 10) {
-            ZStack {
-                RoundedRectangle(cornerRadius: compact ? 7 : 11)
-                    .fill(cinemaAccent)
-                Image(systemName: "play.fill")
-                    .font(.system(size: compact ? 13 : 20, weight: .heavy))
-                    .foregroundStyle(.black)
-                    .offset(x: 1)
-            }
-            .frame(width: compact ? 27 : 39, height: compact ? 27 : 39)
+        HStack(spacing: compact ? 5 : 10) {
+            CinemanaGlyph()
+                .frame(width: compact ? 34 : 51, height: compact ? 34 : 51)
             Text("CINEMANA")
-                .font(.system(size: compact ? 14 : 23, weight: .black, design: .rounded))
-                .tracking(compact ? 1.4 : 2.0)
+                .font(.system(size: compact ? 13 : 22, weight: .black, design: .rounded))
+                .tracking(compact ? 1 : 1.6)
                 .foregroundStyle(.white)
+            if !compact {
+                Text("iOS")
+                    .font(.system(size: 10, weight: .bold))
+                    .foregroundStyle(.white)
+                    .padding(.horizontal, 7).padding(.vertical, 4)
+                    .background(Color.red.opacity(0.75), in: Capsule())
+            }
         }
         .accessibilityElement(children: .combine)
-        .accessibilityLabel("Cinemana")
+        .accessibilityLabel("Cinemana iOS")
     }
 }
 
@@ -62,7 +63,7 @@ struct CinemanaAirPlayButton: UIViewRepresentable {
     func makeUIView(context: Context) -> AVRoutePickerView {
         let picker = AVRoutePickerView()
         picker.tintColor = .white
-        picker.activeTintColor = UIColor(red: 0.55, green: 0.96, blue: 0.69, alpha: 1)
+        picker.activeTintColor = UIColor(red: 1.00, green: 0.18, blue: 0.25, alpha: 1)
         picker.prioritizesVideoDevices = true
         return picker
     }
@@ -130,6 +131,9 @@ struct CinemaPlayerScreen: View {
     @State private var showsControls = true
     @State private var isScrubbing = false
     @State private var seekPreview = 0.0
+    @State private var seekInFlight = false
+    @State private var seekRequestID = 0
+    @State private var bufferedUntil = 0.0
     @State private var currentTime = 0.0
     @State private var duration = 0.0
     @State private var playing = false
@@ -209,7 +213,7 @@ struct CinemaPlayerScreen: View {
         .preferredColorScheme(.dark)
         .task(id: current.id) { await startPlayback() }
         .onAppear { prepareScreen() }
-        .onReceive(Timer.publish(every: 0.35, on: .main, in: .common).autoconnect()) { _ in
+        .onReceive(Timer.publish(every: 0.25, on: .main, in: .common).autoconnect()) { _ in
             updateProgress()
         }
         .onChange(of: session.selected?.id) { _ in
@@ -556,20 +560,36 @@ struct CinemaPlayerScreen: View {
 
     private var timeline: some View {
         VStack(spacing: 6) {
-            if isScrubbing {
+            if isScrubbing || seekInFlight {
                 Text("Seek to \(formatTime(seekPreview))")
                     .font(.callout.monospacedDigit().weight(.semibold))
                     .foregroundStyle(cinemaAccent)
                     .frame(maxWidth: .infinity)
             }
-            Slider(value: $seekPreview, in: 0...timeLimit,
-                   onEditingChanged: { editing in
-                isScrubbing = editing
-                if editing { hideTask?.cancel() }
-                else { seek(to: seekPreview) }
-            })
-            .tint(cinemaAccent)
-            .accessibilityLabel("Video timeline")
+            GeometryReader { geometry in
+                ZStack {
+                    Capsule().fill(.white.opacity(0.17))
+                        .frame(height: 3)
+                    Capsule().fill(cinemaAccent.opacity(0.35))
+                        .frame(width: max(0, geometry.size.width * min(1, bufferedUntil / timeLimit)), height: 3)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                    Slider(value: $seekPreview, in: 0...timeLimit,
+                           onEditingChanged: { editing in
+                        isScrubbing = editing
+                        if editing {
+                            hideTask?.cancel()
+                        } else {
+                            // Keep the preview locked to the chosen time until AVPlayer
+                            // confirms the seek, rather than snapping back to stale time.
+                            seek(to: seekPreview)
+                        }
+                    })
+                    .tint(cinemaAccent)
+                    .disabled(duration <= 0)
+                    .accessibilityLabel("Video timeline")
+                }
+            }
+            .frame(height: 30)
             HStack {
                 Text(formatTime(isScrubbing ? seekPreview : currentTime))
                 Spacer()
@@ -804,6 +824,10 @@ struct CinemaPlayerScreen: View {
         if watchedPlayerID != playerID {
             watchedPlayerID = playerID
             stalledSince = nil
+            // Invalidate completion callbacks from a previous video/quality.
+            seekRequestID &+= 1
+            seekInFlight = false
+            bufferedUntil = 0
         }
         if player.timeControlStatus == .waitingToPlayAtSpecifiedRate,
            player.currentItem?.status == .readyToPlay, scenePhase == .active {
@@ -819,12 +843,16 @@ struct CinemaPlayerScreen: View {
             stalledSince = nil
         }
         let time = player.currentTime().seconds
-        if time.isFinite && time >= 0 {
+        if time.isFinite && time >= 0 && !isScrubbing && !seekInFlight {
             currentTime = time
-            if !isScrubbing { seekPreview = time }
+            seekPreview = time
         }
         let length = player.currentItem?.duration.seconds ?? 0
         duration = length.isFinite && length > 0 ? length : 0
+        if let lastRange = player.currentItem?.loadedTimeRanges.last?.timeRangeValue {
+            let end = CMTimeGetSeconds(CMTimeRangeGetEnd(lastRange))
+            if end.isFinite { bufferedUntil = max(0, end) }
+        }
         let nowPlaying = player.rate > 0
         if nowPlaying && appliedPlayer != ObjectIdentifier(player) {
             // Re-apply the remembered speed to every new player instance (quality change, next episode).
@@ -841,15 +869,38 @@ struct CinemaPlayerScreen: View {
     }
 
     private func seek(to value: Double) {
-        guard value.isFinite else { return }
-        let bounded = max(0, duration > 0 ? min(value, duration) : value)
-        let tolerance = CMTime(seconds: 0.1, preferredTimescale: 600)
-        session.player?.seek(to: CMTime(seconds: bounded, preferredTimescale: 600),
-                             toleranceBefore: tolerance, toleranceAfter: tolerance) { _ in
-            refreshNowPlaying()
-        }
+        guard let targetPlayer = session.player, value.isFinite, duration > 0 else { return }
+        let bounded = max(0, min(value, duration))
+        seekRequestID &+= 1
+        let requestID = seekRequestID
+        seekInFlight = true
+        isScrubbing = false
         currentTime = bounded
         seekPreview = bounded
+        // Repeated taps / new slider drags replace old seek requests.
+        targetPlayer.currentItem?.cancelPendingSeeks()
+        let tolerance = CMTime(seconds: 0.25, preferredTimescale: 600)
+        targetPlayer.seek(to: CMTime(seconds: bounded, preferredTimescale: 600),
+                          toleranceBefore: tolerance, toleranceAfter: tolerance) { completed in
+            Task { @MainActor in
+                guard seekRequestID == requestID, session.player === targetPlayer else { return }
+                seekInFlight = false
+                let actual = targetPlayer.currentTime().seconds
+                if actual.isFinite && actual >= 0 {
+                    currentTime = actual
+                    seekPreview = actual
+                }
+                if completed { session.save(library: library) }
+                refreshNowPlaying()
+            }
+        }
+        // Malformed streams sometimes never deliver a seek completion.
+        // Unlock the timeline without treating the seek as successful.
+        Task { @MainActor in
+            try? await Task.sleep(for: .seconds(6))
+            guard !Task.isCancelled, seekRequestID == requestID, seekInFlight else { return }
+            seekInFlight = false
+        }
         if upNext != nil { cancelUpNext() }
         showControls()
     }
@@ -870,6 +921,8 @@ struct CinemaPlayerScreen: View {
         currentTime = 0
         seekPreview = 0
         duration = 0
+        seekInFlight = false
+        seekRequestID &+= 1
         captions = []
         audioTracks = []
         selectedCaption = nil

@@ -2,9 +2,9 @@ import SwiftUI
 import AVKit
 import UIKit
 
-private let mint = Color(red: 0.55, green: 0.96, blue: 0.69)
-private let ink = Color(red: 0.035, green: 0.065, blue: 0.06)
-private let tile = Color(red: 0.09, green: 0.13, blue: 0.12)
+private let mint = Color(red: 1.00, green: 0.18, blue: 0.25)
+private let ink = Color(red: 0.052, green: 0.013, blue: 0.018)
+private let tile = Color(red: 0.13, green: 0.06, blue: 0.075)
 
 final class CinemanaAppDelegate: NSObject, UIApplicationDelegate {
     func application(_ application: UIApplication,
@@ -18,6 +18,7 @@ final class CinemanaAppDelegate: NSObject, UIApplicationDelegate {
 struct CinemanaMobileApp: App {
     @UIApplicationDelegateAdaptor(CinemanaAppDelegate.self) private var appDelegate
     @StateObject private var library = LibraryStore()
+    @State private var showBrandSplash = true
     @AppStorage("cinemana-app-language") private var appLanguage = "system"
 
     private var selectedLocale: Locale {
@@ -48,6 +49,20 @@ struct CinemanaMobileApp: App {
             .environment(\.layoutDirection, isRightToLeft ? .rightToLeft : .leftToRight)
             // Rebuild static navigation and tab labels as soon as language changes.
             .id(appLanguage)
+            .overlay {
+                if showBrandSplash {
+                    CinemanaSplashView()
+                        .ignoresSafeArea()
+                        .transition(.opacity)
+                        .zIndex(1)
+                }
+            }
+            .task {
+                guard showBrandSplash else { return }
+                // Run on top of catalog initialization, never block API calls.
+                try? await Task.sleep(for: .milliseconds(1100))
+                withAnimation(.easeOut(duration: 0.30)) { showBrandSplash = false }
+            }
             .tint(mint)
             .preferredColorScheme(.dark)
         }
@@ -715,7 +730,11 @@ final class PlaybackSession: ObservableObject {
         self.error = nil
 
         let item = AVPlayerItem(url: stream.url)
+        // Limit needless forward prebuffering on slow links while keeping enough
+        // data for stable playback. The player still follows iOS buffering policy.
+        item.preferredForwardBufferDuration = 2
         let next = AVPlayer(playerItem: item)
+        next.automaticallyWaitsToMinimizeStalling = true
         player = next
         let resumePoint = resume
         itemObservation = item.observe(\.status, options: [.initial, .new]) { [weak self, weak item] _, _ in
@@ -725,7 +744,9 @@ final class PlaybackSession: ObservableObject {
                 case .readyToPlay:
                     if resumePoint.isFinite && resumePoint > 10 {
                         let seekTo = CMTime(seconds: resumePoint, preferredTimescale: 600)
-                        next.seek(to: seekTo) { [weak next] completed in
+                        let tolerance = CMTime(seconds: 0.25, preferredTimescale: 600)
+                        next.seek(to: seekTo, toleranceBefore: tolerance,
+                                  toleranceAfter: tolerance) { [weak next] completed in
                             if completed { next?.play() }
                         }
                     } else { next.play() }
@@ -775,6 +796,7 @@ final class PlaybackSession: ObservableObject {
             notice = "\(failedStream.label) unavailable. Trying \(fallback.label)…"
             start(fallback, video: video, library: library)
         } else {
+            Task { await CinemanaAPI.shared.invalidateStreams(video.id) }
             save(library: library)
             detachPlayer()
             selected = nil
