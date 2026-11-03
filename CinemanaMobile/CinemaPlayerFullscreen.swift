@@ -4,29 +4,30 @@ import AVKit
 import UIKit
 import Combine
 
-private let cinemaAccent = Color(red: 0.55, green: 0.96, blue: 0.69)
+private let cinemaAccent = Color(red: 1.00, green: 0.18, blue: 0.25)
 
-/// Brand mark drawn in SwiftUI so it remains sharp on every screen size.
+/// Shared header mark. The original green logo has been replaced by the
+/// red film-strip identity used for Cinemana iOS.
 struct CinemanaLogo: View {
     var compact = false
     var body: some View {
-        HStack(spacing: compact ? 6 : 10) {
-            ZStack {
-                RoundedRectangle(cornerRadius: compact ? 7 : 11)
-                    .fill(cinemaAccent)
-                Image(systemName: "play.fill")
-                    .font(.system(size: compact ? 13 : 20, weight: .heavy))
-                    .foregroundStyle(.black)
-                    .offset(x: 1)
-            }
-            .frame(width: compact ? 27 : 39, height: compact ? 27 : 39)
+        HStack(spacing: compact ? 5 : 10) {
+            CinemanaGlyph()
+                .frame(width: compact ? 34 : 51, height: compact ? 34 : 51)
             Text("CINEMANA")
-                .font(.system(size: compact ? 14 : 23, weight: .black, design: .rounded))
-                .tracking(compact ? 1.4 : 2.0)
+                .font(.system(size: compact ? 13 : 22, weight: .black, design: .rounded))
+                .tracking(compact ? 1 : 1.6)
                 .foregroundStyle(.white)
+            if !compact {
+                Text("iOS")
+                    .font(.system(size: 10, weight: .bold))
+                    .foregroundStyle(.white)
+                    .padding(.horizontal, 7).padding(.vertical, 4)
+                    .background(Color.red.opacity(0.75), in: Capsule())
+            }
         }
         .accessibilityElement(children: .combine)
-        .accessibilityLabel("Cinemana")
+        .accessibilityLabel("Cinemana iOS")
     }
 }
 
@@ -62,7 +63,7 @@ struct CinemanaAirPlayButton: UIViewRepresentable {
     func makeUIView(context: Context) -> AVRoutePickerView {
         let picker = AVRoutePickerView()
         picker.tintColor = .white
-        picker.activeTintColor = UIColor(red: 0.55, green: 0.96, blue: 0.69, alpha: 1)
+        picker.activeTintColor = UIColor(red: 1.00, green: 0.18, blue: 0.25, alpha: 1)
         picker.prioritizesVideoDevices = true
         return picker
     }
