@@ -345,13 +345,9 @@ struct FeaturedPoster: View {
                             Text("Episodes").font(.title2.weight(.bold))
                             Spacer()
                             if !visibleEpisodes.isEmpty {
-                                Button {
-                                    downloads.enqueue(visibleEpisodes)
-                                } label: {
-                                    Image(systemName: "arrow.down.circle")
-                                        .font(.title3).foregroundStyle(mint)
-                                }
-                                .accessibilityLabel("Download season \(selectedSeason)")
+                                DownloadQualityMenu(videos: visibleEpisodes, compact: true,
+                                                    title: "Download season \(selectedSeason)")
+                                    .foregroundStyle(mint)
                             }
                             if sortedSeasons.count > 1 {
                                 Menu {
@@ -629,10 +625,9 @@ struct DownloadAction: View {
         } else if let entry, entry.isActive {
             activeRow(entry)
         } else {
-            Button { center.enqueue(video) } label: {
-                Label(entry?.status == .failed ? "Retry download" : "Download", systemImage: "arrow.down.to.line")
-            }
-            .buttonStyle(.bordered)
+            DownloadQualityMenu(video: video,
+                                title: entry?.status == .failed ? "Retry with quality" : "Download options")
+                .buttonStyle(.bordered)
             if let entry, entry.status == .failed, let message = entry.message {
                 Text(message).font(.caption2).foregroundStyle(.orange).lineLimit(2)
             }
