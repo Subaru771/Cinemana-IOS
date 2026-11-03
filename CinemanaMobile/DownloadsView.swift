@@ -3,7 +3,6 @@ import SwiftUI
 /// Offline library: storage summary, live queue with pause/resume, and finished downloads.
 struct DownloadsView: View {
     @ObservedObject private var center = DownloadCenter.shared
-    @AppStorage("cinemana-wifi-only") private var wifiOnly = false
     @State private var watch: Video?
     @State private var confirmDeleteAll = false
     @State private var confirmClearFinished = false
@@ -17,7 +16,6 @@ struct DownloadsView: View {
                 if center.items.isEmpty { emptyState } else { list }
             }
             .navigationTitle("Downloads")
-            .onChange(of: wifiOnly) { _ in center.updateNetworkPolicy() }
             .background(Color.black)
             .toolbar { toolbarMenu }
             .fullScreenCover(item: $watch) { CinemaPlayerScreen(video: $0) }
@@ -103,10 +101,6 @@ struct DownloadsView: View {
                         .font(.caption).foregroundStyle(.orange)
                 }
             }
-            if wifiOnly {
-                Label("Wi-Fi only", systemImage: "wifi")
-                    .font(.caption).foregroundStyle(.secondary)
-            }
         }
         .padding(.vertical, 4)
     }
@@ -117,7 +111,6 @@ struct DownloadsView: View {
             Menu {
                 Button { center.pauseAll() } label: { Label("Pause all", systemImage: "pause.fill") }
                 Button { center.resumeAll() } label: { Label("Resume all", systemImage: "play.fill") }
-                Toggle(isOn: $wifiOnly) { Label("Wi-Fi only", systemImage: "wifi") }
                 Divider()
                 Button(role: .destructive) { confirmClearFinished = true } label: {
                     Label("Remove completed only", systemImage: "checkmark.circle")
