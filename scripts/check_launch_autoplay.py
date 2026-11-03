@@ -23,8 +23,10 @@ detail = app.split("struct MovieDetailView: View {", 1)[1].split(
 task_body = detail.split(".task(id: video.id) {", 1)[1].split(
     "\n        }\n", 1)[0]
 assert "watch =" not in task_body, "Poster selection must not begin playback"
-assert "await reloadEpisodes()" in task_body
-assert "await loadSupplementaryDetails()" in task_body
+assert "await withTaskGroup(of: DetailLoadResult.self)" in task_body
+assert "group.addTask { .episodes(await CinemanaAPI.shared.episodes(video.id)) }" in task_body
+assert "value.id == video.id" in task_body
+assert "PlaybackPlanner.playTarget(for: video," in detail
 assert "if let target = playTarget { watch = target }" in detail
 assert "Button { watch = ep }" in detail
 assert ".fullScreenCover(item: $watch) { CinemaPlayerScreen(video: $0, playlist: episodes) }" in detail
@@ -33,5 +35,5 @@ assert ".fullScreenCover(item: $watch) { CinemaPlayerScreen(video: $0, playlist:
 assert ".task(id: current.id) { await startPlayback() }" in player
 assert "await session.load(video: current, library: library)" in player
 assert "case .readyToPlay:" in app
-assert "next.play()" in app
+assert "next.play()\n                        next.seek" in app
 print("PASS: details-first navigation and autoplay after Play, no Home carousel, fast splash.")
