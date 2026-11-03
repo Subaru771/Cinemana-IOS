@@ -634,12 +634,7 @@ struct CinemaPlayerScreen: View {
                 Text(entry.status == .paused ? "Paused" : "\(Int(entry.progress * 100))%")
             }
         } else if !isDownloaded {
-            Button {
-                downloads.enqueue(current)
-                showControls()
-            } label: {
-                Label("Download", systemImage: "arrow.down.to.line")
-            }
+            DownloadQualityMenu(video: current)
         } else {
             Label("Downloaded", systemImage: "checkmark.circle.fill")
         }
