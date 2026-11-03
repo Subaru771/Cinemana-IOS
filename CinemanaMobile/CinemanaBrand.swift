@@ -82,6 +82,15 @@ struct CinemanaSplashView: View {
     var body: some View {
         GeometryReader { geometry in
             ZStack {
+                // When the approved splash artwork is present in Assets.xcassets,
+                // render it directly; otherwise retain the vector fallback.
+                if UIImage(named: "CinemanaSplash") != nil {
+                    Color.black
+                    Image("CinemanaSplash")
+                        .resizable()
+                        .scaledToFit()
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                } else {
                 LinearGradient(colors: [.black, Color(red: 0.12, green: 0, blue: 0.015),
                                         Color(red: 0.25, green: 0, blue: 0.04)],
                                startPoint: .topLeading, endPoint: .bottomTrailing)
@@ -114,6 +123,7 @@ struct CinemanaSplashView: View {
                     ProgressView()
                         .tint(.red)
                         .padding(.top, 22)
+                }
                 }
             }
             .frame(width: geometry.size.width, height: geometry.size.height)
