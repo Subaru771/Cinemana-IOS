@@ -1,4 +1,14 @@
-# Cinemana iOS v1.6.9
+# Cinemana iOS v1.6.10
+
+## v1.6.10 — Playback regression recovery
+
+- Poster tap opens details, not the player; Play/Resume or episode tap opens the player and starts playback automatically when ready.
+- Series episode lists and detail/related metadata load concurrently, so unrelated network latency cannot delay the episode list.
+- Playback target is derived from the tapped item and is not changed by inconsistent fetched metadata.
+- AVPlayer starts even when a saved-position seek cannot complete.
+- Legacy download controls remain removed; high-resolution branding is included in the full source ZIP (the GitHub workflow needs the missing original image file to eliminate its fallback).
+
+
 
 ## v1.6.9 — Details first, autoplay only after Play
 

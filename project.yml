@@ -22,8 +22,8 @@ targets:
       path: CinemanaMobile/Info.plist
       properties:
         CFBundleDisplayName: Cinemana
-        CFBundleShortVersionString: '1.6.9'
-        CFBundleVersion: '17'
+        CFBundleShortVersionString: '1.6.10'
+        CFBundleVersion: '18'
         CFBundleLocalizations:
           - en
           - ar
