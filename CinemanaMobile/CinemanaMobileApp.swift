@@ -21,6 +21,7 @@ struct CinemanaMobileApp: App {
     @State private var showBrandSplash = true
     @State private var showHubWelcome = false
     @AppStorage("cinemana-hub-promo-hidden") private var hideHubWelcome = false
+    @AppStorage("cinemana-hub-promo-seen") private var hasSeenHubWelcome = false
     @AppStorage("cinemana-app-language") private var appLanguage = "system"
 
     private var selectedLocale: Locale {
@@ -67,7 +68,10 @@ struct CinemanaMobileApp: App {
                 withAnimation(.easeOut(duration: 0.30)) { showBrandSplash = false }
                 // Show after the splash has finished; initial app/catalog loading
                 // continues independently. Opted-out users are never interrupted.
-                if !hideHubWelcome { showHubWelcome = true }
+                if !hideHubWelcome && !hasSeenHubWelcome {
+                    hasSeenHubWelcome = true
+                    showHubWelcome = true
+                }
             }
             .sheet(isPresented: $showHubWelcome) {
                 CinemaHubWelcomeView()
@@ -912,6 +916,7 @@ struct AboutView: View {
     @AppStorage("cinemana-auto-landscape") private var autoLandscape = true
     @AppStorage("cinemana-app-language") private var appLanguage = "system"
     @AppStorage("cinemana-hub-promo-hidden") private var hideHubWelcome = false
+    @AppStorage("cinemana-hub-promo-seen") private var hasSeenHubWelcome = false
     @State private var confirmHistory = false
     @State private var confirmWatchlist = false
     @State private var cacheCleared = false
@@ -985,6 +990,7 @@ struct AboutView: View {
                 }
                 Button("Show welcome popup next launch") {
                     hideHubWelcome = false
+                    hasSeenHubWelcome = false
                 }
                 Text("Telegram is optional. You can dismiss the welcome message or choose not to show it again.")
                     .font(.footnote)
