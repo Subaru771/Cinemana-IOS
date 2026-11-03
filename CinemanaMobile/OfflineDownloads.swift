@@ -58,6 +58,9 @@ final class DownloadCenter: NSObject, ObservableObject, URLSessionDownloadDelega
         hls.sessionSendsLaunchEvents = true
         hls.isDiscretionary = false
         hlsSession = AVAssetDownloadURLSession(configuration: hls, assetDownloadDelegate: self, delegateQueue: .main)
+        // v1.6.7 removes the old Wi-Fi-only setting from the UI. Clear the
+        // persisted restriction so upgrades do not strand existing downloads.
+        UserDefaults.standard.removeObject(forKey: Self.wifiOnlyKey)
         // Evaluate the current interface and monitor Wi-Fi transitions. The first path
         // update is asynchronous; Wi-Fi-only queues remain safely held until then.
         policyPaused = Set(items.filter {

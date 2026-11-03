@@ -20,6 +20,9 @@ jobs:
       - name: Validate English and Arabic website
         run: python3 scripts/check_landing_locales.py
 
+      - name: Validate streamlined download menu
+        run: python3 scripts/check_download_menu.py
+
       - name: Install XcodeGen
         run: brew install xcodegen
 
@@ -68,5 +71,5 @@ jobs:
       - name: Upload IPA
         uses: actions/upload-artifact@v4
         with:
-          name: Cinemana-iOS-v1.6.6-Unsigned
+          name: Cinemana-iOS-v1.6.7-Unsigned
           path: dist/Cinemana-iOS.ipa

@@ -924,9 +924,7 @@ final class PlaybackSession: ObservableObject {
 
 struct AboutView: View {
     @EnvironmentObject private var library: LibraryStore
-    @AppStorage("cinemana-max-download-quality") private var downloadQuality = 1080
-    @AppStorage("cinemana-wifi-only") private var wifiOnly = false
-    @AppStorage("cinemana-auto-landscape") private var autoLandscape = true
+     @AppStorage("cinemana-auto-landscape") private var autoLandscape = true
     @AppStorage("cinemana-app-language") private var appLanguage = "system"
     @AppStorage("cinemana-hub-promo-hidden") private var hideHubWelcome = false
     @AppStorage("cinemana-hub-promo-seen") private var hasSeenHubWelcome = false
@@ -974,14 +972,6 @@ struct AboutView: View {
                 NavigationLink { DownloadsView() } label: {
                     Label("Manage downloads", systemImage: "arrow.down.to.line.compact")
                 }
-                Picker("Preferred download quality", selection: $downloadQuality) {
-                    Text("480p").tag(480)
-                    Text("720p").tag(720)
-                    Text("1080p").tag(1080)
-                    Text("2160p").tag(2160)
-                }
-                Toggle("Download on Wi-Fi only", isOn: $wifiOnly)
-                    .onChange(of: wifiOnly) { _ in DownloadCenter.shared.updateNetworkPolicy() }
                 Text("Downloads require provider-authorized MP4 or HLS media. Some streams cannot be saved.")
                     .font(.footnote).foregroundStyle(.secondary)
             }
