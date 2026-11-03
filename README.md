@@ -1,6 +1,14 @@
-# Cinemana iOS v1.6.5
+# Cinemana iOS v1.6.6
 
 Native SwiftUI (iPhone/iPad) browsing and AVPlayer. Created from the v1.1 project with improved series playback, smarter quality fallback, faster concurrent details, search polish, local watchlist and Settings.
+
+## v1.6.6 cinematic startup
+
+- Polished red-and-black cinematic splash using Cinemana's original filmstrip artwork, animated light accents and premium wordmark.
+- Home catalog loads concurrently under the splash. It dismisses after a visible minimum (1.05 seconds) once catalog data or cache is ready, with a 2.8-second maximum.
+- Dark native iOS launch screen matches the SwiftUI background for a seamless transition.
+- Reduce Motion disables entrance animation. Optional Cinema Hub popup opens only after the splash fades.
+- The original high-resolution logo should be supplied in `Branding/CinemanaIOSIcon.jpg` for best quality.
 
 ## v1.6.5 quality control and reliability
 

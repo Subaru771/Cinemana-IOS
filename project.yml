@@ -22,12 +22,13 @@ targets:
       path: CinemanaMobile/Info.plist
       properties:
         CFBundleDisplayName: Cinemana
-        CFBundleShortVersionString: '1.6.5'
-        CFBundleVersion: '13'
+        CFBundleShortVersionString: '1.6.6'
+        CFBundleVersion: '14'
         CFBundleLocalizations:
           - en
           - ar
-        UILaunchScreen: {}
+        UILaunchScreen:
+          UIColorName: CinemanaLaunchBackground
         UIBackgroundModes:
           - audio
         NSAppTransportSecurity:
