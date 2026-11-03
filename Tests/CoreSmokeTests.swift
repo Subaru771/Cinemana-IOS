@@ -74,7 +74,8 @@ struct CoreSmokeTests {
         var legacyRecord = try JSONSerialization.jsonObject(with: requestedJSON) as! [String: Any]
         legacyRecord.removeValue(forKey: "requestedQuality")
         let legacyJSON = try JSONSerialization.data(withJSONObject: legacyRecord)
-        precondition(try JSONDecoder().decode(OfflineEntry.self, from: legacyJSON).requestedQuality == nil)
+        let decodedLegacyEntry = try JSONDecoder().decode(OfflineEntry.self, from: legacyJSON)
+        precondition(decodedLegacyEntry.requestedQuality == nil)
         precondition(PlaybackPlanner.preferred(from: sources, maximumQuality: 720)?.id == source720.id)
         precondition(PlaybackPlanner.preferred(from: sources, maximumQuality: Int.max)?.id == source2160.id)
 
