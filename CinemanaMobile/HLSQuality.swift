@@ -54,7 +54,7 @@ enum HLSQuality {
             }
             return variant.url
         }
-        guard stream.quality > 0 && (maximumQuality == Int.max || stream.quality <= maximumQuality) else {
+        guard maximumQuality == Int.max || (stream.quality > 0 && stream.quality <= maximumQuality) else {
             throw QualityError.unavailable(maximumQuality)
         }
         return stream.url
