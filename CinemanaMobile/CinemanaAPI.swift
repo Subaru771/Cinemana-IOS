@@ -240,7 +240,7 @@ struct CinemanaAPI: Sendable {
         if let cached = await PlaybackStreamCache.shared.get(id) { return cached }
         let encoded = segment(id)
         let paths = ["transcoddedfiles/id/\(encoded)", "allVideoInfo/id/\(encoded)"]
-        let found = try await withTaskGroup(of: Result<[Stream], APIError>.self) { group in
+        let lookup = await withTaskGroup(of: Result<[Stream], APIError>.self) { group in
             for path in paths {
                 group.addTask {
                     do {
@@ -252,11 +252,11 @@ struct CinemanaAPI: Sendable {
             }
             var restriction: APIError?
             for await outcome in group {
-                if Task.isCancelled { group.cancelAll(); throw CancellationError() }
+                if Task.isCancelled { group.cancelAll(); return .failure(.unreachable) }
                 switch outcome {
                 case .success(let choices) where !choices.isEmpty:
                     group.cancelAll()
-                    return choices
+                    return .success(choices)
                 case .failure(let error):
                     switch error {
                     case .unauthorized, .providerRestricted: restriction = error
@@ -265,7 +265,13 @@ struct CinemanaAPI: Sendable {
                 default: break
                 }
             }
-            throw restriction ?? APIError.noStream
+            return .failure(restriction ?? APIError.noStream)
+        }
+        if Task.isCancelled { throw CancellationError() }
+        let found: [Stream]
+        switch lookup {
+        case .success(let values): found = values
+        case .failure(let error): throw error
         }
         await PlaybackStreamCache.shared.put(found, for: id)
         return found
