@@ -233,51 +233,71 @@ struct CinemanaAPI: Sendable {
         return collected.sorted { $0.quality > $1.quality }
     }
 
-    /// Race the available stream endpoints instead of waiting on a slow
-    /// transcoding lookup before trying the fallback. Results are cached briefly
-    /// because users often reopen the same title or change quality.
-    func streams(_ id: String) async throws -> [Stream] {
-        if let cached = await PlaybackStreamCache.shared.get(id) { return cached }
+    /// Return quickly for playback, but aggregate both endpoints for download
+    /// quality selection. A grace period avoids discarding slower sources.
+    func streams(_ id: String, preferComplete: Bool = false) async throws -> [Stream] {
+        if !preferComplete, let cached = await PlaybackStreamCache.shared.get(id) { return cached }
         let encoded = segment(id)
         let paths = ["transcoddedfiles/id/\(encoded)", "allVideoInfo/id/\(encoded)"]
-        let lookup = await withTaskGroup(of: Result<[Stream], APIError>.self) { group in
+        let timeoutNanos: UInt64 = preferComplete ? 6_000_000_000 : 4_000_000_000
+        enum Outcome {
+            case sources([Stream])
+            case failed(APIError)
+            case deadline
+            case grace
+        }
+        let result = await withTaskGroup(of: Outcome.self) { group -> (streams: [Stream], restriction: APIError?) in
             for path in paths {
                 group.addTask {
                     do {
-                        let json = try await fetch(path)
-                        return .success(parseStreams(json).filter(\.playableOnIOS))
-                    } catch let error as APIError { return .failure(error) }
-                    catch { return .failure(.unreachable) }
+                        let value = try await fetch(path)
+                        return .sources(parseStreams(value).filter(\.playableOnIOS))
+                    } catch let problem as APIError { return .failed(problem) }
+                    catch { return .failed(.unreachable) }
                 }
             }
+            group.addTask {
+                try? await Task.sleep(nanoseconds: timeoutNanos)
+                return .deadline
+            }
+            var sources = [[Stream]]()
+            var finishedEndpoints = 0
             var restriction: APIError?
+            var graceScheduled = false
             for await outcome in group {
-                if Task.isCancelled {
-                    group.cancelAll()
-                    return Result<[Stream], APIError>.failure(.unreachable)
-                }
+                if Task.isCancelled { break }
+                var finish = false
                 switch outcome {
-                case .success(let choices) where !choices.isEmpty:
-                    group.cancelAll()
-                    return .success(choices)
-                case .failure(let error):
-                    switch error {
-                    case .unauthorized, .providerRestricted: restriction = error
+                case .sources(let streams):
+                    finishedEndpoints += 1
+                    if !streams.isEmpty {
+                        sources.append(streams)
+                        if !preferComplete && !graceScheduled {
+                            graceScheduled = true
+                            group.addTask {
+                                try? await Task.sleep(nanoseconds: 450_000_000)
+                                return .grace
+                            }
+                        }
+                    }
+                case .failed(let problem):
+                    finishedEndpoints += 1
+                    switch problem {
+                    case .unauthorized, .providerRestricted: restriction = problem
                     default: break
                     }
-                default: break
+                case .deadline, .grace:
+                    finish = true
                 }
+                if finish || finishedEndpoints == paths.count { break }
             }
-            return .failure(restriction ?? APIError.noStream)
+            group.cancelAll()
+            return (PlaybackPlanner.mergeStreamSources(sources), restriction)
         }
         if Task.isCancelled { throw CancellationError() }
-        let found: [Stream]
-        switch lookup {
-        case .success(let values): found = values
-        case .failure(let error): throw error
-        }
-        await PlaybackStreamCache.shared.put(found, for: id)
-        return found
+        guard !result.streams.isEmpty else { throw result.restriction ?? APIError.noStream }
+        await PlaybackStreamCache.shared.put(result.streams, for: id)
+        return result.streams
     }
 
     func invalidateStreams(_ id: String) async {
