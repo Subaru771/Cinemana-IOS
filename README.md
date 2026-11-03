@@ -1,4 +1,4 @@
-# Cinemana iOS v1.6.6
+# Cinemana iOS v1.6.7
 
 Native SwiftUI (iPhone/iPad) browsing and AVPlayer. Created from the v1.1 project with improved series playback, smarter quality fallback, faster concurrent details, search polish, local watchlist and Settings.
 
@@ -21,6 +21,14 @@ Native SwiftUI (iPhone/iPad) browsing and AVPlayer. Created from the v1.1 projec
 - High-resolution artwork is included in the downloadable v1.6.5 source package; see the separate branding asset instructions for replacing the bundled compact fallback.
 
 See [v1.6.5 release notes](docs/RELEASE-v1.6.5.md).
+
+## v1.6.7 — streamlined downloads and artwork
+
+- All download menus now show only **480p, 720p, 1080p, 2160p**. Removed Default, Best Available and Wi-Fi-only from the movie/player menus, Downloads and Settings.
+- A previous Wi-Fi-only preference is cleared on update so queued transfers do not remain blocked.
+- The icon generator now prefers `Branding/CinemanaIOSIcon-Original.png` (1024px or larger). The **complete v1.6.7 source ZIP** includes the original 1254px PNG and generated opaque 1024px AppIcon.
+- **GitHub's source branch still lacks the full-resolution binary**. Until its original PNG is uploaded to `Branding/`, the GitHub unsigned-IPA workflow warns and uses the compact development fallback. The attached v1.6.7 ZIP already contains the correct artwork.
+- To build the fixed icon from GitHub, add `Branding/CinemanaIOSIcon-Original.png` from the ZIP, then rerun the iOS workflow.
 
 ## v1.6 player, diagnostics and branding
 
