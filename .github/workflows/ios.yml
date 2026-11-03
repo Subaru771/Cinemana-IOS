@@ -34,6 +34,7 @@ jobs:
             CinemanaMobile/PlaybackPlanner.swift \
             CinemanaMobile/OfflineModels.swift \
             CinemanaMobile/Subtitles.swift \
+            CinemanaMobile/HLSQuality.swift \
             Tests/CoreSmokeTests.swift
           /tmp/cinemana-core-tests
 
@@ -67,5 +68,5 @@ jobs:
       - name: Upload IPA
         uses: actions/upload-artifact@v4
         with:
-          name: Cinemana-iOS-v1.6.4-Unsigned
+          name: Cinemana-iOS-v1.6.5-Unsigned
           path: dist/Cinemana-iOS.ipa
