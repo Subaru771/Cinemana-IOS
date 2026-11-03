@@ -32,10 +32,10 @@ struct CinemanaAPI: Sendable {
         return value.addingPercentEncoding(withAllowedCharacters: allowed) ?? value
     }
 
-    private func fetch(_ path: String) async throws -> Any {
+    private func fetch(_ path: String, timeout: TimeInterval = 18) async throws -> Any {
         guard let url = URL(string: base + path) else { throw APIError.invalidResponse }
         var req = URLRequest(url: url)
-        req.timeoutInterval = 18
+        req.timeoutInterval = timeout
         req.setValue("CinemanaMobile/1.6.2 (iOS)", forHTTPHeaderField: "User-Agent")
         do {
             let (data, response) = try await URLSession.shared.data(for: req)
@@ -239,18 +239,17 @@ struct CinemanaAPI: Sendable {
         if !preferComplete, let cached = await PlaybackStreamCache.shared.get(id) { return cached }
         let encoded = segment(id)
         let paths = ["transcoddedfiles/id/\(encoded)", "allVideoInfo/id/\(encoded)"]
-        let timeoutNanos: UInt64 = preferComplete ? 6_000_000_000 : 4_000_000_000
+        let timeoutNanos: UInt64 = preferComplete ? 6_000_000_000 : 2_500_000_000
         enum Outcome {
             case sources([Stream])
             case failed(APIError)
             case deadline
-            case grace
         }
         let result = await withTaskGroup(of: Outcome.self) { group -> (streams: [Stream], restriction: APIError?) in
             for path in paths {
                 group.addTask {
                     do {
-                        let value = try await fetch(path)
+                        let value = try await fetch(path, timeout: preferComplete ? 6 : 3)
                         return .sources(parseStreams(value).filter(\.playableOnIOS))
                     } catch let problem as APIError { return .failed(problem) }
                     catch { return .failed(.unreachable) }
@@ -263,7 +262,6 @@ struct CinemanaAPI: Sendable {
             var sources = [[Stream]]()
             var finishedEndpoints = 0
             var restriction: APIError?
-            var graceScheduled = false
             for await outcome in group {
                 if Task.isCancelled { break }
                 var finish = false
@@ -272,13 +270,9 @@ struct CinemanaAPI: Sendable {
                     finishedEndpoints += 1
                     if !streams.isEmpty {
                         sources.append(streams)
-                        if !preferComplete && !graceScheduled {
-                            graceScheduled = true
-                            group.addTask {
-                                try? await Task.sleep(nanoseconds: 450_000_000)
-                                return .grace
-                            }
-                        }
+                        // Playback starts on the first compatible source.
+                        // Downloads still aggregate results from both endpoints.
+                        if !preferComplete { finish = true }
                     }
                 case .failed(let problem):
                     finishedEndpoints += 1
@@ -286,7 +280,7 @@ struct CinemanaAPI: Sendable {
                     case .unauthorized, .providerRestricted: restriction = problem
                     default: break
                     }
-                case .deadline, .grace:
+                case .deadline:
                     finish = true
                 }
                 if finish || finishedEndpoints == paths.count { break }

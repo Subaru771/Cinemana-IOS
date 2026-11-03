@@ -23,6 +23,9 @@ jobs:
       - name: Validate streamlined download menu
         run: python3 scripts/check_download_menu.py
 
+      - name: Verify autoplay and fast startup
+        run: python3 scripts/check_launch_autoplay.py
+
       - name: Install XcodeGen
         run: brew install xcodegen
 
@@ -71,5 +74,5 @@ jobs:
       - name: Upload IPA
         uses: actions/upload-artifact@v4
         with:
-          name: Cinemana-iOS-v1.6.7-Unsigned
+          name: Cinemana-iOS-v1.6.8-Unsigned
           path: dist/Cinemana-iOS.ipa

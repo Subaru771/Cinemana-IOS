@@ -64,18 +64,11 @@ struct CinemanaMobileApp: App {
             }
             .task {
                 guard showBrandSplash else { return }
-                // Load the Home catalog in parallel. Leave once ready, with a
-                // visible minimum and strict maximum for slow network connections.
-                let deadline = Date().addingTimeInterval(2.8)
-                try? await Task.sleep(for: .milliseconds(1050))
+                // Do not delay launch for remote catalog requests.
+                try? await Task.sleep(for: .milliseconds(560))
                 guard !Task.isCancelled else { return }
-                while !startup.catalogReady && Date() < deadline {
-                    try? await Task.sleep(for: .milliseconds(120))
-                    guard !Task.isCancelled else { return }
-                }
-                withAnimation(.easeOut(duration: 0.36)) { showBrandSplash = false }
-                try? await Task.sleep(for: .milliseconds(380))
-                guard !Task.isCancelled else { return }
+                withAnimation(.easeOut(duration: 0.18)) { showBrandSplash = false }
+                try? await Task.sleep(for: .milliseconds(200))
                 if !hideHubWelcome && !hasSeenHubWelcome {
                     hasSeenHubWelcome = true
                     showHubWelcome = true
@@ -105,28 +98,6 @@ struct CatalogView: View {
         NavigationStack {
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: 24) {
-                    if kind == nil && !library.snapshot.recent.isEmpty {
-                        VStack(alignment: .leading, spacing: 12) {
-                            Text("Continue Watching").font(.title3.weight(.bold)).padding(.horizontal, 16)
-                            ScrollView(.horizontal, showsIndicators: false) {
-                                LazyHStack(spacing: 12) {
-                                    ForEach(library.snapshot.recent) { record in
-                                        NavigationLink(value: record.video) {
-                                            VStack(alignment: .leading, spacing: 6) {
-                                                PosterCard(video: record.video, width: 150)
-                                                GeometryReader { geo in
-                                                    Capsule().fill(.white.opacity(0.18))
-                                                        .overlay(alignment: .leading) {
-                                                            Capsule().fill(mint).frame(width: geo.size.width * record.fraction)
-                                                        }
-                                                }.frame(width: 150, height: 4)
-                                            }
-                                        }.buttonStyle(.plain)
-                                    }
-                                }.padding(.horizontal, 16)
-                            }
-                        }
-                    }
                     if isLoading && rows.isEmpty {
                         VStack(alignment: .leading, spacing: 18) {
                             if kind == nil {
@@ -202,7 +173,9 @@ struct CatalogView: View {
                     isLoading = false
                     if kind == nil { startup.finishInitialCatalogLoad() }
                 }
-                await refresh()
+                // Cached catalog is ready; avoid launching competing requests
+                // while users enter playback. Pull-to-refresh stays available.
+                if rows.isEmpty { await refresh() }
             }
         }
     }
@@ -297,6 +270,7 @@ struct FeaturedPoster: View {
     @State private var selectedSeason = 1
     @State private var synopsisExpanded = false
     @State private var loadingEpisodes = false
+    @State private var supplementaryLoaded = false
 
     private var isSeries: Bool { (detail ?? video).kind == "2" }
     private var sortedSeasons: [Int] { Array(Set(episodes.map(\.season))).sorted() }
@@ -431,26 +405,43 @@ struct FeaturedPoster: View {
             synopsisExpanded = false
             related = []
             episodes = []
-            loadingEpisodes = video.kind == "2"
-            // Each section updates independently as its network request finishes.
-            await withTaskGroup(of: DetailLoadResult.self) { group in
-                group.addTask { .detail(await CinemanaAPI.shared.detail(video)) }
-                group.addTask { .episodes(await CinemanaAPI.shared.episodes(video.id)) }
-                group.addTask { .related(await CinemanaAPI.shared.related(video.id)) }
-                for await update in group {
-                    guard !Task.isCancelled else { break }
-                    switch update {
-                    case .detail(let value): detail = value
-                    case .episodes(let list):
-                        episodes = list
-                        selectedSeason = list.first?.season ?? 1
-                        loadingEpisodes = false
-                    case .related(let list): related = list
-                    }
+            supplementaryLoaded = false
+            if video.kind != "2" || video.episode > 0 {
+                // Movies and individual episodes start immediately.
+                await Task.yield()
+                guard !Task.isCancelled else { return }
+                watch = video
+            } else {
+                // Series fetch only their episode list before autoplay.
+                loadingEpisodes = true
+                let list = await CinemanaAPI.shared.episodes(video.id)
+                guard !Task.isCancelled else { return }
+                episodes = list
+                selectedSeason = list.first?.season ?? 1
+                loadingEpisodes = false
+                if let target = PlaybackPlanner.playTarget(for: video,
+                                 episodes: list, recent: library.snapshot.recent) {
+                    watch = target
                 }
             }
-            loadingEpisodes = false
         }
+        .onChange(of: watch?.id) { selected in
+            if selected == nil && !supplementaryLoaded {
+                Task { await loadSupplementaryDetails() }
+            }
+        }
+    }
+
+    @MainActor
+    private func loadSupplementaryDetails() async {
+        guard !supplementaryLoaded else { return }
+        supplementaryLoaded = true
+        async let fullDetail = CinemanaAPI.shared.detail(video)
+        async let relatedTitles = CinemanaAPI.shared.related(video.id)
+        let (newDetail, newRelated) = await (fullDetail, relatedTitles)
+        guard !Task.isCancelled else { return }
+        detail = newDetail
+        related = newRelated
     }
 
     @MainActor

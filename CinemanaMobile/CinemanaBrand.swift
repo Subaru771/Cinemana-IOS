@@ -1,13 +1,63 @@
 import SwiftUI
+import UIKit
 
-/// Original red filmstrip artwork, generated as an image asset during the iOS build.
+/// Only use artwork that has actual high-resolution pixels.
+/// Older app builds bundled a 256px JPEG, which looks pixelated on Retina.
+private enum CinemanaLogoSource {
+    static let sharpArtworkAvailable: Bool = {
+        guard let asset = UIImage(named: "CinemanaArtwork"), let cg = asset.cgImage else { return false }
+        return cg.width >= 1024 && cg.height >= 1024
+    }()
+}
+
 struct CinemanaGlyph: View {
     var body: some View {
-        Image("CinemanaArtwork")
-            .resizable()
-            .interpolation(.high)
-            .aspectRatio(contentMode: .fit)
-            .accessibilityLabel("Cinemana iOS")
+        Group {
+            if CinemanaLogoSource.sharpArtworkAvailable {
+                Image("CinemanaArtwork")
+                    .resizable()
+                    .interpolation(.high)
+                    .aspectRatio(contentMode: .fit)
+            } else {
+                CinemanaVectorFallbackGlyph()
+            }
+        }
+        .aspectRatio(1, contentMode: .fit)
+        .accessibilityLabel("Cinemana iOS")
+    }
+}
+
+/// Native vector replacement when the original high-resolution binary
+/// is missing. Never stretch the old low-resolution compressed thumbnail.
+private struct CinemanaVectorFallbackGlyph: View {
+    private let ruby = Color(red: 0.98, green: 0.08, blue: 0.16)
+    var body: some View {
+        GeometryReader { geo in
+            let side = min(geo.size.width, geo.size.height)
+            ZStack {
+                RoundedRectangle(cornerRadius: side * 0.20)
+                    .fill(LinearGradient(colors: [.black, Color(red: 0.20, green: 0.01, blue: 0.035)],
+                                         startPoint: .topLeading, endPoint: .bottomTrailing))
+                Text("C")
+                    .font(.system(size: side * 0.90, weight: .black, design: .rounded))
+                    .foregroundStyle(LinearGradient(colors: [Color(red: 1, green: 0.57, blue: 0.61),
+                                                             ruby, Color(red: 0.63, green: 0.005, blue: 0.06)],
+                                                    startPoint: .topLeading, endPoint: .bottomTrailing))
+                    .shadow(color: ruby.opacity(0.53), radius: side * 0.045)
+                    .offset(x: -side * 0.005, y: -side * 0.035)
+                Image(systemName: "play.fill")
+                    .font(.system(size: side * 0.31, weight: .black))
+                    .foregroundStyle(LinearGradient(colors: [Color(red: 1, green: 0.57, blue: 0.60), ruby],
+                                                    startPoint: .top, endPoint: .bottom))
+                    .offset(x: side * 0.10, y: -side * 0.045)
+                Text("iOS")
+                    .font(.system(size: side * 0.11, weight: .bold, design: .rounded))
+                    .foregroundStyle(.white)
+                    .offset(y: side * 0.37)
+            }
+            .frame(width: side, height: side)
+            .position(x: geo.size.width / 2, y: geo.size.height / 2)
+        }
     }
 }
 
@@ -132,8 +182,8 @@ struct CinemanaSplashView: View {
                 revealed = true
                 lightSweep = true
             } else {
-                withAnimation(.easeOut(duration: 0.58)) { revealed = true }
-                withAnimation(.easeInOut(duration: 1.25).repeatForever(autoreverses: true)) {
+                withAnimation(.easeOut(duration: 0.27)) { revealed = true }
+                withAnimation(.easeInOut(duration: 0.8).repeatForever(autoreverses: true)) {
                     lightSweep = true
                 }
             }

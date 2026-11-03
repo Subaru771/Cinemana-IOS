@@ -1,4 +1,4 @@
-# Cinemana iOS v1.6.7
+# Cinemana iOS v1.6.8
 
 Native SwiftUI (iPhone/iPad) browsing and AVPlayer. Created from the v1.1 project with improved series playback, smarter quality fallback, faster concurrent details, search polish, local watchlist and Settings.
 
@@ -21,6 +21,19 @@ Native SwiftUI (iPhone/iPad) browsing and AVPlayer. Created from the v1.1 projec
 - High-resolution artwork is included in the downloadable v1.6.5 source package; see the separate branding asset instructions for replacing the bundled compact fallback.
 
 See [v1.6.5 release notes](docs/RELEASE-v1.6.5.md).
+
+## v1.6.8 — faster opening and immediate playback
+
+- Removed the **Continue Watching** section from the Home screen; playback history remains in **My List**.
+- Tap a movie or episode to automatically begin fullscreen playback; for a series the app finds the first or next unfinished episode.
+- Details and related titles load after exiting playback, avoiding extra API traffic competing with video start.
+- Stream discovery returns the first valid playable result immediately instead of waiting an extra 450 ms; timed-out/failed endpoints are still reported.
+- Splash animation is now approximately 560 ms, plus a short fade. It never blocks on the Home catalog or network.
+- Cached catalog rows are used without automatically starting four concurrent refresh requests; pull-to-refresh remains available.
+- The startup logo only uses the real 1024px+ Cinemana artwork. Older GitHub builds that lack the original image use a crisp native vector fallback, **not** an upscaled 256px JPEG. The complete source ZIP includes the exact original 1254px art.
+- UI changes require an updated IPA installed on the device; source updates alone do not change an existing installation.
+
+See [Release v1.6.8](docs/RELEASE-v1.6.8.md) for device checks.
 
 ## v1.6.7 — streamlined downloads and artwork
 
