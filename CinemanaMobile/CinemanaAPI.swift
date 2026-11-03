@@ -252,7 +252,10 @@ struct CinemanaAPI: Sendable {
             }
             var restriction: APIError?
             for await outcome in group {
-                if Task.isCancelled { group.cancelAll(); return .failure(.unreachable) }
+                if Task.isCancelled {
+                    group.cancelAll()
+                    return Result<[Stream], APIError>.failure(.unreachable)
+                }
                 switch outcome {
                 case .success(let choices) where !choices.isEmpty:
                     group.cancelAll()
