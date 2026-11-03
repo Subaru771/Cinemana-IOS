@@ -18,6 +18,7 @@ final class CinemanaAppDelegate: NSObject, UIApplicationDelegate {
 struct CinemanaMobileApp: App {
     @UIApplicationDelegateAdaptor(CinemanaAppDelegate.self) private var appDelegate
     @StateObject private var library = LibraryStore()
+    @StateObject private var startup = CinemanaStartupState()
     @State private var showBrandSplash = true
     @State private var showHubWelcome = false
     @AppStorage("cinemana-hub-promo-hidden") private var hideHubWelcome = false
@@ -48,6 +49,7 @@ struct CinemanaMobileApp: App {
                     .tabItem { Label("My List", systemImage: "bookmark.fill") }
             }
             .environmentObject(library)
+            .environmentObject(startup)
             .environment(\.locale, selectedLocale)
             .environment(\.layoutDirection, isRightToLeft ? .rightToLeft : .leftToRight)
             // Rebuild static navigation and tab labels as soon as language changes.
@@ -62,12 +64,18 @@ struct CinemanaMobileApp: App {
             }
             .task {
                 guard showBrandSplash else { return }
-                // Run on top of catalog initialization, never block API calls.
-                try? await Task.sleep(for: .milliseconds(1100))
+                // Load the Home catalog in parallel. Leave once ready, with a
+                // visible minimum and strict maximum for slow network connections.
+                let deadline = Date().addingTimeInterval(2.8)
+                try? await Task.sleep(for: .milliseconds(1050))
                 guard !Task.isCancelled else { return }
-                withAnimation(.easeOut(duration: 0.30)) { showBrandSplash = false }
-                // Show after the splash has finished; initial app/catalog loading
-                // continues independently. Opted-out users are never interrupted.
+                while !startup.catalogReady && Date() < deadline {
+                    try? await Task.sleep(for: .milliseconds(120))
+                    guard !Task.isCancelled else { return }
+                }
+                withAnimation(.easeOut(duration: 0.36)) { showBrandSplash = false }
+                try? await Task.sleep(for: .milliseconds(380))
+                guard !Task.isCancelled else { return }
                 if !hideHubWelcome && !hasSeenHubWelcome {
                     hasSeenHubWelcome = true
                     showHubWelcome = true
@@ -91,6 +99,7 @@ struct CatalogView: View {
     @State private var isLoading = true
     @State private var error: String?
     @EnvironmentObject private var library: LibraryStore
+    @EnvironmentObject private var startup: CinemanaStartupState
 
     var body: some View {
         NavigationStack {
@@ -191,6 +200,7 @@ struct CatalogView: View {
                 if rows.isEmpty, let cached = await CatalogCache.shared.read(kind: kind) {
                     rows = cached
                     isLoading = false
+                    if kind == nil { startup.finishInitialCatalogLoad() }
                 }
                 await refresh()
             }
@@ -200,7 +210,10 @@ struct CatalogView: View {
     @MainActor
     private func refresh() async {
         isLoading = rows.isEmpty
-        defer { isLoading = false }
+        defer {
+            isLoading = false
+            if kind == nil { startup.finishInitialCatalogLoad() }
+        }
         do {
             let fresh = try await CinemanaAPI.shared.catalog(kind)
             guard !Task.isCancelled else { return }
