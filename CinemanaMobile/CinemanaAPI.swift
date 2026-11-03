@@ -233,14 +233,46 @@ struct CinemanaAPI: Sendable {
         return collected.sorted { $0.quality > $1.quality }
     }
 
+    /// Race the available stream endpoints instead of waiting on a slow
+    /// transcoding lookup before trying the fallback. Results are cached briefly
+    /// because users often reopen the same title or change quality.
     func streams(_ id: String) async throws -> [Stream] {
-        let direct = try? await fetch("transcoddedfiles/id/\(segment(id))")
-        let streams = direct.map { parseStreams($0).filter(\.playableOnIOS) } ?? []
-        if !streams.isEmpty { return streams }
-        let fallback = parseStreams(try await fetch("allVideoInfo/id/\(segment(id))"))
-            .filter(\.playableOnIOS)
-        guard !fallback.isEmpty else { throw APIError.noStream }
-        return fallback
+        if let cached = await PlaybackStreamCache.shared.get(id) { return cached }
+        let encoded = segment(id)
+        let paths = ["transcoddedfiles/id/\(encoded)", "allVideoInfo/id/\(encoded)"]
+        let found = try await withTaskGroup(of: Result<[Stream], APIError>.self) { group in
+            for path in paths {
+                group.addTask {
+                    do {
+                        let json = try await fetch(path)
+                        return .success(parseStreams(json).filter(\.playableOnIOS))
+                    } catch let error as APIError { return .failure(error) }
+                    catch { return .failure(.unreachable) }
+                }
+            }
+            var restriction: APIError?
+            for await outcome in group {
+                if Task.isCancelled { group.cancelAll(); throw CancellationError() }
+                switch outcome {
+                case .success(let choices) where !choices.isEmpty:
+                    group.cancelAll()
+                    return choices
+                case .failure(let error):
+                    switch error {
+                    case .unauthorized, .providerRestricted: restriction = error
+                    default: break
+                    }
+                default: break
+                }
+            }
+            throw restriction ?? APIError.noStream
+        }
+        await PlaybackStreamCache.shared.put(found, for: id)
+        return found
+    }
+
+    func invalidateStreams(_ id: String) async {
+        await PlaybackStreamCache.shared.remove(id)
     }
     // MARK: Subtitles
 
@@ -281,4 +313,23 @@ struct CinemanaAPI: Sendable {
         visit(root, depth: 0)
         return found.sorted { $0.name.localizedStandardCompare($1.name) == .orderedAscending }
     }
+}
+
+    
+/// Bounded, in-memory cache. No persistence of expiring/signed streaming URLs.
+private actor PlaybackStreamCache {
+    static let shared = PlaybackStreamCache()
+    private var entries: [String: (date: Date, streams: [Stream])] = [:]
+    func get(_ id: String) -> [Stream]? {
+        guard let entry = entries[id], Date().timeIntervalSince(entry.date) < 90 else {
+            entries.removeValue(forKey: id)
+            return nil
+        }
+        return entry.streams
+    }
+    func put(_ streams: [Stream], for id: String) {
+        if entries.count > 40 { entries.removeAll() }
+        entries[id] = (Date(), streams)
+    }
+    func remove(_ id: String) { entries.removeValue(forKey: id) }
 }
