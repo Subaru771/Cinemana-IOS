@@ -270,12 +270,13 @@ struct FeaturedPoster: View {
     @State private var selectedSeason = 1
     @State private var synopsisExpanded = false
     @State private var loadingEpisodes = false
+    @State private var supplementaryLoaded = false
 
-    private var isSeries: Bool { video.kind == "2" && video.episode == 0 }
+    private var isSeries: Bool { (detail ?? video).kind == "2" }
     private var sortedSeasons: [Int] { Array(Set(episodes.map(\.season))).sorted() }
     private var visibleEpisodes: [Video] { episodes.filter { $0.season == selectedSeason } }
     private var playTarget: Video? {
-        PlaybackPlanner.playTarget(for: video,
+        PlaybackPlanner.playTarget(for: detail ?? video,
                                    episodes: episodes, recent: library.snapshot.recent)
     }
 
@@ -400,38 +401,47 @@ struct FeaturedPoster: View {
         .navigationDestination(for: Video.self) { MovieDetailView(video: $0) }
         .fullScreenCover(item: $watch) { CinemaPlayerScreen(video: $0, playlist: episodes) }
         .task(id: video.id) {
-            // Poster taps open details. Play/Resume and episode rows start video.
             detail = video
             synopsisExpanded = false
             related = []
             episodes = []
-            loadingEpisodes = isSeries
-            selectedSeason = 1
-            await withTaskGroup(of: DetailLoadResult.self) { group in
-                group.addTask { .detail(await CinemanaAPI.shared.detail(video)) }
-                group.addTask { .related(await CinemanaAPI.shared.related(video.id)) }
-                if video.kind == "2" && video.episode == 0 {
-                    group.addTask { .episodes(await CinemanaAPI.shared.episodes(video.id)) }
-                }
-                for await result in group {
-                    guard !Task.isCancelled else { group.cancelAll(); break }
-                    switch result {
-                    case .detail(let value):
-                        if value.id == video.id &&
-                           (value.kind.isEmpty || value.kind == video.kind) {
-                            detail = value
-                        }
-                    case .episodes(let list):
-                        episodes = list
-                        selectedSeason = list.first?.season ?? 1
-                        loadingEpisodes = false
-                    case .related(let list):
-                        related = list
-                    }
+            supplementaryLoaded = false
+            if video.kind != "2" || video.episode > 0 {
+                // Movies and individual episodes start immediately.
+                await Task.yield()
+                guard !Task.isCancelled else { return }
+                watch = video
+            } else {
+                // Series fetch only their episode list before autoplay.
+                loadingEpisodes = true
+                let list = await CinemanaAPI.shared.episodes(video.id)
+                guard !Task.isCancelled else { return }
+                episodes = list
+                selectedSeason = list.first?.season ?? 1
+                loadingEpisodes = false
+                if let target = PlaybackPlanner.playTarget(for: video,
+                                 episodes: list, recent: library.snapshot.recent) {
+                    watch = target
                 }
             }
-            loadingEpisodes = false
         }
+        .onChange(of: watch?.id) { selected in
+            if selected == nil && !supplementaryLoaded {
+                Task { await loadSupplementaryDetails() }
+            }
+        }
+    }
+
+    @MainActor
+    private func loadSupplementaryDetails() async {
+        guard !supplementaryLoaded else { return }
+        supplementaryLoaded = true
+        async let fullDetail = CinemanaAPI.shared.detail(video)
+        async let relatedTitles = CinemanaAPI.shared.related(video.id)
+        let (newDetail, newRelated) = await (fullDetail, relatedTitles)
+        guard !Task.isCancelled else { return }
+        detail = newDetail
+        related = newRelated
     }
 
     @MainActor
@@ -749,13 +759,9 @@ final class PlaybackSession: ObservableObject {
                     if resumePoint.isFinite && resumePoint > 10 {
                         let seekTo = CMTime(seconds: resumePoint, preferredTimescale: 600)
                         let tolerance = CMTime(seconds: 0.25, preferredTimescale: 600)
-                        next.play()
                         next.seek(to: seekTo, toleranceBefore: tolerance,
-                                  toleranceAfter: tolerance) { [weak self, weak next] _ in
-                            Task { @MainActor [weak self, weak next] in
-                                guard let self, let next, self.player === next else { return }
-                                next.play()
-                            }
+                                  toleranceAfter: tolerance) { [weak next] completed in
+                            if completed { next?.play() }
                         }
                     } else { next.play() }
                 case .failed:

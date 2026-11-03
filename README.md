@@ -1,25 +1,4 @@
-# Cinemana iOS v1.6.10
-
-## v1.6.10 — Playback regression recovery
-
-- Poster tap opens details, not the player; Play/Resume or episode tap opens the player and starts playback automatically when ready.
-- Series episode lists and detail/related metadata load concurrently, so unrelated network latency cannot delay the episode list.
-- Playback target is derived from the tapped item and is not changed by inconsistent fetched metadata.
-- AVPlayer starts even when a saved-position seek cannot complete.
-- Legacy download controls remain removed; high-resolution branding is included in the full source ZIP (the GitHub workflow needs the missing original image file to eliminate its fallback).
-
-
-
-## v1.6.9 — Details first, autoplay only after Play
-
-- Choosing a movie/series poster **opens its detail page** again; it does not force video playback.
-- The Play/Resume button on the detail page, or an explicit episode row selection, opens the fullscreen custom player and **automatically starts video** as soon as AVPlayer reports ready.
-- Series episodes load on the details page without selecting an episode or forcing playback.
-- Movie/series synopsis, metadata and related titles load on the details page. Home continues without the Continue Watching section.
-- All v1.6.8 loading optimizations and original high-resolution branding files in the source ZIP remain in place.
-- Regression checks now assert details-first navigation and player autostart separately.
-
-
+# Cinemana iOS v1.6.8
 
 Native SwiftUI (iPhone/iPad) browsing and AVPlayer. Created from the v1.1 project with improved series playback, smarter quality fallback, faster concurrent details, search polish, local watchlist and Settings.
 
