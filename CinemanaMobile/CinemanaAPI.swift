@@ -36,7 +36,7 @@ struct CinemanaAPI: Sendable {
         guard let url = URL(string: base + path) else { throw APIError.invalidResponse }
         var req = URLRequest(url: url)
         req.timeoutInterval = 18
-        req.setValue("CinemanaMobile/1.5 (iOS)", forHTTPHeaderField: "User-Agent")
+        req.setValue("CinemanaMobile/1.6.2 (iOS)", forHTTPHeaderField: "User-Agent")
         do {
             let (data, response) = try await URLSession.shared.data(for: req)
             guard let http = response as? HTTPURLResponse else { throw APIError.invalidResponse }
