@@ -38,8 +38,8 @@ try manifest.write(to: imageDirectory.appendingPathComponent("Contents.json"), a
 let pixels = 1024
 guard let bitmap = NSBitmapImageRep(
     bitmapDataPlanes: nil, pixelsWide: pixels, pixelsHigh: pixels,
-    bitsPerSample: 8, samplesPerPixel: 3,
-    hasAlpha: false, isPlanar: false, colorSpaceName: .deviceRGB,
+    bitsPerSample: 8, samplesPerPixel: 4,
+    hasAlpha: true, isPlanar: false, colorSpaceName: .deviceRGB,
     bytesPerRow: 0, bitsPerPixel: 0
 ), let graphics = NSGraphicsContext(bitmapImageRep: bitmap) else {
     fatalError("Failed to create App Store icon canvas")
