@@ -140,3 +140,21 @@
 "Run the connection test to check catalog access." = "Run the connection test to check catalog access.";
 "Wait for download" = "Wait for download";
 "Use the device language" = "Use the device language";
+
+// Cinema Hub onboarding and download quality options
+"Cinema Hub" = "Cinema Hub";
+"Cinema Hub on Telegram" = "Cinema Hub on Telegram";
+"Show welcome popup next launch" = "Show welcome popup next launch";
+"Telegram is optional. You can dismiss the welcome message or choose not to show it again." = "Telegram is optional. You can dismiss the welcome message or choose not to show it again.";
+"Download options" = "Download options";
+"Download season" = "Download season";
+"Download quality" = "Download quality";
+"Use preferred quality" = "Use preferred quality";
+"Best available" = "Best available";
+"Retry with quality" = "Retry with quality";
+"Retry download" = "Retry download";
+"Not Now" = "Not Now";
+"Don't show this next time" = "Don't show this next time";
+"Follow our Telegram Channel" = "Follow our Telegram Channel";
+"Join on Telegram" = "Join on Telegram";
+"Optional channel. Cinemana works without Telegram." = "Optional channel. Cinemana works without Telegram.";
