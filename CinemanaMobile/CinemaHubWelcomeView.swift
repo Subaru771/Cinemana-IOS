@@ -122,6 +122,10 @@ struct CinemaHubWelcomeView: View {
                 .allowsHitTesting(false)
         }
         .preferredColorScheme(.dark)
+        // Also honor the checkbox if the sheet is dismissed by swiping down.
+        .onDisappear {
+            if dontShowAgain { permanentlyHidden = true }
+        }
     }
 
     private var brand: some View {
