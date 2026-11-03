@@ -337,7 +337,13 @@ final class DownloadCenter: NSObject, ObservableObject, URLSessionDownloadDelega
                 task.resume()
             }
         } catch {
-            if entry(for: id)?.status == .preparing { fail(id, error.localizedDescription) }
+            // HLS playlist inspection can throw after status transitions to
+            // .downloading. Fail visibly instead of leaving an endless spinner.
+            // Respect intentional pause/cancellation while the lookup is running.
+            if let status = entry(for: id)?.status,
+               status == .preparing || status == .downloading {
+                fail(id, error.localizedDescription)
+            }
         }
     }
 
