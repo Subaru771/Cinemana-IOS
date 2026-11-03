@@ -715,7 +715,11 @@ final class PlaybackSession: ObservableObject {
         self.error = nil
 
         let item = AVPlayerItem(url: stream.url)
+        // Limit needless forward prebuffering on slow links while keeping enough
+        // data for stable playback. The player still follows iOS buffering policy.
+        item.preferredForwardBufferDuration = 2
         let next = AVPlayer(playerItem: item)
+        next.automaticallyWaitsToMinimizeStalling = true
         player = next
         let resumePoint = resume
         itemObservation = item.observe(\.status, options: [.initial, .new]) { [weak self, weak item] _, _ in
@@ -725,7 +729,9 @@ final class PlaybackSession: ObservableObject {
                 case .readyToPlay:
                     if resumePoint.isFinite && resumePoint > 10 {
                         let seekTo = CMTime(seconds: resumePoint, preferredTimescale: 600)
-                        next.seek(to: seekTo) { [weak next] completed in
+                        let tolerance = CMTime(seconds: 0.25, preferredTimescale: 600)
+                        next.seek(to: seekTo, toleranceBefore: tolerance,
+                                  toleranceAfter: tolerance) { [weak next] completed in
                             if completed { next?.play() }
                         }
                     } else { next.play() }
@@ -775,6 +781,7 @@ final class PlaybackSession: ObservableObject {
             notice = "\(failedStream.label) unavailable. Trying \(fallback.label)…"
             start(fallback, video: video, library: library)
         } else {
+            Task { await CinemanaAPI.shared.invalidateStreams(video.id) }
             save(library: library)
             detachPlayer()
             selected = nil
