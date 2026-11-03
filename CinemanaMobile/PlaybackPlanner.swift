@@ -10,6 +10,27 @@ enum PlaybackPlanner {
             ?? playable.min(by: { $0.quality < $1.quality })
     }
 
+    /// Combine sources without duplicating URLs or hiding a resolution only
+    /// exposed by one of the provider endpoints.
+    static func mergeStreamSources(_ groups: [[Stream]]) -> [Stream] {
+        var seen = Set<String>()
+        return groups.flatMap { $0 }
+            .sorted { $0.quality > $1.quality }
+            .filter { seen.insert($0.id).inserted }
+    }
+
+    /// Strict download ceiling; unknown qualities cannot guarantee a limit.
+    static func downloadStream(from streams: [Stream], maximumQuality: Int) -> Stream? {
+        let supported = DownloadPolicy.supported(streams)
+        if maximumQuality == Int.max {
+            return supported.filter { $0.quality > 0 }.max(by: { $0.quality < $1.quality })
+                ?? supported.first
+        }
+        guard maximumQuality > 0 else { return nil }
+        return supported.filter { $0.quality > 0 && $0.quality <= maximumQuality }
+            .max(by: { $0.quality < $1.quality })
+    }
+
     /// Prefer moving down in quality when a CDN source fails, not up to a larger stream.
     static func fallback(from streams: [Stream], failed: Stream, tried: Set<String>) -> Stream? {
         let available = streams.filter { $0.playableOnIOS && !tried.contains($0.id) }

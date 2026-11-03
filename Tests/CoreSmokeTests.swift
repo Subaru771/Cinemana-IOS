@@ -79,6 +79,35 @@ struct CoreSmokeTests {
         precondition(PlaybackPlanner.preferred(from: sources, maximumQuality: 720)?.id == source720.id)
         precondition(PlaybackPlanner.preferred(from: sources, maximumQuality: Int.max)?.id == source2160.id)
 
+        // v1.6.5: bounded download ceilings, HLS variants and endpoint merging.
+        precondition(PlaybackPlanner.downloadStream(from: sources, maximumQuality: 480) == nil)
+        precondition(PlaybackPlanner.downloadStream(from: sources, maximumQuality: 720)?.quality == 720)
+        precondition(PlaybackPlanner.downloadStream(from: sources, maximumQuality: 1080)?.quality == 1080)
+        precondition(PlaybackPlanner.downloadStream(from: sources, maximumQuality: Int.max)?.quality == 2160)
+        let unknown = Stream(url: URL(string: "https://cdn.example/unknown.mp4")!, quality: 0)
+        precondition(PlaybackPlanner.downloadStream(from: [unknown], maximumQuality: 720) == nil)
+        precondition(PlaybackPlanner.downloadStream(from: [unknown], maximumQuality: Int.max) != nil)
+        let other = Stream(url: URL(string: "https://cdn.example/480.mp4")!, quality: 480)
+        let combined = PlaybackPlanner.mergeStreamSources([[source1080], [other, source1080]])
+        precondition(combined.count == 2)
+        precondition(combined.first?.quality == 1080)
+        precondition(combined.last?.quality == 480)
+        let master = URL(string: "https://video.example/master.m3u8")!
+        let playlist = """
+        #EXTM3U
+        #EXT-X-STREAM-INF:BANDWIDTH=650000,RESOLUTION=854x480
+        480/index.m3u8
+        #EXT-X-STREAM-INF:BANDWIDTH=1700000,RESOLUTION=1280x720
+        720/index.m3u8
+        #EXT-X-STREAM-INF:BANDWIDTH=2800000,RESOLUTION=1920x1080
+        1080/index.m3u8
+        """
+        let renditions = HLSQuality.variants(in: playlist, relativeTo: master)
+        precondition(renditions.count == 3)
+        precondition(HLSQuality.choose(renditions, ceiling: 480)?.url.absoluteString == "https://video.example/480/index.m3u8")
+        precondition(HLSQuality.choose(renditions, ceiling: 720)?.height == 720)
+        precondition(HLSQuality.choose(renditions, ceiling: Int.max)?.height == 1080)
+        precondition(HLSQuality.choose(renditions, ceiling: 360) == nil)
         // v1.5: next episode, subtitles, download paths and policy
         precondition(PlaybackPlanner.nextEpisode(after: ep1, in: [ep2, ep1])?.id == ep2.id)
         precondition(PlaybackPlanner.nextEpisode(after: ep2, in: [ep1, ep2]) == nil)

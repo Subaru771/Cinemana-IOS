@@ -282,7 +282,7 @@ final class DownloadCenter: NSObject, ObservableObject, URLSessionDownloadDelega
             return
         }
         do {
-            let available = DownloadPolicy.supported(try await CinemanaAPI.shared.streams(id))
+            let available = DownloadPolicy.supported(try await CinemanaAPI.shared.streams(id, preferComplete: true))
             // The user may have cancelled or paused while the source was being resolved.
             guard entry(for: id)?.status == .preparing else { return }
             if UserDefaults.standard.bool(forKey: Self.wifiOnlyKey) && !wifiAvailable {
@@ -292,10 +292,11 @@ final class DownloadCenter: NSObject, ObservableObject, URLSessionDownloadDelega
             }
             let configured = UserDefaults.standard.integer(forKey: "cinemana-max-download-quality")
             let ceiling = entry(for: id)?.requestedQuality ?? (configured > 0 ? configured : 1080)
-            guard let stream = PlaybackPlanner.preferred(from: available,
-                                                         maximumQuality: ceiling),
+            guard let stream = PlaybackPlanner.downloadStream(from: available, maximumQuality: ceiling),
                   let format = DownloadPolicy.format(for: stream.url) else {
-                fail(id, "The provider has no downloadable MP4 or HLS source for this title.")
+                fail(id, ceiling == Int.max
+                    ? "No downloadable MP4 or HLS source is available."
+                    : "No downloadable resolution at or below \(ceiling)p is available. Choose a higher quality or Best available.")
                 return
             }
             let allowsCellular = !UserDefaults.standard.bool(forKey: Self.wifiOnlyKey)
@@ -317,7 +318,11 @@ final class DownloadCenter: NSObject, ObservableObject, URLSessionDownloadDelega
                     try? fm.removeItem(at: OfflinePath.resolve(partial))
                     change(id) { $0.localPath = nil }
                 }
-                let asset = AVURLAsset(url: stream.url,
+                // A master playlist may contain resolutions higher than its label.
+                let resolved = try await HLSQuality.resolve(stream, maximumQuality: ceiling,
+                                                            allowsCellular: allowsCellular)
+                guard entry(for: id)?.status == .downloading else { return }
+                let asset = AVURLAsset(url: resolved,
                                        options: [AVURLAssetAllowsCellularAccessKey: allowsCellular])
                 guard let task = hlsSession.makeAssetDownloadTask(
                     asset: asset, assetTitle: video.title, assetArtworkData: nil, options: nil
