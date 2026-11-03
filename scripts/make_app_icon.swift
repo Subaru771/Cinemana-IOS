@@ -1,47 +1,57 @@
 import AppKit
 import Foundation
 
-// Reproducible original Cinemana iOS artwork.
-// A full-resolution Branding/CinemanaIOSIcon.jpg takes precedence;
-// otherwise use the bundled JPEG representation of the same user-provided art.
-// Never draw a generic filmstrip approximation.
+// Prefer the user's original full-resolution Cinemana art. Never mistake
+// enlarging a small JPEG for restoring missing image detail.
 let root = URL(fileURLWithPath: FileManager.default.currentDirectoryPath)
-let highResolution = root.appendingPathComponent("Branding/CinemanaIOSIcon.jpg")
-let embedded = root.appendingPathComponent("Branding/CinemanaIOSIcon.b64")
+let masterPNG = root.appendingPathComponent("Branding/CinemanaIOSIcon-Original.png")
+let masterJPG = root.appendingPathComponent("Branding/CinemanaIOSIcon.jpg")
+let legacy = root.appendingPathComponent("Branding/CinemanaIOSIcon.b64")
+let fm = FileManager.default
 
 let sourceData: Data
-if FileManager.default.fileExists(atPath: highResolution.path) {
-    sourceData = try Data(contentsOf: highResolution)
+let assetFilename: String
+if fm.fileExists(atPath: masterPNG.path) {
+    sourceData = try Data(contentsOf: masterPNG)
+    assetFilename = "CinemanaArtwork.png"
+} else if fm.fileExists(atPath: masterJPG.path) {
+    sourceData = try Data(contentsOf: masterJPG)
+    assetFilename = "CinemanaArtwork.jpg"
 } else {
-    let encoded = try String(contentsOf: embedded, encoding: .utf8)
-    guard let decoded = Data(base64Encoded: encoded.trimmingCharacters(in: .whitespacesAndNewlines)) else {
-        fatalError("Bundled Cinemana logo is not valid base64")
+    // Legacy developer fallback only. Public builds should include masterPNG.
+    let content = try String(contentsOf: legacy, encoding: .utf8)
+    guard let data = Data(base64Encoded: content.trimmingCharacters(in: .whitespacesAndNewlines)) else {
+        fatalError("The old branding fallback could not be decoded")
     }
-    sourceData = decoded
+    sourceData = data
+    assetFilename = "CinemanaArtwork.jpg"
 }
-guard let original = NSImage(data: sourceData) else {
-    fatalError("Cinemana logo does not contain a readable image")
+guard let original = NSImage(data: sourceData),
+      let originalPixels = NSBitmapImageRep(data: sourceData) else {
+    fatalError("Cinemana icon artwork is unreadable")
 }
-
+let fullSize = originalPixels.pixelsWide >= 1024 && originalPixels.pixelsHigh >= 1024
+if !fullSize {
+    print("::warning::High-resolution Cinemana icon is missing from GitHub. This unsigned development build still uses a compressed placeholder. Upload Branding/CinemanaIOSIcon-Original.png (1024px+) to fix the app icon.")
+}
 let assetRoot = root.appendingPathComponent("CinemanaMobile/Assets.xcassets")
-let imageDirectory = assetRoot.appendingPathComponent("CinemanaArtwork.imageset")
-try FileManager.default.createDirectory(at: imageDirectory, withIntermediateDirectories: true)
-try sourceData.write(to: imageDirectory.appendingPathComponent("CinemanaArtwork.jpg"), options: .atomic)
+let artworkDir = assetRoot.appendingPathComponent("CinemanaArtwork.imageset")
+try fm.createDirectory(at: artworkDir, withIntermediateDirectories: true)
+try sourceData.write(to: artworkDir.appendingPathComponent(assetFilename), options: .atomic)
 let manifest = """
 {
-  "images": [{ "filename": "CinemanaArtwork.jpg", "idiom": "universal" }],
+  "images": [{ "filename": "\(assetFilename)", "idiom": "universal" }],
   "info": { "author": "xcode", "version": 1 }
 }
 """
-try manifest.write(to: imageDirectory.appendingPathComponent("Contents.json"), atomically: true, encoding: .utf8)
+try manifest.write(to: artworkDir.appendingPathComponent("Contents.json"), atomically: true, encoding: .utf8)
 
 let pixels = 1024
-guard let bitmap = NSBitmapImageRep(
-    bitmapDataPlanes: nil, pixelsWide: pixels, pixelsHigh: pixels,
-    bitsPerSample: 8, samplesPerPixel: 4,
-    hasAlpha: true, isPlanar: false, colorSpaceName: .deviceRGB,
-    bytesPerRow: 0, bitsPerPixel: 0
-), let graphics = NSGraphicsContext(bitmapImageRep: bitmap) else {
+guard let bitmap = NSBitmapImageRep(bitmapDataPlanes: nil, pixelsWide: pixels, pixelsHigh: pixels,
+                                    bitsPerSample: 8, samplesPerPixel: 4, hasAlpha: true,
+                                    isPlanar: false, colorSpaceName: .deviceRGB,
+                                    bytesPerRow: 0, bitsPerPixel: 0),
+      let graphics = NSGraphicsContext(bitmapImageRep: bitmap) else {
     fatalError("Failed to create App Store icon canvas")
 }
 NSGraphicsContext.saveGraphicsState()
@@ -58,6 +68,6 @@ guard let png = bitmap.representation(using: .png, properties: [:]) else {
     fatalError("Failed to encode Cinemana iOS icon")
 }
 let iconDir = assetRoot.appendingPathComponent("AppIcon.appiconset")
-try FileManager.default.createDirectory(at: iconDir, withIntermediateDirectories: true)
+try fm.createDirectory(at: iconDir, withIntermediateDirectories: true)
 try png.write(to: iconDir.appendingPathComponent("AppIcon.png"), options: .atomic)
-print("Generated Cinemana iOS original-artwork assets; app icon: \(png.count) bytes")
+print("Generated Cinemana iOS icon at 1024x1024 from \(originalPixels.pixelsWide)x\(originalPixels.pixelsHigh) input.")
