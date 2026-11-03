@@ -20,6 +20,9 @@ jobs:
       - name: Validate English and Arabic website
         run: python3 scripts/check_landing_locales.py
 
+      - name: Validate streamlined download menu
+        run: python3 scripts/check_download_menu.py
+
       - name: Install XcodeGen
         run: brew install xcodegen
 
