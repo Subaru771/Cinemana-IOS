@@ -132,13 +132,7 @@ struct DownloadsView: View {
 
     private func row(_ entry: OfflineEntry) -> some View {
         HStack(alignment: .center, spacing: 12) {
-            AsyncImage(url: entry.video.poster) { image in
-                image.resizable().scaledToFill()
-            } placeholder: {
-                Image(systemName: "film")
-                    .foregroundStyle(.secondary)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-            }
+            RemotePoster(url: entry.video.poster, maxPixel: 240)
             .frame(width: 60, height: 84)
             .clipShape(RoundedRectangle(cornerRadius: 8))
             .overlay {

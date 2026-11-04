@@ -36,7 +36,8 @@ struct CinemanaAPI: Sendable {
         guard let url = URL(string: base + path) else { throw APIError.invalidResponse }
         var req = URLRequest(url: url)
         req.timeoutInterval = timeout
-        req.setValue("CinemanaMobile/1.6.2 (iOS)", forHTTPHeaderField: "User-Agent")
+        let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1"
+        req.setValue("CinemanaMobile/\(version) (iOS)", forHTTPHeaderField: "User-Agent")
         do {
             let (data, response) = try await URLSession.shared.data(for: req)
             guard let http = response as? HTTPURLResponse else { throw APIError.invalidResponse }
@@ -195,14 +196,19 @@ struct CinemanaAPI: Sendable {
         return url
     }
 
-    private func quality(_ text: String) -> Int {
+    private func quality(_ text: String) -> Int { Self.parseQuality(text) }
+
+    /// Maps a provider label ("1080p", "FHD", "4K", "720") to a known resolution.
+    /// Unknown numbers (for example "Server 2") are treated as Auto (0) instead of a tiny resolution.
+    static func parseQuality(_ text: String) -> Int {
         let text = text.lowercased()
         if text.contains("4k") || text.contains("2160") { return 2160 }
         if text.contains("1080") || text.contains("fhd") { return 1080 }
         if text.contains("720") || text == "hd" { return 720 }
         if text.contains("480") || text == "sd" { return 480 }
-        let digits = text.split { !$0.isNumber }.first ?? ""
-        return Int(digits) ?? 0
+        if text.contains("360") { return 360 }
+        if text.contains("240") { return 240 }
+        return 0
     }
 
     private func parseStreams(_ root: Any) -> [Stream] {
@@ -233,10 +239,13 @@ struct CinemanaAPI: Sendable {
         return collected.sorted { $0.quality > $1.quality }
     }
 
-    /// Return quickly for playback, but aggregate both endpoints for download
-    /// quality selection. A grace period avoids discarding slower sources.
+    /// Playback returns promptly; download source selection can request a more
+    /// complete list, including qualities only returned by the slower endpoint.
+    /// Neither path is allowed to stall forever. Provider restrictions are respected.
     func streams(_ id: String, preferComplete: Bool = false) async throws -> [Stream] {
-        if !preferComplete, let cached = await PlaybackStreamCache.shared.get(id) { return cached }
+        if !preferComplete, let cached = await PlaybackStreamCache.shared.get(id) {
+            return cached
+        }
         let encoded = segment(id)
         let paths = ["transcoddedfiles/id/\(encoded)", "allVideoInfo/id/\(encoded)"]
         let timeoutNanos: UInt64 = preferComplete ? 6_000_000_000 : 2_500_000_000
@@ -270,8 +279,8 @@ struct CinemanaAPI: Sendable {
                     finishedEndpoints += 1
                     if !streams.isEmpty {
                         sources.append(streams)
-                        // Playback starts on the first compatible source.
-                        // Downloads still aggregate results from both endpoints.
+                        // Playback takes the first valid endpoint immediately.
+                        // Downloads still aggregate sources to expose all qualities.
                         if !preferComplete { finish = true }
                     }
                 case .failed(let problem):

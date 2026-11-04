@@ -1,12 +1,11 @@
 import SwiftUI
 
-/// Four explicit resolution ceilings. The selection is stored with each
-/// download, and no legacy default / best / network menu items are displayed.
+/// Four explicit resolution ceilings, and nothing else.
+/// The selected maximum stays with each queued download.
 struct DownloadQualityMenu: View {
     private let videos: [Video]
     private let compact: Bool
     private let title: String
-
     @ObservedObject private var center = DownloadCenter.shared
 
     init(video: Video, compact: Bool = false, title: String = "Download options") {
