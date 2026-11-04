@@ -1,3 +1,10 @@
+## v2.0.1 beta.1 — Hide Mature Content
+- Optional **Settings → Content filter → Hide Mature Content** toggle, off by default.
+- Filter provider-tagged adult titles and explicit age classifications from browsing, recommendations, Search, personal collections and downloaded-items display. Does not delete data.
+- Preserve existing local video bookmarks in the decoder even when the content provider supplies no parental rating.
+- No frame-by-frame scene censorship: items with missing or incorrect provider metadata may still be shown.
+- Portable tests cover classification, disabled state, filtered rows, and backwards-compatible saved videos.
+
 # Cinemana iOS — Changelog
 
 ## 2.0.0-beta.1 — candidate (device QA required)

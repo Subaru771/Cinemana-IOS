@@ -11,6 +11,10 @@ struct Video: Identifiable, Hashable, Codable, Sendable {
     let poster: URL?
     let backdrop: URL?
     let genres: [String]
+    /// Optional parental classification, NOT the numeric IMDb/critic score.
+    let ageRating: String?
+    /// Explicit adult-content flag from provider metadata, when present.
+    let adultFlag: Bool?
     let season: Int
     let episode: Int
 
@@ -50,6 +54,28 @@ struct Video: Identifiable, Hashable, Codable, Sendable {
         else if let objects = cats as? [[String: Any]] {
             self.genres = objects.compactMap { ($0["en_title"] ?? $0["name"] ?? $0["title"]) as? String }
         } else { self.genres = [] }
+        // Never interpret `stars`, `imdbRating`, or numeric `rating` as an age rating.
+        let classification = s("ageRating", "age_rating", "contentRating", "content_rating",
+                               "parentalRating", "parental_rating", "certification", "certificate",
+                               "mpaa", "mpaa_rating", "tvRating", "tv_rating", "rated")
+        self.ageRating = classification.isEmpty ? nil : classification
+        // A real false value is different from unspecified metadata.
+        func adultValue(_ value: Any?) -> Bool? {
+            guard let value else { return nil }
+            if let number = value as? NSNumber { return number.boolValue }
+            if let string = value as? String {
+                switch string.lowercased().trimmingCharacters(in: .whitespacesAndNewlines) {
+                case "true", "yes", "1", "adult", "explicit", "mature": return true
+                case "false", "no", "0": return false
+                default: return nil
+                }
+            }
+            return nil
+        }
+        let explicitKeys = ["adult", "isAdult", "is_adult", "mature", "isMature",
+                            "is_mature", "explicit", "isExplicit", "is_explicit", "pornographic"]
+        let adultFlags = explicitKeys.compactMap { adultValue(json[$0]) }
+        self.adultFlag = adultFlags.contains(true) ? true : adultFlags.first
     }
 }
 

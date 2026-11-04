@@ -14,6 +14,26 @@ struct CoreSmokeTests {
         precondition(movie.rating == 8.5)
         precondition(movie.poster?.host == "example.org")
         precondition(movie.genres.count == 2)
+        // Mature-content filtering uses actual adult flags and age classifications,
+        // never the 8.5 IMDb score. Old library entries missing new keys must decode.
+        precondition(MatureContentFilter.allows(movie, hideMature: true))
+        let adult = Video(json: ["id": "adult", "title": "Adult-tagged film", "kind": "1", "adult": true])!
+        let mature = Video(json: ["id": "tv-ma", "title": "Drama", "contentRating": "TV-MA", "kind": "2"])!
+        let matureGenre = Video(json: ["id": "anime", "title": "Animation", "categories": ["Animation", "Hentai"]])!
+        let arabicGenre = Video(json: ["id": "arabic", "title": "Arabic film", "categories": ["للكبار فقط"]])!
+        let thirteen = Video(json: ["id": "teen", "title": "Teen", "ageRating": "PG-13", "rating": 9.9])!
+        let notExplicit = Video(json: ["id": "ordinary", "title": "Adult Education", "categories": ["Comedy"], "adult": false])!
+        precondition(MatureContentFilter.isMature(adult) && MatureContentFilter.isMature(mature))
+        precondition(MatureContentFilter.isMature(matureGenre) && MatureContentFilter.isMature(arabicGenre))
+        precondition(!MatureContentFilter.isMature(thirteen) && !MatureContentFilter.isMature(notExplicit))
+        precondition(MatureContentFilter.visible([movie, adult, mature, thirteen], hideMature: true).map(\.id) == [movie.id, thirteen.id])
+        precondition(MatureContentFilter.visible([movie, adult], hideMature: false).count == 2)
+        precondition(MatureContentFilter.visibleRows([CatalogRow(title: "Adults", videos: [adult]), CatalogRow(title: "All", videos: [movie, mature])], hideMature: true).count == 1)
+        var legacyMovieJSON = try JSONSerialization.jsonObject(with: JSONEncoder().encode(movie)) as! [String: Any]
+        legacyMovieJSON.removeValue(forKey: "ageRating")
+        legacyMovieJSON.removeValue(forKey: "adultFlag")
+        let restoredOldMovie = try JSONDecoder().decode(Video.self, from: JSONSerialization.data(withJSONObject: legacyMovieJSON))
+        precondition(restoredOldMovie.ageRating == nil && restoredOldMovie.adultFlag == nil)
         precondition(SearchOptions(minRating: 8).apply([movie]).count == 1)
         precondition(SearchOptions(minRating: 9).apply([movie]).isEmpty)
         precondition(SearchOptions(type: .series).apply([movie]).isEmpty)
