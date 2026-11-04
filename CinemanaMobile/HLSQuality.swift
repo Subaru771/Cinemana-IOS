@@ -3,8 +3,8 @@ import Foundation
 import FoundationNetworking
 #endif
 
-/// Selects a concrete HLS rendition instead of downloading an unconstrained
-/// master playlist when a resolution ceiling has been requested.
+/// Parses the declared resolutions of a HLS master playlist without retrieving media.
+/// The selected variant is a concrete rendition, unlike an unconstrained master URL.
 enum HLSQuality {
     struct Variant: Equatable {
         let height: Int
@@ -39,6 +39,8 @@ enum HLSQuality {
         }
     }
 
+    /// Returns a fixed HLS rendition for masters; for media playlists the
+    /// provider-labeled resolution is retained. Refuses unknown-resolution masters.
     static func resolve(_ stream: Stream, maximumQuality: Int, allowsCellular: Bool) async throws -> URL {
         var request = URLRequest(url: stream.url, cachePolicy: .reloadIgnoringLocalCacheData, timeoutInterval: 12)
         request.allowsCellularAccess = allowsCellular
@@ -54,6 +56,7 @@ enum HLSQuality {
             }
             return variant.url
         }
+        // A concrete media playlist has no alternate video resolutions to select.
         guard maximumQuality == Int.max || (stream.quality > 0 && stream.quality <= maximumQuality) else {
             throw QualityError.unavailable(maximumQuality)
         }

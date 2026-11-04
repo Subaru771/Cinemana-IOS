@@ -1,69 +1,47 @@
-
-name: Cinemana iOS v1.6.12 Approved Splash
-
+name: Cinemana iOS — unsigned build
 on:
   workflow_dispatch:
   push:
     branches: [main]
   pull_request:
     branches: [main]
-
+permissions:
+  contents: read
 jobs:
   build:
     runs-on: macos-15
-    timeout-minutes: 35
-
+    timeout-minutes: 45
     steps:
-      - name: Checkout source
+      - name: Check out complete, versioned source tree
         uses: actions/checkout@v4
-
-      - name: Restore v1.6.11 source and apply approved splash
+      - name: Verify version, artwork, download UI and localization
         run: |
-          test -s ci-sources/Cinemana-iOS-v1.6.11.zip
-          mkdir -p /tmp/cinemana-restore
-          unzip -q ci-sources/Cinemana-iOS-v1.6.11.zip -d /tmp/cinemana-restore
-          test -f /tmp/cinemana-restore/Cinemana-iOS-v1.6.11/project.yml
-          rsync -a --exclude .github /tmp/cinemana-restore/Cinemana-iOS-v1.6.11/ ./
-          python3 scripts/apply_approved_splash.py
+          grep -q "CFBundleShortVersionString: '2.0.0'" project.yml
           python3 scripts/validate_branding.py
-
-      - name: Validate English and Arabic website
-        run: python3 scripts/check_landing_locales.py
-
-      - name: Validate streamlined download menu
-        run: python3 scripts/check_download_menu.py
-
-      - name: Verify autoplay and fast startup
-        run: python3 scripts/check_launch_autoplay.py
-
-      - name: Install XcodeGen
-        run: brew install xcodegen
-
-      - name: Generate Cinemana icon
+          python3 scripts/check_download_menu.py
+          python3 scripts/check_landing_locales.py
+          python3 scripts/check_launch_autoplay.py
+          plutil -lint CinemanaMobile/en.lproj/Localizable.strings
+          plutil -lint CinemanaMobile/ar.lproj/Localizable.strings
+      - name: Verify included app icon source
         run: swift scripts/make_app_icon.swift
-
-      - name: Run portable core tests
+      - name: Run portable model / quality / subtitle / local-data tests
         run: |
-          swiftc -o /tmp/cinemana-core-tests \
+          swiftc -o "$RUNNER_TEMP/cinemana-tests" \
             CinemanaMobile/Models.swift \
             CinemanaMobile/CinemanaAPI.swift \
             CinemanaMobile/PlaybackPlanner.swift \
             CinemanaMobile/OfflineModels.swift \
             CinemanaMobile/Subtitles.swift \
             CinemanaMobile/HLSQuality.swift \
+            CinemanaMobile/Personalization.swift \
             Tests/CoreSmokeTests.swift
-          /tmp/cinemana-core-tests
-
-      - name: Validate native English and Arabic translations
+          "$RUNNER_TEMP/cinemana-tests"
+      - name: Install XcodeGen
+        run: brew install xcodegen
+      - name: Build for physical iOS devices without developer signing
         run: |
-          plutil -lint CinemanaMobile/en.lproj/Localizable.strings
-          plutil -lint CinemanaMobile/ar.lproj/Localizable.strings
-
-      - name: Generate Xcode project
-        run: xcodegen generate
-
-      - name: Build iPhone app
-        run: |
+          xcodegen generate
           xcodebuild \
             -project CinemanaMobile.xcodeproj \
             -scheme CinemanaMobile \
@@ -73,23 +51,25 @@ jobs:
             -derivedDataPath build \
             CODE_SIGNING_ALLOWED=NO \
             build
-
-      - name: Verify v1.6.12 bundle metadata
+      - name: Verify bundle metadata and package real unsigned IPA
         run: |
+          set -eu
           APP=build/Build/Products/Release-iphoneos/CinemanaMobile.app
-          test "$(plutil -extract CFBundleShortVersionString raw "$APP/Info.plist")" = '1.6.12'
+          test -d "$APP"
+          test "$(plutil -extract CFBundleShortVersionString raw "$APP/Info.plist")" = '2.0.0'
           test "$(plutil -extract CFBundleDisplayName raw "$APP/Info.plist")" = 'Cinemana iOS'
-          test -f "$APP/Assets.car"
-
-      - name: Package unsigned IPA
-        run: |
+          test -s "$APP/Assets.car"
           mkdir -p dist/Payload
-          cp -R build/Build/Products/Release-iphoneos/CinemanaMobile.app dist/Payload/
-          cd dist
-          zip -r Cinemana-iOS.ipa Payload
-
-      - name: Upload IPA
+          cp -R "$APP" dist/Payload/
+          (cd dist && zip -q -r Cinemana-iOS-v2.0.0-beta.1-Unsigned.ipa Payload)
+          unzip -tq dist/Cinemana-iOS-v2.0.0-beta.1-Unsigned.ipa
+          shasum -a 256 dist/Cinemana-iOS-v2.0.0-beta.1-Unsigned.ipa > dist/SHA256SUMS.txt
+      - name: Upload real IPA and checksum
         uses: actions/upload-artifact@v4
         with:
-          name: Cinemana-iOS-v1.6.12-Unsigned
-          path: dist/Cinemana-iOS.ipa
+          name: Cinemana-iOS-v2.0.0-beta.1-Unsigned
+          path: |
+            dist/Cinemana-iOS-v2.0.0-beta.1-Unsigned.ipa
+            dist/SHA256SUMS.txt
+          if-no-files-found: error
+          retention-days: 30

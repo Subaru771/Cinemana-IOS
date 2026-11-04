@@ -7,12 +7,11 @@ import Network
 /// Local, sandboxed download manager. Only provider-supplied, directly downloadable streams
 /// are accepted. The manager never bypasses DRM or a provider's network authorization.
 ///
-/// v1.5: queue (2 at a time), pause/resume, automatic retry with resume data, Wi-Fi only,
+/// v1.5: queue (2 at a time), pause/resume, automatic retry with resume data,
 /// live speed/ETA, free-space checks, relative file paths and exclusion from iCloud backup.
 final class DownloadCenter: NSObject, ObservableObject, URLSessionDownloadDelegate, AVAssetDownloadDelegate {
     static let shared = DownloadCenter()
     static let maxConcurrent = 2
-    static let wifiOnlyKey = "cinemana-wifi-only"
 
     private static let fileID = "app.cinemana.mobile.ios.background-media-v1"
     private static let hlsID = "app.cinemana.mobile.ios.background-hls-v1"
@@ -31,10 +30,8 @@ final class DownloadCenter: NSObject, ObservableObject, URLSessionDownloadDelega
     private var retryAfter: [String: Date] = [:]
     private var samples: [String: (time: Double, bytes: Int64, rate: Double)] = [:]
     private var persistWork: DispatchWorkItem?
-    private let networkMonitor = NWPathMonitor()
-    private var wifiAvailable = false
-    /// Downloads suspended by the Wi-Fi-only policy (distinct from user-paused downloads).
-    private var policyPaused = Set<String>()
+    /// Last time a progress change was pushed to the UI, so lists are not redrawn many times a second.
+    private var lastProgressUI: [String: Double] = [:]
 
     private override init() {
         var folder = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
@@ -58,22 +55,6 @@ final class DownloadCenter: NSObject, ObservableObject, URLSessionDownloadDelega
         hls.sessionSendsLaunchEvents = true
         hls.isDiscretionary = false
         hlsSession = AVAssetDownloadURLSession(configuration: hls, assetDownloadDelegate: self, delegateQueue: .main)
-        // v1.6.7 removes the old Wi-Fi-only setting from the UI. Clear the
-        // persisted restriction so upgrades do not strand existing downloads.
-        UserDefaults.standard.removeObject(forKey: Self.wifiOnlyKey)
-        // Evaluate the current interface and monitor Wi-Fi transitions. The first path
-        // update is asynchronous; Wi-Fi-only queues remain safely held until then.
-        policyPaused = Set(items.filter {
-            $0.status == .paused && $0.message == "Waiting for Wi-Fi"
-        }.map(\.id))
-        networkMonitor.pathUpdateHandler = { [weak self] path in
-            DispatchQueue.main.async { [weak self] in
-                guard let self else { return }
-                self.wifiAvailable = path.status == .satisfied && path.usesInterfaceType(.wifi)
-                self.updateNetworkPolicy()
-            }
-        }
-        networkMonitor.start(queue: DispatchQueue(label: "app.cinemana.download-network"))
         restoreTasks()
     }
 
@@ -156,7 +137,6 @@ final class DownloadCenter: NSObject, ObservableObject, URLSessionDownloadDelega
     func pause(_ id: String) {
         guard let status = entry(for: id)?.status,
               status == .downloading || status == .preparing || status == .queued else { return }
-        policyPaused.remove(id)
         change(id) { $0.status = .paused; $0.message = nil }
         rates[id] = nil
         samples[id] = nil
@@ -169,7 +149,6 @@ final class DownloadCenter: NSObject, ObservableObject, URLSessionDownloadDelega
 
     func resume(_ id: String) {
         guard entry(for: id)?.status == .paused else { return }
-        policyPaused.remove(id)
         // Never resume tasks directly: they must reacquire a queue slot.
         change(id) { $0.status = .queued; $0.message = nil }
         pump()
@@ -186,33 +165,9 @@ final class DownloadCenter: NSObject, ObservableObject, URLSessionDownloadDelega
     func resumeAll() {
         let ids = items.filter { $0.status == .paused }.map(\.id)
         for id in ids {
-            policyPaused.remove(id)
             change(id) { $0.status = .queued; $0.message = nil }
         }
         pump()
-    }
-
-    /// Apply the latest Settings/Downloads toggle immediately to running transfers.
-    /// Existing downloads are suspended off Wi-Fi, not allowed to continue on cellular.
-    func updateNetworkPolicy() {
-        let restricted = UserDefaults.standard.bool(forKey: Self.wifiOnlyKey) && !wifiAvailable
-        if restricted {
-            for item in items where item.isBusy {
-                let id = item.id
-                policyPaused.insert(id)
-                change(id) { $0.status = .paused; $0.message = "Waiting for Wi-Fi" }
-                rates[id] = nil
-                samples[id] = nil
-                withTasks(id) { tasks in tasks.forEach { $0.suspend() } }
-            }
-        } else {
-            let restarting = policyPaused
-            policyPaused.removeAll()
-            for id in restarting where entry(for: id)?.status == .paused {
-                change(id) { $0.status = .queued; $0.message = nil }
-            }
-            pump()
-        }
     }
 
     func cancel(_ id: String) {
@@ -223,7 +178,6 @@ final class DownloadCenter: NSObject, ObservableObject, URLSessionDownloadDelega
         if item.format == .hls, let path = item.localPath { try? fm.removeItem(at: OfflinePath.resolve(path)) }
         attempts[id] = nil
         retryAfter[id] = nil
-        policyPaused.remove(id)
         rates[id] = nil
         samples[id] = nil
         pump()
@@ -253,7 +207,6 @@ final class DownloadCenter: NSObject, ObservableObject, URLSessionDownloadDelega
     // MARK: - Queue
 
     private func pump() {
-        if UserDefaults.standard.bool(forKey: Self.wifiOnlyKey) && !wifiAvailable { return }
         let free = Self.maxConcurrent - items.filter(\.isBusy).count
         guard free > 0 else { return }
         let now = Date()
@@ -280,29 +233,31 @@ final class DownloadCenter: NSObject, ObservableObject, URLSessionDownloadDelega
     @MainActor
     private func start(_ video: Video) async {
         let id = video.id
-        if let free = freeBytes, free < 600_000_000 {
-            fail(id, "Not enough free storage. Free up some space and retry.")
-            return
-        }
         do {
             let available = DownloadPolicy.supported(try await CinemanaAPI.shared.streams(id, preferComplete: true))
             // The user may have cancelled or paused while the source was being resolved.
             guard entry(for: id)?.status == .preparing else { return }
-            if UserDefaults.standard.bool(forKey: Self.wifiOnlyKey) && !wifiAvailable {
-                policyPaused.insert(id)
-                change(id) { $0.status = .paused; $0.message = "Waiting for Wi-Fi" }
-                return
-            }
-            let configured = UserDefaults.standard.integer(forKey: "cinemana-max-download-quality")
-            let ceiling = entry(for: id)?.requestedQuality ?? (configured > 0 ? configured : 1080)
+            let ceiling = entry(for: id)?.requestedQuality ?? 1080
             guard let stream = PlaybackPlanner.downloadStream(from: available, maximumQuality: ceiling),
                   let format = DownloadPolicy.format(for: stream.url) else {
                 fail(id, ceiling == Int.max
                     ? "No downloadable MP4 or HLS source is available."
-                    : "No downloadable resolution at or below \(ceiling)p is available. Choose a higher quality or Best available.")
+                    : "No downloadable resolution at or below \(ceiling)p is available. Choose a higher quality.")
                 return
             }
-            let allowsCellular = !UserDefaults.standard.bool(forKey: Self.wifiOnlyKey)
+            // Required free space grows with the chosen resolution.
+            let needed: Int64
+            switch stream.quality {
+            case 2160...: needed = 2_000_000_000
+            case 1080...: needed = 800_000_000
+            case 720...: needed = 500_000_000
+            default: needed = 300_000_000
+            }
+            if let free = freeBytes, free < needed {
+                fail(id, "Not enough free storage. Free up some space and retry.")
+                return
+            }
+            let allowsCellular = true
             change(id) { $0.status = .downloading; $0.format = format }
             switch format {
             case .file:
@@ -321,7 +276,8 @@ final class DownloadCenter: NSObject, ObservableObject, URLSessionDownloadDelega
                     try? fm.removeItem(at: OfflinePath.resolve(partial))
                     change(id) { $0.localPath = nil }
                 }
-                // A master playlist may contain resolutions higher than its label.
+                // An HLS master often has higher variants than its API label.
+                // Resolve a concrete rendition within the ceiling before saving.
                 let resolved = try await HLSQuality.resolve(stream, maximumQuality: ceiling,
                                                             allowsCellular: allowsCellular)
                 guard entry(for: id)?.status == .downloading else { return }
@@ -337,9 +293,9 @@ final class DownloadCenter: NSObject, ObservableObject, URLSessionDownloadDelega
                 task.resume()
             }
         } catch {
-            // HLS playlist inspection can throw after status transitions to
-            // .downloading. Fail visibly instead of leaving an endless spinner.
-            // Respect intentional pause/cancellation while the lookup is running.
+            // HLS playlist inspection starts after status becomes .downloading.
+            // Previously these errors were ignored, leaving an endless spinner.
+            // Do not override a user-initiated pause or cancellation.
             if let status = entry(for: id)?.status,
                status == .preparing || status == .downloading {
                 fail(id, error.localizedDescription)
@@ -412,7 +368,10 @@ final class DownloadCenter: NSObject, ObservableObject, URLSessionDownloadDelega
     private func restoreTasks() {
         // A title that was still resolving its source when the app quit has no task yet.
         for item in items where item.status == .preparing { change(item.id) { $0.status = .queued } }
-        updateNetworkPolicy()
+        // Downloads left waiting for Wi-Fi by an older build now simply continue.
+        for item in items where item.status == .paused && item.message == "Waiting for Wi-Fi" {
+            change(item.id) { $0.status = .queued; $0.message = nil }
+        }
         // Give the system a moment to deliver finished-in-background events before judging tasks.
         DispatchQueue.main.asyncAfter(deadline: .now() + 20) { [weak self] in self?.reconcile() }
         pump()
@@ -458,6 +417,9 @@ final class DownloadCenter: NSObject, ObservableObject, URLSessionDownloadDelega
             return
         }
         sample(id, bytes: totalBytesWritten)
+        let now = Date().timeIntervalSinceReferenceDate
+        if now - (lastProgressUI[id] ?? 0) < 0.5, totalBytesWritten < totalBytesExpectedToWrite { return }
+        lastProgressUI[id] = now
         change(id, save: false) {
             $0.bytesReceived = totalBytesWritten
             $0.bytesExpected = totalBytesExpectedToWrite
@@ -506,6 +468,9 @@ final class DownloadCenter: NSObject, ObservableObject, URLSessionDownloadDelega
         let expected = timeRangeExpectedToLoad.duration.seconds
         guard expected.isFinite && expected > 0 else { return }
         let loaded = totalTimeRangesLoaded.reduce(0) { $0 + max(0, $1.timeRangeValue.duration.seconds) }
+        let now = Date().timeIntervalSinceReferenceDate
+        if now - (lastProgressUI[id] ?? 0) < 0.5 { return }
+        lastProgressUI[id] = now
         change(id, save: false) { $0.progress = min(0.99, max(0, loaded / expected)) }
     }
 

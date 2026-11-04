@@ -10,8 +10,35 @@ enum PlaybackPlanner {
             ?? playable.min(by: { $0.quality < $1.quality })
     }
 
-    /// Combine sources without duplicating URLs or hiding a resolution only
-    /// exposed by one of the provider endpoints.
+    /// Prefer a genuine HLS master with adaptive bitrate, not an unknown progressive file.
+    static func adaptivePreferred(from streams: [Stream]) -> Stream? {
+        streams.first { $0.playableOnIOS && $0.quality == 0 &&
+            $0.url.pathExtension.lowercased() == "m3u8" }
+            ?? preferred(from: streams)
+    }
+
+    static func explainFailure(_ raw: String?) -> String {
+        let reason = (raw ?? "").lowercased()
+        if reason.contains("403") || reason.contains("451") || reason.contains("forbidden") {
+            return "The provider denied access to this stream. Check your network/provider permissions."
+        }
+        if reason.contains("401") || reason.contains("unauthorized") {
+            return "This stream requires provider authorization."
+        }
+        if reason.contains("timed out") || reason.contains("timeout") {
+            return "The media server timed out. Try again on a stable connection."
+        }
+        if reason.contains("unsupported") || reason.contains("format") {
+            return "The source format is not supported by this iOS player."
+        }
+        if reason.contains("offline") || reason.contains("internet") {
+            return "You appear to be offline. Reconnect or play a downloaded copy."
+        }
+        return "Check the connection, or choose another available quality and retry."
+    }
+
+    /// Combine choices from independent provider endpoints without keeping
+    /// duplicate URLs or discarding qualities only exposed by one server.
     static func mergeStreamSources(_ groups: [[Stream]]) -> [Stream] {
         var seen = Set<String>()
         return groups.flatMap { $0 }
@@ -19,7 +46,9 @@ enum PlaybackPlanner {
             .filter { seen.insert($0.id).inserted }
     }
 
-    /// Strict download ceiling; unknown qualities cannot guarantee a limit.
+    /// A download resolution is an actual upper bound, not just a preference.
+    /// Unknown/Auto sources cannot guarantee a cap, so exclude those for bounded
+    /// downloads.
     static func downloadStream(from streams: [Stream], maximumQuality: Int) -> Stream? {
         let supported = DownloadPolicy.supported(streams)
         if maximumQuality == Int.max {

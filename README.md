@@ -1,111 +1,40 @@
-# Cinemana iOS v1.6.8
+# Cinemana iOS — v2.0.0 beta source
 
-Native SwiftUI (iPhone/iPad) browsing and AVPlayer. Created from the v1.1 project with improved series playback, smarter quality fallback, faster concurrent details, search polish, local watchlist and Settings.
+Unofficial, independent native SwiftUI client for iPhone and iPad (iOS 16+). Content availability and streaming access depend on the upstream provider's permissions and supported networks.
 
-## v1.6.6 cinematic startup
+**Current state:** Code candidate. The GitHub Actions macOS build is the only source of a legitimate, freshly compiled unsigned IPA. Device playback, subtitle import, AirPlay, and iPad-specific behavior still require physical-device QA.
 
-- Polished red-and-black cinematic splash using Cinemana's original filmstrip artwork, animated light accents and premium wordmark.
-- Home catalog loads concurrently under the splash. It dismisses after a visible minimum (1.05 seconds) once catalog data or cache is ready, with a 2.8-second maximum.
-- Dark native iOS launch screen matches the SwiftUI background for a seamless transition.
-- Reduce Motion disables entrance animation. Optional Cinema Hub popup opens only after the splash fades.
-- The original high-resolution logo should be supplied in `Branding/CinemanaIOSIcon.jpg` for best quality.
+## Highlights
 
-## v1.6.5 quality control and reliability
+- Native full-screen AVPlayer, AirPlay/PiP, gestures, adjustable speeds, automatic HLS quality when available and bounded compatible-source fallback.
+- English and Arabic app UI, SRT/VTT file import, Arabic subtitle layout, subtitle offset, size, provider caption cache and local offline captions where available.
+- Details-first movies and series, Next Episode, watched status, user-defined intro/recap/credits skip markers.
+- Search by title, genre, year, rating, watched and saved status. Recommendations generated locally from watched/favorite titles.
+- Configurable Home sections, local watchlist/collections, private viewing history, JSON export and erase controls.
+- Offline MP4/HLS download manager with batch episodes, per-download quality ceilings, queue, retry, pause/resume, storage summary and optional offline subtitle tracks.
+- Adaptive iPad catalog grid and dedicated Apple system AirPlay route picker.
+- Retains the approved v1.6.13 Cinemana iOS red icon and full-bleed splash screen.
 
-- MP4 download resolution ceiling is enforced: unavailable sizes fail explicitly rather than downloading above your chosen limit.
-- HLS master playlists are inspected for a concrete rendition at or below the selected ceiling. Provider-labeled single-rendition playlists are also supported.
-- Download menus: Use preferred quality, Best available, 480/720/1080/2160p and Wi-Fi-only.
-- Video stream discovery combines results from both provider endpoints, using a short grace period for fast playback and a longer bounded wait for download source selection.
-- Optional Cinema Hub invitation appears only once by default. Settings lets you re-enable it.
-- Portable core tests cover limits, HLS playlist parsing, and merged results.
-- High-resolution artwork is included in the downloadable v1.6.5 source package; see the separate branding asset instructions for replacing the bundled compact fallback.
+## Build a real unsigned IPA
 
-See [v1.6.5 release notes](docs/RELEASE-v1.6.5.md).
+The `.github/workflows/ios.yml` macOS workflow checks out and compiles the **real checked-in source tree**. It does not extract old archive snapshots or change files inside an IPA after the build.
 
-## v1.6.8 — faster opening and immediate playback
+1. Push the source to your GitHub repo and open **Actions → Cinemana iOS — unsigned build**.
+2. Run the workflow or let a push to `main` trigger it.
+3. Download the `Cinemana-iOS-v2.0.0-beta.1-Unsigned` artifact after the macOS job succeeds.
+4. Extract the `.ipa`, sign it through SideStore or another supported signer, then verify on an actual device.
 
-- Removed the **Continue Watching** section from the Home screen; playback history remains in **My List**.
-- Tap a movie or episode to automatically begin fullscreen playback; for a series the app finds the first or next unfinished episode.
-- Details and related titles load after exiting playback, avoiding extra API traffic competing with video start.
-- Stream discovery returns the first valid playable result immediately instead of waiting an extra 450 ms; timed-out/failed endpoints are still reported.
-- Splash animation is now approximately 560 ms, plus a short fade. It never blocks on the Home catalog or network.
-- Cached catalog rows are used without automatically starting four concurrent refresh requests; pull-to-refresh remains available.
-- The startup logo only uses the real 1024px+ Cinemana artwork. Older GitHub builds that lack the original image use a crisp native vector fallback, **not** an upscaled 256px JPEG. The complete source ZIP includes the exact original 1254px art.
-- UI changes require an updated IPA installed on the device; source updates alone do not change an existing installation.
+CI uses XcodeGen, macOS 15 and `xcodebuild -sdk iphoneos CODE_SIGNING_ALLOWED=NO`. Bundle version in `project.yml` is `2.0.0`, build `21`. A passing test does not prove a particular content-provider video is accessible.
 
-See [Release v1.6.8](docs/RELEASE-v1.6.8.md) for device checks.
-
-## v1.6.7 — streamlined downloads and artwork
-
-- All download menus now show only **480p, 720p, 1080p, 2160p**. Removed Default, Best Available and Wi-Fi-only from the movie/player menus, Downloads and Settings.
-- A previous Wi-Fi-only preference is cleared on update so queued transfers do not remain blocked.
-- The icon generator now prefers `Branding/CinemanaIOSIcon-Original.png` (1024px or larger). The **complete v1.6.7 source ZIP** includes the original 1254px PNG and generated opaque 1024px AppIcon.
-- **GitHub's source branch still lacks the full-resolution binary**. Until its original PNG is uploaded to `Branding/`, the GitHub unsigned-IPA workflow warns and uses the compact development fallback. The attached v1.6.7 ZIP already contains the correct artwork.
-- To build the fixed icon from GitHub, add `Branding/CinemanaIOSIcon-Original.png` from the ZIP, then rerun the iOS workflow.
-
-## v1.6 player, diagnostics and branding
-
-- Fullscreen custom player: bounded stall recovery, a precise scrub-time preview and copyable AVFoundation diagnostics.
-- Download storage summary, low-space warning, and an option to delete completed videos without interrupting ongoing downloads.
-- Network diagnostics from Settings, with ISP/server access errors reported honestly.
-- Cinemana app icon generated by `swift scripts/make_app_icon.swift` before XcodeGen (automated in GitHub Actions).
-- English and Arabic interface localization groundwork (some dynamic strings remain untranslated).
-- The macOS GitHub workflow runs portable tests, builds the app, and uploads an unsigned IPA.
-
-See [RELEASE-v1.6.md](RELEASE-v1.6.md) for the manual iPhone test checklist and known limitations.
-
-## Make Cinemana accessible to testers and users
-
-A regular iPhone cannot install our unsigned GitHub Actions IPA by tapping a ZIP link.
-The official no-sideload route is **TestFlight** (beta), followed by **App Store** (production).
-
-- [Distribution instructions](DISTRIBUTION.md): Apple membership, content permissions, code signing, GitHub secrets and TestFlight approval.
-- [Manual TestFlight upload workflow](.github/workflows/testflight.yml): only runs when explicitly requested and distribution rights are confirmed.
-- [Public website template](landing/index.html): responsive release landing page with a **coming soon** placeholder, not a fake installation link.
-- [Draft privacy policy](landing/privacy.html): must be checked, completed with support contact and publicly hosted before submission.
-
-**Current state:** public release is not enabled. We still need the Apple Developer Program membership, valid signing materials, authorized provider/media rights and real-device QA. The unsigned build remains available for development checks.
-
-## Build on GitHub's website (Windows-friendly)
-
-In your existing **Cinemana-IOS** repository, use **Add file → Upload files** and upload the *extracted* project files and folders. Preserve the folder structure: `CinemanaMobile/`, `Tests/`, `project.yml`. Replace existing files when prompted. The included `.github/workflows/ios.yml` can be used for a standalone build workflow, but if your existing green workflow (`main.yml` or `ios.yml`) works, you may keep it: XcodeGen will pick up the new `PlaybackPlanner.swift` automatically.
-
-Go to **Actions → Cinemana iOS Build → Run workflow**, or open the automatically triggered build. Download the **Cinemana iOS** unsigned artifact after it succeeds. Do not mistake a successful ZIP integrity check for a successful Xcode build.
-
-The signed installation/distribution step is deliberately out of scope for this release.
-
-## Build command (Mac or GitHub Actions)
+## Quick local core tests (Linux or macOS with Swift)
 
 ```sh
-brew install xcodegen
-xcodegen generate
-xcodebuild -project CinemanaMobile.xcodeproj -scheme CinemanaMobile -configuration Release -sdk iphoneos -destination 'generic/platform=iOS' CODE_SIGNING_ALLOWED=NO build
+swiftc -o /tmp/cinemana-tests CinemanaMobile/Models.swift CinemanaMobile/CinemanaAPI.swift CinemanaMobile/PlaybackPlanner.swift CinemanaMobile/OfflineModels.swift CinemanaMobile/Subtitles.swift CinemanaMobile/HLSQuality.swift CinemanaMobile/Personalization.swift Tests/CoreSmokeTests.swift
+/tmp/cinemana-tests
 ```
 
-## Offline portable Swift tests
+## Responsible development and privacy
 
-```sh
-swiftc -o /tmp/cinemana-core CinemanaMobile/Models.swift CinemanaMobile/CinemanaAPI.swift CinemanaMobile/PlaybackPlanner.swift CinemanaMobile/OfflineModels.swift CinemanaMobile/Subtitles.swift CinemanaMobile/HLSQuality.swift Tests/CoreSmokeTests.swift
-/tmp/cinemana-core
-```
+History, collections, favorites and custom skip markers are stored on the device. No personal telemetry or developer account is required. Select a movie to view details; choose **Play** to start video. Do not assume an arbitrary upstream server permits playback, download or redistribution of its media.
 
-## Supported playback
-
-Native AVPlayer supports standard HLS and compatible progressive media. Not all streams or formats work on iOS. If the provider restricts a network, an app-side change cannot override the authorization requirement. All catalog URLs and streaming links remain provider-controlled.
-
-See `CHANGELOG-v1.3.0.md` for features, known limitations, and verification status.
-
-
-## iOS v1.3 — Cinema controls and offline downloads
-
-- Native AVPlayer keeps AirPlay, supported captions/audio tracks and Picture-in-Picture controls.
-- Playback controls also offer 10-second rewind, 30-second forward and speed selection.
-- Download movies or individual episodes from their detail screens when the provider supplies a compatible MP4 or HLS stream.
-- Downloads are managed under My List → Downloads; cancel, retry and delete are supported.
-- Progress and download status are saved locally; the player prefers an existing offline copy before requesting a stream.
-- Preferred offline quality is configurable in Settings. Background download sessions resume under iOS-managed conditions.
-- This does **not** bypass DRM, network authorization, ISP restrictions, or provide unauthorized content.
-- Building an unsigned IPA does not install it; Apple signing is still necessary.
-
-### GitHub web build
-Open Actions → Cinemana iOS Build. The workflow builds the SwiftUI XcodeGen project on macOS and uploads an unsigned IPA artifact. The source is not considered device-tested until an actual iPhone test.
+See [CHANGELOG.md](CHANGELOG.md), [DISTRIBUTION.md](DISTRIBUTION.md) and [WINDOWS-APPLE-SIGNING.md](WINDOWS-APPLE-SIGNING.md).
