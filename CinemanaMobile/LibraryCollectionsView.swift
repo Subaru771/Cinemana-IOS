@@ -3,6 +3,7 @@ import SwiftUI
 /// Named collections are local-only and built on the existing favorites snapshots.
 struct CollectionsView: View {
     @EnvironmentObject private var library: LibraryStore
+    @AppStorage(MatureContentFilter.preferenceKey) private var hideMatureContent = false
     @State private var name = ""
 
     var body: some View {
@@ -31,7 +32,7 @@ struct CollectionsView: View {
             }
             ForEach(library.extras.collections) { collection in
                 Section {
-                    let matching = library.snapshot.favorites.filter { collection.videoIDs.contains($0.id) }
+                    let matching = library.snapshot.favorites.filter { collection.videoIDs.contains($0.id) && MatureContentFilter.allows($0, hideMature: hideMatureContent) }
                     if matching.isEmpty {
                         Text("Use the Collections menu on a movie's details page to add titles.")
                             .font(.footnote).foregroundStyle(.secondary)
@@ -60,7 +61,7 @@ struct CollectionsView: View {
                     HStack {
                         Text(collection.name)
                         Spacer()
-                        Text("\(collection.videoIDs.count) titles")
+                        Text("\(matchingCount(in: collection)) shown")
                     }
                 } footer: {
                     Button(role: .destructive) { library.deleteCollection(collection.id) } label: {
@@ -70,6 +71,10 @@ struct CollectionsView: View {
             }
         }
         .navigationTitle("Collections")
+    }
+
+    private func matchingCount(in collection: WatchCollection) -> Int {
+        library.snapshot.favorites.filter { collection.videoIDs.contains($0.id) && MatureContentFilter.allows($0, hideMature: hideMatureContent) }.count
     }
 
     private func add() {

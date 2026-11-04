@@ -106,9 +106,14 @@ struct CatalogView: View {
     @AppStorage("cinemana-home-for-you") private var showForYou = true
     @AppStorage("cinemana-home-trending") private var showTrending = true
     @AppStorage("cinemana-home-new") private var showNew = true
+    @AppStorage(MatureContentFilter.preferenceKey) private var hideMatureContent = false
+
+    private var visibleRows: [CatalogRow] {
+        MatureContentFilter.visibleRows(rows, hideMature: hideMatureContent)
+    }
 
     private var recommendations: [Video] {
-        let all = rows.flatMap(\.videos)
+        let all = visibleRows.flatMap(\.videos)
         guard !library.snapshot.favorites.isEmpty || !library.snapshot.recent.isEmpty else { return [] }
         return library.recommendations(from: all)
     }
@@ -138,11 +143,13 @@ struct CatalogView: View {
                     if let error {
                         ErrorMessage(text: error) { Task { await refresh() } }
                     }
-                    if rows.isEmpty && !isLoading && error == nil {
+                    if visibleRows.isEmpty && !isLoading && error == nil {
                         EmptyStateView(symbol: "film.stack", title: "Nothing to show yet",
-                                       message: "Refresh the catalog or check your connection.")
+                                       message: hideMatureContent && !rows.isEmpty
+                                       ? "No titles match your content filter. Change it in Settings."
+                                       : "Refresh the catalog or check your connection.")
                     }
-                    if (kind != nil || showFeatured), let hero = rows.first?.videos.first {
+                    if (kind != nil || showFeatured), let hero = visibleRows.first?.videos.first {
                         NavigationLink(value: hero) {
                             FeaturedPoster(video: hero)
                         }
@@ -168,7 +175,7 @@ struct CatalogView: View {
                             }
                         }
                     }
-                    ForEach(rows.filter { row in
+                    ForEach(visibleRows.filter { row in
                         let name = row.title.lowercased()
                         if kind == nil && !showTrending && name.contains("trending") { return false }
                         if kind == nil && !showNew && name.contains("new") { return false }
@@ -343,10 +350,12 @@ struct FeaturedPoster: View {
     @State private var synopsisExpanded = false
     @State private var loadingEpisodes = false
     @State private var showBatchDownloader = false
+    @AppStorage(MatureContentFilter.preferenceKey) private var hideMatureContent = false
 
+    private var visibleRelated: [Video] { MatureContentFilter.visible(related, hideMature: hideMatureContent) }
     private var isSeries: Bool { video.kind == "2" && video.episode == 0 }
     private var sortedSeasons: [Int] { Array(Set(episodes.map(\.season))).sorted() }
-    private var visibleEpisodes: [Video] { episodes.filter { $0.season == selectedSeason } }
+    private var visibleEpisodes: [Video] { episodes.filter { $0.season == selectedSeason && MatureContentFilter.allows($0, hideMature: hideMatureContent) } }
     private var playTarget: Video? {
         if isSeries && !episodes.isEmpty {
             if let resumed = library.snapshot.recent.first(where: { record in
@@ -359,6 +368,16 @@ struct FeaturedPoster: View {
     }
 
     var body: some View {
+        if !MatureContentFilter.allows(detail ?? video, hideMature: hideMatureContent) {
+            VStack(spacing: 16) {
+                Image(systemName: "eye.slash.fill").font(.system(size: 48))
+                Text("Hidden by content filter").font(.title3.bold())
+                Text("This title is marked as mature. Change Hide Mature Content in Settings to see it.")
+                    .font(.subheadline).multilineTextAlignment(.center)
+            }
+            .foregroundStyle(.secondary).padding(32).frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background(ink).navigationBarTitleDisplayMode(.inline)
+        } else {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
                 RemotePoster(url: (detail ?? video).backdrop ?? video.poster)
@@ -499,11 +518,11 @@ struct FeaturedPoster: View {
                             }
                         }
                     }
-                    if !related.isEmpty {
+                    if !visibleRelated.isEmpty {
                         Text("More like this").font(.title2.weight(.bold)).padding(.top, 10)
                         ScrollView(.horizontal, showsIndicators: false) {
                             LazyHStack(alignment: .top, spacing: 12) {
-                                ForEach(related) { item in
+                                ForEach(visibleRelated) { item in
                                     NavigationLink(value: item) { PosterCard(video: item) }.buttonStyle(.plain)
                                 }
                             }
@@ -559,6 +578,7 @@ struct FeaturedPoster: View {
             }
             loadingEpisodes = false
         }
+        }
     }
 
     @MainActor
@@ -581,6 +601,7 @@ private enum DetailLoadResult: Sendable {
 
 struct SearchCatalogView: View {
     @EnvironmentObject private var library: LibraryStore
+    @AppStorage(MatureContentFilter.preferenceKey) private var hideMatureContent = false
     @State private var onlyUnwatched = false
     @State private var savedOnly = false
     @State private var minimumYear = 0
@@ -592,13 +613,14 @@ struct SearchCatalogView: View {
     @FocusState private var searchFocused: Bool
 
     private var genres: [String] {
-        Array(Set(results.flatMap(\.genres))).sorted()
+        Array(Set(MatureContentFilter.visible(results, hideMature: hideMatureContent).flatMap(\.genres))).sorted()
     }
     private var filtered: [Video] {
         options.apply(results).filter { video in
             (minimumYear == 0 || (Int(video.year) ?? 0) >= minimumYear) &&
             (!onlyUnwatched || !library.isWatched(video.id)) &&
-            (!savedOnly || library.isSaved(video))
+            (!savedOnly || library.isSaved(video)) &&
+            MatureContentFilter.allows(video, hideMature: hideMatureContent)
         }
     }
 
@@ -1017,6 +1039,13 @@ private enum LibraryTab: String, CaseIterable, Identifiable {
 /// One tab for everything the viewer is coming back to: Continue Watching and Favorites.
 struct LibraryView: View {
     @EnvironmentObject private var library: LibraryStore
+    @AppStorage(MatureContentFilter.preferenceKey) private var hideMatureContent = false
+    private var visibleRecent: [PlaybackRecord] {
+        library.snapshot.recent.filter { MatureContentFilter.allows($0.video, hideMature: hideMatureContent) }
+    }
+    private var visibleFavorites: [Video] {
+        MatureContentFilter.visible(library.snapshot.favorites, hideMature: hideMatureContent)
+    }
     @State private var section: LibraryTab = .continueWatching
 
     var body: some View {
@@ -1062,11 +1091,11 @@ struct LibraryView: View {
 
     @ViewBuilder
     private var continueWatching: some View {
-        if library.snapshot.recent.isEmpty {
+        if visibleRecent.isEmpty {
             emptyState(symbol: "play.circle", title: "Nothing to continue yet",
                        message: "Titles you start watching will appear here so you can pick up where you left off.")
         } else {
-            ForEach(library.snapshot.recent) { item in
+            ForEach(visibleRecent) { item in
                 HStack(spacing: 12) {
                     NavigationLink(value: item.video) {
                         HStack(spacing: 12) {
@@ -1091,12 +1120,12 @@ struct LibraryView: View {
 
     @ViewBuilder
     private var favorites: some View {
-        if library.snapshot.favorites.isEmpty {
+        if visibleFavorites.isEmpty {
             emptyState(symbol: "bookmark.circle", title: "Your list is empty",
                        message: "Save a movie or series to find it here later.")
         } else {
             LazyVGrid(columns: [GridItem(.adaptive(minimum: 125), spacing: 12)], spacing: 20) {
-                ForEach(library.snapshot.favorites) { item in
+                ForEach(visibleFavorites) { item in
                     NavigationLink(value: item) { PosterCard(video: item) }.buttonStyle(.plain)
                 }
             }
@@ -1116,6 +1145,7 @@ struct LibraryView: View {
 
 struct AboutView: View {
     @EnvironmentObject private var library: LibraryStore
+    @AppStorage(MatureContentFilter.preferenceKey) private var hideMatureContent = false
     @AppStorage("cinemana-auto-landscape") private var autoLandscape = true
     @AppStorage("cinemana-app-language") private var appLanguage = "system"
     @AppStorage("cinemana-hub-promo-hidden") private var hideHubWelcome = false
@@ -1156,6 +1186,15 @@ struct AboutView: View {
                 Toggle("Trending sections", isOn: $showTrending)
                 Toggle("Recently added sections", isOn: $showNew)
                 Text("Recommendations use on-device favorites and viewing history only.")
+                    .font(.footnote).foregroundStyle(.secondary)
+            }
+            Section("Content filter") {
+                Toggle("Hide Mature Content", isOn: $hideMatureContent)
+                Text("Hides titles tagged as adult, explicit, or 18+/TV-MA in Home, Movies, Series, Search, recommendations, My List, and Downloads.")
+                    .font(.footnote).foregroundStyle(.secondary)
+                Text("Only uses metadata supplied by the provider. Unrated or incorrectly labeled titles can still appear. This does not skip mature scenes inside videos.")
+                    .font(.footnote).foregroundStyle(.secondary)
+                Text("Hidden saved titles and downloads are not deleted. Turn this off to show them again.")
                     .font(.footnote).foregroundStyle(.secondary)
             }
             Section("Privacy and data") {

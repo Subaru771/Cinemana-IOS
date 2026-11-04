@@ -38,3 +38,6 @@ swiftc -o /tmp/cinemana-tests CinemanaMobile/Models.swift CinemanaMobile/Cineman
 History, collections, favorites and custom skip markers are stored on the device. No personal telemetry or developer account is required. Select a movie to view details; choose **Play** to start video. Do not assume an arbitrary upstream server permits playback, download or redistribution of its media.
 
 See [CHANGELOG.md](CHANGELOG.md), [DISTRIBUTION.md](DISTRIBUTION.md) and [WINDOWS-APPLE-SIGNING.md](WINDOWS-APPLE-SIGNING.md).
+
+### Optional maturity filter (v2.0.1 beta)
+Open Settings → Content filter → **Hide Mature Content**. The filter runs locally using provider-supplied explicit adult flags, genre tags and age classifications (e.g. 18+, TV-MA). It hides tagged items from catalog, search, recommendations, libraries, and the downloads UI but does **not** delete any saved videos. Missing/inaccurate metadata cannot be detected and may slip through; this is not a parental-control lock or scene-skipping tool.
