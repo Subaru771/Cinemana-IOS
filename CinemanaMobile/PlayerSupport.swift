@@ -10,16 +10,37 @@ import UIKit
 @MainActor
 final class SubtitleController: ObservableObject {
     static let preferenceKey = "cinemana-sub-pref"
-
     @Published private(set) var available: [Subtitle] = []
     @Published private(set) var selected: Subtitle?
     @Published private(set) var loading = false
     @Published private(set) var failure: String?
-    /// Seconds. Positive values make subtitles appear later.
-    @Published var offset: Double = 0
+    /// Positive values delay captions; values are remembered separately for each title.
+    @Published private(set) var offset: Double = 0
 
     private var cues: [SubtitleCue] = []
     private var videoID: String?
+    private var imported: Subtitle?
+
+    private static func safeKey(_ id: String) -> String {
+        let hash = id.utf8.reduce(UInt64(14695981039346656037)) { (value, byte) in
+            (value ^ UInt64(byte)) &* UInt64(1099511628211)
+        }
+        return String(hash, radix: 16)
+    }
+
+    private static func subtitleDirectory() -> URL {
+        let base = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+            .appendingPathComponent("CinemanaSubtitles", isDirectory: true)
+        try? FileManager.default.createDirectory(at: base, withIntermediateDirectories: true)
+        return base
+    }
+    private static func importedURL(_ id: String) -> URL {
+        subtitleDirectory().appendingPathComponent("user-\(safeKey(id)).srt")
+    }
+    private static func cachedURL(_ id: String) -> URL {
+        subtitleDirectory().appendingPathComponent("cached-\(safeKey(id)).srt")
+    }
+    private static func offsetKey(_ id: String) -> String { "cinemana-sub-delay-" + safeKey(id) }
 
     func load(for id: String) async {
         videoID = id
@@ -27,61 +48,100 @@ final class SubtitleController: ObservableObject {
         selected = nil
         failure = nil
         cues = []
-        offset = 0
+        offset = UserDefaults.standard.double(forKey: Self.offsetKey(id))
+        imported = nil
+        let local = Self.importedURL(id)
+        if FileManager.default.fileExists(atPath: local.path) {
+            imported = Subtitle(name: "Imported subtitle", url: local)
+            available = [imported!]
+        } else {
+            let cached = Self.cachedURL(id)
+            if FileManager.default.fileExists(atPath: cached.path) {
+                available = [Subtitle(name: "Saved offline subtitles", url: cached)]
+            }
+        }
+        // Show a stored local subtitle immediately; don't wait for provider/network calls.
+        if let local = available.first { await select(local, remember: false) }
         let found = await CinemanaAPI.shared.subtitles(id)
         guard videoID == id else { return }
-        available = found
+        available = available + found.filter { subtitle in
+            !available.contains(where: { $0.id == subtitle.id })
+        }
         let preferred = UserDefaults.standard.string(forKey: Self.preferenceKey) ?? ""
-        if !preferred.isEmpty, let match = found.first(where: { $0.name == preferred }) {
+        if !preferred.isEmpty, let match = available.first(where: { $0.name == preferred }) {
             await select(match, remember: false)
         }
+    }
+
+    func importFile(_ externalURL: URL) async {
+        guard let id = videoID else { return }
+        let ext = externalURL.pathExtension.lowercased()
+        guard ext == "srt" || ext == "vtt" else {
+            failure = "Choose a .srt or .vtt subtitle file."; return
+        }
+        let scoped = externalURL.startAccessingSecurityScopedResource()
+        defer { if scoped { externalURL.stopAccessingSecurityScopedResource() } }
+        do {
+            let data = try Data(contentsOf: externalURL)
+            guard data.count <= 4_194_304 else { failure = "Subtitle file is too large (4 MB maximum)."; return }
+            guard !SubtitleParser.parse(SubtitleParser.decodeText(data)).isEmpty else {
+                failure = "This subtitle has no valid timestamps."; return
+            }
+            let dest = Self.importedURL(id)
+            try data.write(to: dest, options: .atomic)
+            guard videoID == id else { return }
+            let item = Subtitle(name: "Imported subtitle", url: dest)
+            imported = item
+            available.removeAll { $0.name == item.name }
+            available.insert(item, at: 0)
+            await select(item)
+        } catch { failure = "Unable to import subtitles: \(error.localizedDescription)" }
     }
 
     func select(_ subtitle: Subtitle?, remember: Bool = true) async {
         if remember { UserDefaults.standard.set(subtitle?.name ?? "", forKey: Self.preferenceKey) }
         failure = nil
-        guard let subtitle else {
-            selected = nil
-            cues = []
-            return
-        }
+        guard let subtitle else { selected = nil; cues = []; return }
         let id = videoID
         loading = true
         defer { loading = false }
         do {
-            let (data, _) = try await URLSession.shared.data(from: subtitle.url)
+            let data: Data
+            if subtitle.url.isFileURL { data = try Data(contentsOf: subtitle.url) }
+            else {
+                do {
+                    let (downloaded, _) = try await URLSession.shared.data(from: subtitle.url)
+                    data = downloaded
+                    // Store one last-used provider subtitle per movie/episode for offline playback.
+                    if let id, downloaded.count <= 4_194_304 {
+                        try? downloaded.write(to: Self.cachedURL(id), options: .atomic)
+                    }
+                } catch {
+                    guard let id else { throw error }
+                    data = try Data(contentsOf: Self.cachedURL(id))
+                }
+            }
             guard videoID == id else { return }
             let parsed = SubtitleParser.parse(SubtitleParser.decodeText(data))
-            if parsed.isEmpty {
-                selected = nil
-                cues = []
-                failure = "This subtitle file could not be read."
-            } else {
-                cues = parsed
-                selected = subtitle
-            }
+            guard !parsed.isEmpty else { selected = nil; cues = []; failure = "Subtitle timestamps are invalid."; return }
+            cues = parsed
+            selected = subtitle
         } catch {
             guard videoID == id else { return }
-            selected = nil
-            cues = []
-            failure = "Could not download this subtitle."
+            selected = nil; cues = []
+            failure = "Subtitles are unavailable offline. Import an SRT/VTT file or reconnect."
         }
     }
 
     func adjustOffset(by delta: Double) {
         offset = max(-30, min(30, ((offset + delta) * 10).rounded() / 10))
+        if let id = videoID { UserDefaults.standard.set(offset, forKey: Self.offsetKey(id)) }
     }
 
-    func cue(at time: Double) -> SubtitleCue? {
-        SubtitleParser.cue(at: time, in: cues)
-    }
+    func cue(at time: Double) -> SubtitleCue? { SubtitleParser.cue(at: time, in: cues) }
 
     func reset() {
-        videoID = nil
-        available = []
-        selected = nil
-        cues = []
-        offset = 0
+        videoID = nil; available = []; selected = nil; cues = []; offset = 0; imported = nil
     }
 }
 

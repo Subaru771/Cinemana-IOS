@@ -3,28 +3,25 @@ import AVFoundation
 import AVKit
 import UIKit
 import Combine
+import UniformTypeIdentifiers
 
 private let cinemaAccent = Color(red: 1.00, green: 0.18, blue: 0.25)
 
-/// Shared header mark. The original green logo has been replaced by the
-/// red film-strip identity used for Cinemana iOS.
+/// Shared header mark, without a second square around the emblem.
+/// Keep iOS visible in both compact and expanded navigation headers.
 struct CinemanaLogo: View {
     var compact = false
     var body: some View {
-        HStack(spacing: compact ? 5 : 10) {
+        HStack(spacing: compact ? 5 : 9) {
             CinemanaGlyph()
                 .frame(width: compact ? 34 : 51, height: compact ? 34 : 51)
             Text("CINEMANA")
                 .font(.system(size: compact ? 13 : 22, weight: .black, design: .rounded))
-                .tracking(compact ? 1 : 1.6)
+                .tracking(compact ? 0.6 : 1.2)
                 .foregroundStyle(.white)
-            if !compact {
-                Text("iOS")
-                    .font(.system(size: 10, weight: .bold))
-                    .foregroundStyle(.white)
-                    .padding(.horizontal, 7).padding(.vertical, 4)
-                    .background(Color.red.opacity(0.75), in: Capsule())
-            }
+            Text("iOS")
+                .font(.system(size: compact ? 10 : 12, weight: .bold, design: .rounded))
+                .foregroundStyle(Color(red: 1, green: 0.15, blue: 0.23))
         }
         .accessibilityElement(children: .combine)
         .accessibilityLabel("Cinemana iOS")
@@ -83,6 +80,7 @@ struct SubtitleOverlay: View {
     let player: AVPlayer?
     let scale: Double
     let lift: CGFloat
+    @AppStorage("cinemana-sub-background") private var captionBackdrop = true
 
     var body: some View {
         TimelineView(.periodic(from: .now, by: 0.12)) { _ in
@@ -91,12 +89,15 @@ struct SubtitleOverlay: View {
                 if let text = currentText() {
                     Text(text)
                         .font(.system(size: 21 * scale, weight: .semibold))
+                        .environment(\.layoutDirection, text.unicodeScalars.contains(where: {
+                            (0x0600...0x08FF).contains(Int($0.value))
+                        }) ? .rightToLeft : .leftToRight)
                         .foregroundStyle(.white)
                         .multilineTextAlignment(.center)
                         .shadow(color: .black, radius: 2)
                         .padding(.horizontal, 12)
                         .padding(.vertical, 6)
-                        .background(.black.opacity(0.45), in: RoundedRectangle(cornerRadius: 8))
+                        .background(.black.opacity(captionBackdrop ? 0.65 : 0), in: RoundedRectangle(cornerRadius: 8))
                         .padding(.horizontal, 44)
                 }
             }
@@ -126,6 +127,7 @@ struct CinemaPlayerScreen: View {
     @AppStorage("cinemana-speed") private var savedSpeed = 1.0
     @AppStorage("cinemana-auto-landscape") private var autoLandscape = true
     @AppStorage("cinemana-sub-scale") private var subtitleScale = 1.0
+    @AppStorage("cinemana-sub-background") private var captionBackdrop = true
 
     @State private var current: Video
     @State private var showsControls = true
@@ -160,6 +162,7 @@ struct CinemaPlayerScreen: View {
     @State private var stalledSince: Date?
     @State private var watchedPlayerID: ObjectIdentifier?
     @State private var showDiagnostics = false
+    @State private var importingSubtitles = false
 
     private let playlist: [Video]
 
@@ -202,6 +205,7 @@ struct CinemaPlayerScreen: View {
                 if let next = upNext { upNextCard(next) }
                 if let hud { hudView(hud) }
                 if let flash { flashView(flash) }
+                skipMarkersOverlay
             }
             .frame(width: geometry.size.width, height: geometry.size.height)
         }
@@ -225,6 +229,14 @@ struct CinemaPlayerScreen: View {
             if phase != .active { session.save(library: library) }
         }
         .onDisappear { teardown() }
+        .fileImporter(isPresented: $importingSubtitles,
+                      allowedContentTypes: [UTType(filenameExtension: "srt") ?? .plainText,
+                                            UTType(filenameExtension: "vtt") ?? .plainText]) { result in
+            switch result {
+            case .success(let url): Task { await subtitles.importFile(url) }
+            case .failure(let error): flashMessage("Import failed: \(error.localizedDescription)")
+            }
+        }
         .alert("Playback diagnostics", isPresented: $showDiagnostics) {
             Button("Copy report") { UIPasteboard.general.string = diagnosticsReport }
             Button("Close", role: .cancel) { }
@@ -240,6 +252,7 @@ struct CinemaPlayerScreen: View {
         .onReceive(NotificationCenter.default.publisher(for: .AVPlayerItemDidPlayToEndTime)) { note in
             if let item = note.object as? AVPlayerItem, session.player?.currentItem === item {
                 playing = false
+                library.markWatched(current, watched: true)
                 showControls()
                 if let next = nextEpisode { beginUpNext(next) }
             }
@@ -360,6 +373,37 @@ struct CinemaPlayerScreen: View {
     private func skip(_ delta: Double) {
         seek(to: livePosition() + delta)
         flashMessage(delta > 0 ? "+\(Int(delta))s" : "−\(Int(-delta))s")
+    }
+
+    private var markers: ChapterMarkers { library.markers(for: current.id) }
+
+    @ViewBuilder
+    private var skipMarkersOverlay: some View {
+        if session.player != nil && !locked {
+            VStack {
+                Spacer()
+                HStack {
+                    Spacer()
+                    if ViewingPlanner.shouldOfferSkip(position: currentTime, end: markers.recapEndsAt, duration: duration) {
+                        Button("Skip recap") { seek(to: markers.recapEndsAt ?? 0) }
+                            .buttonStyle(.borderedProminent).tint(cinemaAccent)
+                    } else if ViewingPlanner.shouldOfferSkip(position: currentTime, end: markers.introEndsAt, duration: duration) {
+                        Button("Skip intro") { seek(to: markers.introEndsAt ?? 0) }
+                            .buttonStyle(.borderedProminent).tint(cinemaAccent)
+                    } else if let credits = markers.creditsBeginAt, duration > 0,
+                              currentTime >= credits, currentTime < duration - 4 {
+                        Button("Skip credits") {
+                            library.markWatched(current, watched: true)
+                            if let next = nextEpisode { play(next) }
+                            else { seek(to: max(0, duration - 0.2)) }
+                        }
+                        .buttonStyle(.borderedProminent).tint(cinemaAccent)
+                    }
+                }
+                .padding(.horizontal, 28)
+                .padding(.bottom, showsControls ? 200 : 58)
+            }
+        }
     }
 
     // MARK: Overlays
@@ -618,6 +662,10 @@ struct CinemaPlayerScreen: View {
                     Label("Next episode", systemImage: "forward.end.fill")
                 }
             }
+            Button { library.markWatched(current, watched: !library.isWatched(current.id)) } label: {
+                Label(library.isWatched(current.id) ? "Watched" : "Mark watched",
+                      systemImage: library.isWatched(current.id) ? "checkmark.circle.fill" : "checkmark.circle")
+            }
             Spacer()
             downloadStatus
         }
@@ -645,6 +693,7 @@ struct CinemaPlayerScreen: View {
             speedMenu
             if !isDownloaded && !session.streams.isEmpty { qualityMenu }
             subtitleMenu
+            chapterMenu
             audioMenu
             Button {
                 showDiagnostics = true
@@ -711,6 +760,9 @@ struct CinemaPlayerScreen: View {
                     Text("Off")
                 }
             }
+            Button { importingSubtitles = true } label: {
+                Label("Import SRT / VTT from Files", systemImage: "doc.badge.plus")
+            }
             if !subtitles.available.isEmpty {
                 Menu("Provider subtitles") {
                     ForEach(subtitles.available) { item in
@@ -734,6 +786,7 @@ struct CinemaPlayerScreen: View {
                 }
             }
             if subtitles.selected != nil {
+                Toggle("Subtitle background", isOn: $captionBackdrop)
                 Menu("Subtitle timing") {
                     Button("Show 0.5 s earlier") { subtitles.adjustOffset(by: -0.5); showControls() }
                     Button("Show 0.5 s later") { subtitles.adjustOffset(by: 0.5); showControls() }
@@ -760,6 +813,27 @@ struct CinemaPlayerScreen: View {
                 Text(subtitles.loading ? "Looking for subtitles…" : "No subtitles available")
             }
             if let failure = subtitles.failure { Text(failure) }
+        }
+    }
+
+    private var chapterMenu: some View {
+        Menu("Skip markers") {
+            Text("Personal timing markers (saved only on this device)")
+            Button("Intro ends at \(formatTime(livePosition()))") {
+                var value = markers; value.introEndsAt = livePosition()
+                library.setMarkers(value, for: current.id)
+            }
+            Button("Recap ends at \(formatTime(livePosition()))") {
+                var value = markers; value.recapEndsAt = livePosition()
+                library.setMarkers(value, for: current.id)
+            }
+            Button("Credits start at \(formatTime(livePosition()))") {
+                var value = markers; value.creditsBeginAt = livePosition()
+                library.setMarkers(value, for: current.id)
+            }
+            Button("Reset skip markers", role: .destructive) {
+                library.setMarkers(ChapterMarkers(), for: current.id)
+            }
         }
     }
 
@@ -976,6 +1050,7 @@ struct CinemaPlayerScreen: View {
             "Source: \(isDownloaded ? "Offline" : (session.selected?.label ?? "Unknown"))",
             "Player state: \(waiting ? "Buffering" : (playing ? "Playing" : "Paused"))",
             "Recoveries: \(session.recoveryCount)",
+            "Network: \(session.player?.isExternalPlaybackActive == true ? "External playback" : "On device")",
             "Position: \(formatTime(currentTime)) / \(formatTime(duration))"
         ]
         if let reason = session.lastRecoveryReason { lines.append("Last recovery: \(reason)") }

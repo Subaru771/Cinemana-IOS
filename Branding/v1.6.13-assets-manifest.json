@@ -1,0 +1,17 @@
+{
+  "version": "1.6.13",
+  "base": "1.6.12",
+  "icon_source": "cinemana_neon_filmstrip_icon.png",
+  "splash_source": "cinemana_ios_neon_splash.png",
+  "AppIcon_1024_SHA256": "b6ca1864af05c8e7cce125c9d3dd1c9d67bf87592fcd9c532d3a2d8fadd51562",
+  "CinemanaSplash_JPEG_SHA256": "cc0d608c6621d7e7c4a6670a0169b2a10bed6cdcd6eb581385546a6a1877a406",
+  "master_icon_pixels": [
+    2508,
+    2508
+  ],
+  "master_splash_pixels": [
+    1882,
+    3344
+  ],
+  "note": "Artwork-only update. Playback, UI logic, download menu, and other source are unchanged."
+}

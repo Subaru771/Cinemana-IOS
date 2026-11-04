@@ -54,6 +54,14 @@ struct CoreSmokeTests {
                                               tried: [source1080.id, source720.id])?.id == source2160.id)
         precondition(PlaybackPlanner.fallback(from: sources, failed: source720,
                                               tried: Set(sources.map(\.id))) == nil)
+        precondition(CinemanaAPI.parseQuality("1080p") == 1080)
+        precondition(CinemanaAPI.parseQuality("4K") == 2160)
+        precondition(CinemanaAPI.parseQuality("HD") == 720)
+        precondition(CinemanaAPI.parseQuality("360p") == 360)
+        precondition(CinemanaAPI.parseQuality("Server 2") == 0)
+        precondition(CinemanaAPI.parseQuality("") == 0)
+        precondition(PlaybackPlanner.preferred(from: [source2160, source1080, source720], maximumQuality: 480)?.id == source720.id)
+        precondition(PlaybackPlanner.preferred(from: [source2160, source1080, source720], maximumQuality: Int.max)?.id == source2160.id)
         let series = Video(json: ["nb": "series-1", "en_title": "Test Series", "kind": "2"])!
         let ep1 = Video(json: ["nb": "ep-1", "en_title": "Pilot", "kind": "2", "season": 1, "episode": 1])!
         let ep2 = Video(json: ["nb": "ep-2", "en_title": "Next", "kind": "2", "season": 1, "episode": 2])!
@@ -79,7 +87,7 @@ struct CoreSmokeTests {
         precondition(PlaybackPlanner.preferred(from: sources, maximumQuality: 720)?.id == source720.id)
         precondition(PlaybackPlanner.preferred(from: sources, maximumQuality: Int.max)?.id == source2160.id)
 
-        // v1.6.5: bounded download ceilings, HLS variants and endpoint merging.
+        // v1.6.5: download quality must never silently exceed the chosen maximum.
         precondition(PlaybackPlanner.downloadStream(from: sources, maximumQuality: 480) == nil)
         precondition(PlaybackPlanner.downloadStream(from: sources, maximumQuality: 720)?.quality == 720)
         precondition(PlaybackPlanner.downloadStream(from: sources, maximumQuality: 1080)?.quality == 1080)
@@ -133,6 +141,30 @@ struct CoreSmokeTests {
         precondition(OfflineEntry.Status(rawValue: "ready") == .ready)
         precondition(OfflineEntry.Status(rawValue: "queued") == .queued)
         precondition(ByteFormat.duration(75) == "1 min")
+        // v2.0 adaptive playback and diagnostics: no fabricated adaptive sources.
+        let adaptiveMaster = Stream(url: URL(string: "https://cdn.example/master.m3u8")!, quality: 0)
+        precondition(PlaybackPlanner.adaptivePreferred(from: [source1080, adaptiveMaster])?.id == adaptiveMaster.id)
+        precondition(PlaybackPlanner.adaptivePreferred(from: [source720])?.id == source720.id)
+        precondition(PlaybackPlanner.explainFailure("HTTP 403").contains("provider denied"))
+        precondition(PlaybackPlanner.explainFailure("timed out").contains("timed out"))
+        precondition(PlaybackPlanner.explainFailure("not connected to internet").contains("offline"))
+        // v2.0 local personalization, independent of UIKit/SwiftUI.
+        let markers = ChapterMarkers(introEndsAt: 88, recapEndsAt: nil, creditsBeginAt: 950)
+        precondition(markers.validFor(1100))
+        precondition(!markers.validFor(800))
+        precondition(ViewingPlanner.shouldOfferSkip(position: 20, end: markers.introEndsAt, duration: 1100))
+        precondition(!ViewingPlanner.shouldOfferSkip(position: 90, end: markers.introEndsAt, duration: 1100))
+        var extras = LocalViewingData()
+        extras.watched[ep1.id] = Date()
+        extras.collections = [WatchCollection(name: "Favorites to rewatch", videoIDs: [ep2.id])]
+        extras.markers[movie.id] = markers
+        let extrasBytes = try JSONEncoder().encode(extras)
+        let restored = try JSONDecoder().decode(LocalViewingData.self, from: extrasBytes)
+        precondition(restored.watched[ep1.id] != nil)
+        precondition(restored.collections[0].videoIDs == [ep2.id])
+        precondition(ViewingPlanner.nextUnwatched(episodes: [ep2, ep1], watched: Set(restored.watched.keys))?.id == ep2.id)
+        precondition(ViewingPlanner.recommendations(candidates: [movie, ep1, ep2],
+          favorites: [movie], recent: [], completed: []).allSatisfy { $0.id != movie.id })
         print("PASS: core models, serialization, filters, iOS stream formats, quality fallback, and series episode selection plus v1.5 next-episode, subtitle parser and download path checks")
     }
 }
