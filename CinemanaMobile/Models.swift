@@ -15,6 +15,8 @@ struct Video: Identifiable, Hashable, Codable, Sendable {
     let ageRating: String?
     /// Provider-supplied adult content flag, if present.
     let adultFlag: Bool?
+    /// IMDb identity from provider metadata; used only for opted-in community intro lookups.
+    let imdbID: String?
     let season: Int
     let episode: Int
 
@@ -73,6 +75,7 @@ struct Video: Identifiable, Hashable, Codable, Sendable {
                        "mpaa", "mpaa_rating", "tvRating", "tv_rating", "rated",
                        "minAge", "min_age", "ageLimit", "age_limit", "age", "minimumAge")
         self.ageRating = rating.isEmpty ? nil : rating
+        self.imdbID = CommunitySkipTimes.imdbID(in: json)
         func adultValue(_ value: Any?) -> Bool? {
             guard let value else { return nil }
             if let number = value as? NSNumber { return number.boolValue }

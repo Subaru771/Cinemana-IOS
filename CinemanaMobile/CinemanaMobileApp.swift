@@ -511,7 +511,10 @@ struct FeaturedPoster: View {
         .frame(maxWidth: .infinity)
         .navigationBarTitleDisplayMode(.inline)
         .navigationDestination(for: Video.self) { MovieDetailView(video: $0) }
-        .fullScreenCover(item: $watch) { CinemaPlayerScreen(video: $0, playlist: episodes) }
+        .fullScreenCover(item: $watch) {
+            CinemaPlayerScreen(video: $0, playlist: episodes,
+                                imdbID: (detail ?? video).imdbID)
+        }
         .task(id: video.id) {
             // Restore the reliable details-first flow. Never launch playback from
             // a poster tap: Play/Resume and episode row buttons own that action.
@@ -1154,6 +1157,7 @@ struct AboutView: View {
     @AppStorage(MatureContentFilter.preferenceKey) private var hideMatureContent = false
     @AppStorage(MatureContentFilter.strictPreferenceKey) private var strictMatureContent = true
     @AppStorage("cinemana-auto-landscape") private var autoLandscape = true
+    @AppStorage("cinemana-lookup-community-intro") private var useCommunityIntro = false
     @AppStorage("cinemana-app-language") private var appLanguage = "system"
     @AppStorage("cinemana-hub-promo-hidden") private var hideHubWelcome = false
     @AppStorage("cinemana-hub-promo-seen") private var hasSeenHubWelcome = false
@@ -1190,7 +1194,7 @@ struct AboutView: View {
                 Toggle("Recently added sections", isOn: $showNew)
             }
             Section("Content filter") {
-                Toggle("Skip marked mature scenes", isOn: $hideMatureContent)
+                Toggle("Skip timed mature scenes", isOn: $hideMatureContent)
                 Text("All movies and series remain visible. Playback skips only scenes with explicit provider-supplied timestamps. Videos without scene timing cannot be filtered automatically.")
                     .font(.footnote).foregroundStyle(.secondary)
             }
@@ -1233,6 +1237,9 @@ struct AboutView: View {
             }
             Section("Player") {
                 Toggle("Rotate to landscape when playing", isOn: $autoLandscape)
+                Toggle("Use accurate community intro timestamps", isOn: $useCommunityIntro)
+                Text("Optional: requests only the IMDb ID, episode and duration from SkipDB. Without a verified timestamp, Skip Intro is unavailable; it never jumps an arbitrary 90 seconds. Data from SkipDB under ODbL 1.0.")
+                    .font(.footnote).foregroundStyle(.secondary)
             }
             Section("Connection") {
                 NavigationLink { ConnectionDiagnosticsView() } label: {

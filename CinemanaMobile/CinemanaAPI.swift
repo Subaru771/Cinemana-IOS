@@ -476,11 +476,28 @@ struct CinemanaAPI: Sendable {
 
     /// Optional provider chapter metadata; nil/empty when the provider has no
     /// time-coded scenes. We do NOT guess scene boundaries from age ratings.
-    func playbackSkipMarkers(_ id: String) async -> (scenes: [SceneSkipRange], introEnd: Double?) {
+    func playbackSkipMarkers(_ id: String) async -> (scenes: [SceneSkipRange], introEnd: Double?, imdbID: String?) {
         do {
             let response = try await fetch("allVideoInfo/id/\(segment(id))", timeout: 7, ttl: 600)
-            return (SceneSkipPlanner.decode(response), SceneSkipPlanner.introEnd(response))
-        } catch { return ([], nil) }
+            return (SceneSkipPlanner.decode(response), SceneSkipPlanner.introEnd(response), CommunitySkipTimes.imdbID(in: response))
+        } catch { return ([], nil, nil) }
+    }
+
+    /// Public SkipDB read API; requests only the IMDb title ID, season/episode and
+    /// playback length, never the user's name, history, or app credentials.
+    /// Caller must require the user's explicit opt-in first.
+    func communityIntro(imdbID: String, season: Int, episode: Int, duration: Double) async -> VerifiedIntroSegment? {
+        guard let url = CommunitySkipTimes.requestURL(imdbID: imdbID, season: season,
+                                                      episode: episode, duration: duration) else { return nil }
+        var request = URLRequest(url: url, cachePolicy: .returnCacheDataElseLoad, timeoutInterval: 8)
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
+        do {
+            let (body, response) = try await URLSession.shared.data(for: request)
+            guard let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode),
+                  body.count < 64_000,
+                  let payload = try? JSONSerialization.jsonObject(with: body) else { return nil }
+            return CommunitySkipTimes.decodeIntro(payload, duration: duration)
+        } catch { return nil }
     }
 
     func related(_ id: String) async -> [Video] {

@@ -129,6 +129,7 @@ struct CinemaPlayerScreen: View {
     @AppStorage("cinemana-sub-scale") private var subtitleScale = 1.0
     @AppStorage("cinemana-sub-background") private var captionBackdrop = true
     @AppStorage(MatureContentFilter.preferenceKey) private var skipMatureScenes = false
+    @AppStorage("cinemana-lookup-community-intro") private var useCommunityIntro = false
 
     private var isPad: Bool { UIDevice.current.userInterfaceIdiom == .pad }
     private var blockedByFilter: Bool { false } // Never block a title; scene skipping is time-coded.
@@ -170,15 +171,22 @@ struct CinemaPlayerScreen: View {
     @State private var showEpisodePicker = false
     @State private var matureSceneRanges: [SceneSkipRange] = []
     @State private var providerIntroEnd: Double?
+    @State private var introSegment: VerifiedIntroSegment?
+    @State private var metadataIMDbID: String?
+    @State private var introLookupKey: String?
+    @State private var introLookupStatus = "Intro timing not yet checked"
+    @State private var sceneMarkersLoaded = false
     @State private var introSkipUsed = false
     @State private var alreadySkippedScenes = Set<String>()
 
 
     private let playlist: [Video]
+    private let seriesIMDbID: String?
 
-    init(video: Video, playlist: [Video] = []) {
+    init(video: Video, playlist: [Video] = [], imdbID: String? = nil) {
         _current = State(initialValue: video)
         self.playlist = playlist
+        self.seriesIMDbID = imdbID
     }
 
     private var speed: Float { Float(savedSpeed) }
@@ -240,7 +248,18 @@ struct CinemaPlayerScreen: View {
             Task { await loadTracks() }
         }
         .onChange(of: playing) { _ in refreshNowPlaying() }
-        .onChange(of: duration > 0) { _ in refreshNowPlaying() }
+        .onChange(of: duration > 0) { ready in
+            refreshNowPlaying()
+            if ready { Task { await loadCommunityIntroIfAllowed() } }
+        }
+        .onChange(of: useCommunityIntro) { allowed in
+            if allowed { Task { await loadCommunityIntroIfAllowed() } }
+            else {
+                introSegment = nil
+                introLookupKey = nil
+                introLookupStatus = "Community timing lookup is off"
+            }
+        }
         .onChange(of: scenePhase) { phase in
             if phase != .active { session.save(library: library) }
         }
@@ -426,6 +445,8 @@ struct CinemaPlayerScreen: View {
     }
 
 
+    /// Show Skip Intro only when we actually have a timestamp for this episode.
+    /// The old +90s fallback was wrong and has been removed.
     @ViewBuilder
     private var skipMarkersOverlay: some View {
         if session.player != nil && !locked {
@@ -433,17 +454,19 @@ struct CinemaPlayerScreen: View {
                 Spacer()
                 HStack {
                     Spacer()
-                    if !introSkipUsed,
-                       let target = SceneSkipPlanner.introDestination(current: currentTime, duration: duration,
-                                                                       marker: providerIntroEnd),
-                       current.isSeries || current.episode > 0 {
-                        Button("Skip Intro") {
-                            introSkipUsed = true
-                            seek(to: target.time)
-                            if target.estimated { flashMessage("Skipped about 90 seconds (intro timing unavailable)") }
-                            else { flashMessage("Intro skipped") }
+                    if !introSkipUsed, current.isSeries || current.episode > 0 {
+                        let destination = CommunitySkipTimes.skipDestination(
+                            current: currentTime, duration: duration, segment: introSegment)
+                            ?? SceneSkipPlanner.introDestination(current: currentTime,
+                                  duration: duration, marker: providerIntroEnd)?.time
+                        if let destination {
+                            Button("Skip Intro") {
+                                introSkipUsed = true
+                                seek(to: destination)
+                                flashMessage("Intro skipped to verified timing")
+                            }
+                            .buttonStyle(.borderedProminent).tint(cinemaAccent)
                         }
-                        .buttonStyle(.borderedProminent).tint(cinemaAccent)
                     }
                 }
                 .padding(.horizontal, 28)
@@ -456,14 +479,47 @@ struct CinemaPlayerScreen: View {
     private func loadSkipMarkers() async {
         matureSceneRanges = []
         providerIntroEnd = nil
+        metadataIMDbID = nil
+        introSegment = nil
+        introLookupKey = nil
         alreadySkippedScenes = []
+        sceneMarkersLoaded = false
         let id = current.id
         let marks = await CinemanaAPI.shared.playbackSkipMarkers(id)
         guard !Task.isCancelled && current.id == id else { return }
         matureSceneRanges = marks.scenes
         providerIntroEnd = marks.introEnd
+        metadataIMDbID = marks.imdbID
+        sceneMarkersLoaded = true
+        await loadCommunityIntroIfAllowed()
     }
 
+    @MainActor
+    private func loadCommunityIntroIfAllowed() async {
+        guard useCommunityIntro else {
+            introLookupStatus = "Community timing lookup is off"
+            return
+        }
+        guard current.episode > 0, duration > 0 else { return }
+        guard let imdbID = seriesIMDbID ?? current.imdbID ?? metadataIMDbID else {
+            introLookupStatus = "No IMDb identifier available for this title"
+            return
+        }
+        let videoID = current.id
+        let selectedDuration = duration
+        let key = "\(videoID)|\(imdbID)|\(Int(selectedDuration.rounded()))"
+        guard introLookupKey != key else { return }
+        introLookupKey = key
+        introLookupStatus = "Checking episode-specific intro markers…"
+        let match = await CinemanaAPI.shared.communityIntro(
+            imdbID: imdbID, season: current.season,
+            episode: current.episode, duration: selectedDuration)
+        guard videoID == current.id, introLookupKey == key, useCommunityIntro else { return }
+        introSegment = match
+        introLookupStatus = match != nil
+            ? "Precise timing available via SkipDB"
+            : "No verified intro timing for this episode or stream version"
+    }
 
     // MARK: Overlays
 
@@ -741,11 +797,21 @@ struct CinemaPlayerScreen: View {
 
     private var optionsMenu: some View {
         Menu {
-            Section("Content filter") {
-                Toggle("Skip marked mature scenes", isOn: $skipMatureScenes)
-                Text(matureSceneRanges.isEmpty ? "Scene timings unavailable for this video" :
-                     "\(matureSceneRanges.count) marked scene(s)")
-                    .font(.caption).foregroundStyle(.secondary)
+            Section("Scene filtering") {
+                Toggle("Skip timed mature scenes", isOn: $skipMatureScenes)
+                if sceneMarkersLoaded && matureSceneRanges.isEmpty {
+                    Label("Unavailable: this video has no mature-scene timestamps", systemImage: "exclamationmark.triangle")
+                } else if sceneMarkersLoaded {
+                    Text("\(matureSceneRanges.count) timed scene(s) ready to skip")
+                } else {
+                    Text("Checking available scene timestamps…")
+                }
+                Text("Age ratings cannot identify scene boundaries. Only verified timed scenes can be skipped.")
+            }
+            Section("Accurate intro skipping") {
+                Toggle("Use community intro timings", isOn: $useCommunityIntro)
+                Text(introLookupStatus)
+                Text("Opt-in: requests the IMDb title ID, season, episode and video length from SkipDB. No account or viewing history is sent. SkipDB data © contributors (ODbL 1.0).")
             }
             Section("Playback") {
                 speedMenu
@@ -1053,6 +1119,10 @@ struct CinemaPlayerScreen: View {
         selectedAudio = nil
         matureSceneRanges = []
         providerIntroEnd = nil
+        metadataIMDbID = nil
+        introSegment = nil
+        introLookupKey = nil
+        sceneMarkersLoaded = false
         alreadySkippedScenes = []
         introSkipUsed = false
         current = next

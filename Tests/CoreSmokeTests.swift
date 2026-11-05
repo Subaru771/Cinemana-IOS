@@ -58,8 +58,24 @@ struct CoreSmokeTests {
         precondition(SceneSkipPlanner.introEnd(chapterJSON) == 105)
         let markedIntro = SceneSkipPlanner.introDestination(current: 30, duration: 1500, marker: 105)
         precondition(markedIntro?.time == 105 && markedIntro?.estimated == false)
-        let estimatedIntro = SceneSkipPlanner.introDestination(current: 30, duration: 1500, marker: nil)
-        precondition(estimatedIntro?.time == 120 && estimatedIntro?.estimated == true)
+        // No arbitrary +90 second fallback if precise timestamps are unavailable.
+        precondition(SceneSkipPlanner.introDestination(current: 30, duration: 1500, marker: nil) == nil)
+        precondition(CommunitySkipTimes.imdbID(in: "https://www.imdb.com/title/tt0944947/") == "tt0944947")
+        precondition(CommunitySkipTimes.imdbID(in: "Game of Thrones") == nil)
+        let withIMDb = Video(json: ["id": "got", "title": "Game of Thrones", "imdbUrlRef": "https://imdb.com/title/tt0944947/"])!
+        precondition(withIMDb.imdbID == "tt0944947")
+        precondition(CommunitySkipTimes.imdbID(in: ["data": ["imdbUrlRef": "https://www.imdb.com/title/tt0944947/"]]) == "tt0944947")
+        let skipDBResponse: [String: Any] = ["segments": ["intro": ["start_ms": 61000, "end_ms": 91000,
+            "match": "exact", "confidence": 0.93]]]
+        let verified = CommunitySkipTimes.decodeIntro(skipDBResponse, duration: 2820)
+        precondition(verified?.start == 61 && verified?.end == 91)
+        precondition(CommunitySkipTimes.skipDestination(current: 70, duration: 2820, segment: verified) == 91)
+        precondition(CommunitySkipTimes.skipDestination(current: 140, duration: 2820, segment: verified) == nil)
+        let inaccurate: [String: Any] = ["segments": ["intro": ["start_ms": 61000, "end_ms": 91000,
+            "match": "out-of-range", "confidence": 0.99]]]
+        precondition(CommunitySkipTimes.decodeIntro(inaccurate, duration: 2820) == nil)
+        precondition(CommunitySkipTimes.requestURL(imdbID: "tt0944947", season: 1, episode: 1, duration: 2820)?.host == "api.skipdb.tv")
+        precondition(CommunitySkipTimes.requestURL(imdbID: "invalid", season: 1, episode: 1, duration: 2820) == nil)
         precondition(MatureContentFilter.hasVerifiedSafeRating(teen))
         precondition(!MatureContentFilter.hasVerifiedSafeRating(unrated))
         // Root lists, nested seasons, sequential episodes without titles,

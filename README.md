@@ -56,3 +56,8 @@ The series API returns flat episode rows with `nb`, `season`, and `episodeNummer
 
 ### v2.0.7 — episode 1 and compact download fix
 The episode decoder no longer omits a playable Episode 1 just because its ID matches the parent series listing. Zero-based episode numbering is normalized consistently for that season. On the detail screen, each episode has a compact 40-point download icon rather than a full-width download menu that stretches episode rows. Physical device QA remains necessary for provider results.
+
+
+### Accurate intro and mature-scene skipping (v2.0.8 beta)
+**Skip Intro does not guess 90 seconds anymore.** It appears only for a verified intro timestamp supplied by the video provider or by an exact, high-confidence community match. The optional community lookup in Settings or the player is disabled by default. When enabled, it requests only the IMDb title ID, episode and video length from [SkipDB](https://skipdb.tv/), not account credentials or viewing history. SkipDB data is licensed ODbL 1.0 + reciprocity.
+**Skip timed mature scenes** remains dependent on explicit timestamp metadata. Many Cinemana streams lack such markers; if none is present the player says the filter is unavailable instead of implying that mature scenes were removed. No visual content classifier is bundled, and this is not guaranteed parental protection.

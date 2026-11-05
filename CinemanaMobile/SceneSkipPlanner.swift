@@ -93,16 +93,12 @@ enum SceneSkipPlanner {
         return result
     }
 
-    /// Single-tap intro skip without asking users to enter time markers.
-    /// If the provider has no marker, jump 90 seconds from the current position,
-    /// explicitly identifying the jump as an estimate rather than claiming detection.
+    /// A real provider intro timestamp is the only valid destination. There is no
+    /// fixed-time fallback: jumping 90 seconds is *not* intro detection.
     static func introDestination(current: Double, duration: Double, marker: Double?) -> (time: Double, estimated: Bool)? {
-        guard current.isFinite && current >= 0 && duration.isFinite && duration > 50,
+        guard let marker, current.isFinite, current >= 0, marker.isFinite,
+              marker > current + 2, marker < duration - 1,
               current <= min(420, duration * 0.30) else { return nil }
-        if let marker, marker.isFinite, marker > current + 3 && marker < duration - 1 {
-            return (marker, false)
-        }
-        let target = min(duration - 1, current + 90)
-        return target > current + 10 ? (target, true) : nil
+        return (marker, false)
     }
 }

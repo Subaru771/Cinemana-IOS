@@ -1,3 +1,10 @@
+## 2.0.8-beta.1 — Accurate intro timing and scene-skip availability
+- Removed the fixed 90-second Skip Intro fallback: it could skip real story content.
+- The one-tap Skip Intro button now requires an explicit provider chapter or an accurate community timestamp. It is hidden if neither is available.
+- Added optional SkipDB lookup in Settings and the player (disabled by default). Only the IMDb title ID, season, episode and stream duration are requested; no viewing history or account credentials are sent. Only high-confidence exact/shifted timestamp matches are accepted.
+- Clarified when timed mature-scene metadata is unavailable. No automatic visual scene detection is claimed; existing provider-supplied timed segments still skip as before.
+- Kept all series/episode availability, iPad support, approved icon and splash, with new timestamp-validation tests.
+
 ## v2.0.7 beta — Restore first episode and compact episode downloads
 - Preserve episode records whose `nb` / ID matches the parent series ID when the record contains valid episode metadata. Previously the parser discarded some first episodes simply because their ID matched the series catalog entry.
 - Decode provider seasons numbered from zero: preserve Episode 0 and normalize the whole season to one-based display (1, 2, …) without creating duplicate labels.
