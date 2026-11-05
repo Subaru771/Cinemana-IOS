@@ -92,10 +92,6 @@ struct CinemaHubWelcomeView: View {
                     .padding(.horizontal, 6)
                     .accessibilityIdentifier("cinemana-hub-opt-out")
 
-                    Text("Optional channel. Cinemana works without Telegram.")
-                        .font(.caption2)
-                        .foregroundStyle(.white.opacity(0.60))
-                        .multilineTextAlignment(.center)
                 }
                 .padding(.horizontal, 24)
                 .padding(.vertical, max(25, geometry.safeAreaInsets.top + 12))

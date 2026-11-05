@@ -40,7 +40,6 @@
 "Offline downloads" = "التنزيلات دون اتصال";
 "In progress" = "قيد التنزيل";
 "Ready to watch" = "جاهز للمشاهدة";
-"Wi-Fi only" = "واي فاي فقط";
 "Remove completed only" = "إزالة التنزيلات المكتملة فقط";
 "Remove completed videos" = "إزالة الفيديوهات المكتملة";
 "Remove completed offline videos?" = "هل تريد إزالة الفيديوهات المحمّلة المكتملة؟";
@@ -51,7 +50,6 @@
 "Manage downloads" = "إدارة التنزيلات";
 "Try again" = "إعادة المحاولة";
 "Delete all downloads" = "حذف جميع التنزيلات";
-"Download on Wi-Fi only" = "التنزيل عبر الواي فاي فقط";
 "Storage nearly full — remove old videos before downloading." = "التخزين شبه ممتلئ — احذف مقاطع قديمة قبل التنزيل.";
 "Player settings" = "إعدادات المشغل";
 "Your downloads" = "تنزيلاتك";
@@ -101,7 +99,6 @@
 "Clear Continue Watching" = "مسح متابعة المشاهدة";
 "Clear My List" = "مسح قائمتي";
 "Your list and playback progress stay on this device." = "تبقى قائمتك وتقدم المشاهدة محفوظين على هذا الجهاز.";
-"Preferred download quality" = "جودة التنزيل المفضلة";
 "Downloads require provider-authorized MP4 or HLS media. Some streams cannot be saved." = "يتطلب التنزيل ملفات MP4 أو HLS يسمح المزوّد بحفظها. لا يمكن تنزيل جميع المقاطع.";
 "Rotate to landscape when playing" = "التدوير للوضع الأفقي عند التشغيل";
 "Double-tap the left or right side to skip 10 seconds. Swipe up or down on the left side for brightness and on the right side for volume." = "انقر مرتين على الجانب الأيسر أو الأيمن للتقديم أو التأخير ١٠ ثوانٍ. اسحب عمودياً يسار الشاشة للسطوع ويمينها للصوت.";
@@ -149,8 +146,6 @@
 "Download options" = "خيارات التنزيل";
 "Download season" = "تنزيل الموسم";
 "Download quality" = "جودة التنزيل";
-"Use preferred quality" = "استخدم الجودة المفضلة";
-"Best available" = "أفضل جودة متاحة";
 "Retry with quality" = "إعادة المحاولة بجودة محددة";
 "Retry download" = "إعادة محاولة التنزيل";
 "Not Now" = "ليس الآن";
@@ -158,3 +153,18 @@
 "Follow our Telegram Channel" = "تابع قناتنا على تلغرام";
 "Join on Telegram" = "انضم إلى تلغرام";
 "Optional channel. Cinemana works without Telegram." = "قناة اختيارية. يعمل سينمانا من دون تلغرام.";
+
+// My List tab
+"Favorites" = "المفضلة";
+"Nothing to continue yet" = "لا يوجد ما تتابعه بعد";
+"Titles you start watching will appear here so you can pick up where you left off." = "ستظهر هنا العناوين التي بدأت مشاهدتها لتكمل من حيث توقفت.";
+"New Movies" = "أفلام جديدة";
+"New Series" = "مسلسلات جديدة";
+"Recent Hit Movies" = "أحدث الأفلام الناجحة";
+"Recent Hit Series" = "أحدث المسلسلات الناجحة";
+"Classic Movies" = "أفلام كلاسيكية";
+"Classic Series" = "مسلسلات كلاسيكية";
+"Cache cleared" = "تم مسح الذاكرة المؤقتة";
+"Turn off Hide Mature Content in Settings to view this title." = "أوقف خيار إخفاء المحتوى للبالغين من الإعدادات لعرض هذا العنوان.";
+"Tap Download on a movie or episode to watch it offline." = "اضغط تنزيل على فيلم أو حلقة لمشاهدته بدون إنترنت.";
+"Group your saved titles into lists." = "اجمع عناوينك المحفوظة في قوائم.";
