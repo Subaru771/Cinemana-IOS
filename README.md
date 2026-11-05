@@ -49,7 +49,7 @@ See [CHANGELOG.md](CHANGELOG.md), [DISTRIBUTION.md](DISTRIBUTION.md) and [WINDOW
 ## v2.0.4 beta episode browser and content filter
 Series detail screens now show a season picker and direct-play cards, with no checkbox episode-selection workflow. Download one episode or use the season download menu. If the provider does not return episodes, use **Retry loading episodes**.
 
-**Settings → Content filter → Skip marked mature scenes** shows all titles, even when previously hidden by Strict. It seeks over an explicit mature scene only if its provider has sent time-coded markers. No markers means that the app cannot guarantee removal of mature scenes. **Skip Intro** is a one-tap player control: use the provider's opening marker where present; otherwise it jumps forward an estimated 90 seconds. No manual marker-setting UI.
+**Settings → Content filter → Skip marked mature scenes** shows all titles, even when previously hidden by Strict. It seeks over an explicit mature scene only if its provider has sent time-coded markers. No markers means that the app cannot guarantee removal of mature scenes. **Skip Intro** is a one-tap player control: use the provider's opening marker where present; otherwise the Skip Intro control is unavailable. No manual marker-setting UI.
 
 ### v2.0.6: episode loading fix
 The series API returns flat episode rows with `nb`, `season`, and `episodeNummer`. The older decoder mistakenly treated a scalar `season` value as a nested collection and discarded real episodes. The revised decoder accepts the flat response, keeps the direct-play episode browser, and includes **Copy diagnostics** when the server returns an empty/unrecognized episode response. A successful Xcode compilation does not verify provider availability; test One Piece and another series on the device and send the copied error diagnostic if either still fails.
@@ -57,7 +57,32 @@ The series API returns flat episode rows with `nb`, `season`, and `episodeNummer
 ### v2.0.7 — episode 1 and compact download fix
 The episode decoder no longer omits a playable Episode 1 just because its ID matches the parent series listing. Zero-based episode numbering is normalized consistently for that season. On the detail screen, each episode has a compact 40-point download icon rather than a full-width download menu that stretches episode rows. Physical device QA remains necessary for provider results.
 
+### Intro and mature-scene skipping (v2.0.8 beta)
 
-### Accurate intro and mature-scene skipping (v2.0.8 beta)
-**Skip Intro does not guess 90 seconds anymore.** It appears only for a verified intro timestamp supplied by the video provider or by an exact, high-confidence community match. The optional community lookup in Settings or the player is disabled by default. When enabled, it requests only the IMDb title ID, episode and video length from [SkipDB](https://skipdb.tv/), not account credentials or viewing history. SkipDB data is licensed ODbL 1.0 + reciprocity.
-**Skip timed mature scenes** remains dependent on explicit timestamp metadata. Many Cinemana streams lack such markers; if none is present the player says the filter is unavailable instead of implying that mature scenes were removed. No visual content classifier is bundled, and this is not guaranteed parental protection.
+- **Skip Intro no longer jumps a guessed 90 seconds.** The one-tap Skip Intro button is shown only when a supported timed chapter or an accurate community match exists. Without a match, it stays hidden so real scenes cannot be accidentally skipped.
+- Under Settings > Player, **Use accurate community intro timestamps** is an optional opt-in, disabled by default. It queries [SkipDB](https://skipdb.tv/) using the IMDb title ID, season and episode numbers, and the stream duration. It does **not** send viewing history or credentials. The community-supplied times are licensed [ODbL 1.0 + reciprocity](https://skipdb.tv/). Episode/title identification and provider access must be available.
+- **Skip timed mature scenes** only works when the source supplies explicit timed scene markers. The Cinemana catalog often does not include such markers, so the player reports when scene skipping is unavailable rather than claiming a scene was filtered. This is not a guaranteed scene censor or a parental-control safety mechanism.
+- The open [Intro Skipper](https://github.com/intro-skipper/intro-skipper) solution performs audio fingerprint analysis on a Jellyfin server and is not directly usable for arbitrary remote streams in this iOS client. Current iOS signed apps also cannot assume Apple Sensitive Content Analysis entitlements are granted via SideStore.
+
+
+## Community scene and chapter markers (experimental)
+
+Cinemana can consult **SkipDB** for verified intro, recap, outro and preview
+markers, with **IntroDB** as a fallback. Enable the community marker option
+in Player settings first. The player only shows a skip button within a
+matching range: it never jumps an arbitrary fixed number of seconds.
+
+**Mature-scene skipping** is independent of intro markers. It requires
+explicit, time-coded nudity/sexual-scene ranges from the content provider,
+your saved local ranges (Android TV), or a compatible MovieHavenDB movie entry.
+MovieHavenDB has very limited coverage; most series have no public verified
+mature-scene markers. **No frame scanning occurs and no filtering is guaranteed.**
+All movie and series titles remain visible. Different cuts may have different
+scene positions; mismatched/unknown timestamps are not automatically applied.
+
+External requests send IMDb ID, season/episode and (for SkipDB) runtime, but
+not video frames or private watch history. Skipping is on-device and light on
+CPU/battery. Sources: [SkipDB](https://skipdb.tv/) (ODbL 1.0, attribution
++ reciprocal data requirements), [IntroDB](https://introdb.app/) (API terms),
+and [MovieHavenDB](https://github.com/arman-kh/MovieHavenDB) (CC BY 4.0).
+Review each source's terms and permitted use before public redistribution.

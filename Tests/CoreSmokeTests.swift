@@ -60,6 +60,29 @@ struct CoreSmokeTests {
         precondition(markedIntro?.time == 105 && markedIntro?.estimated == false)
         // No arbitrary +90 second fallback if precise timestamps are unavailable.
         precondition(SceneSkipPlanner.introDestination(current: 30, duration: 1500, marker: nil) == nil)
+        // v2.1.0 shared scene-marker API: four categories, conservative edition matching,
+        // exact sex/nudity categories only, and no guessing when metadata is absent.
+        let communityPayload: [String: Any] = ["segments": [
+            "intro": ["start_ms": 100_000, "end_ms": 130_000, "match": "exact", "confidence": 0.93],
+            "recap": ["start_ms": 5_000, "end_ms": 60_000, "match": "shifted", "confidence": 0.86],
+            "outro": ["start_ms": 2_650_000, "end_ms": 2_700_000, "match": "exact", "confidence": 0.92],
+            "preview": ["start_ms": 2_708_000, "end_ms": 2_731_000, "match": "out-of-range", "confidence": 1.0]
+        ]]
+        let timed = ExternalSceneMarkers.decodeSkipDB(communityPayload, duration: 2820)
+        precondition(Set(timed.map(\.kind)) == Set(["intro", "recap", "outro"]))
+        precondition(timed.first(where: { $0.kind == "intro" })?.destination(at: 110, duration: 2820) == 130)
+        precondition(ExternalSceneMarkers.skipDBURL(imdbID: "tt0944947", season: 1, episode: 1, duration: 2820)?.absoluteString.contains("adjust=conservative") == true)
+        let fallbackPayload: [String: Any] = ["recap": ["start_ms": 2000, "end_ms": 90000, "confidence": 0.91]]
+        precondition(ExternalSceneMarkers.merge(primary: timed,
+            fallback: ExternalSceneMarkers.decodeIntroDB(fallbackPayload, duration: 2820)).count == 3)
+        let scenesPayload: [String: Any] = ["imdb_id": "tt0266543", "duration": 6000, "scenes": [
+            ["start": 100, "end": 125, "reason": "nudity", "skip": true],
+            ["start": 400, "end": 460, "reason": "violence", "skip": true],
+            ["start": 700, "end": 760, "reason": "sex_scene", "skip": false]
+        ]]
+        precondition(ExternalSceneMarkers.decodeMovieHaven(scenesPayload, imdbID: "tt0266543", duration: 6000).count == 1)
+        precondition(ExternalSceneMarkers.decodeMovieHaven(scenesPayload, imdbID: "tt0266543", duration: 6200).isEmpty)
+
         precondition(CommunitySkipTimes.imdbID(in: "https://www.imdb.com/title/tt0944947/") == "tt0944947")
         precondition(CommunitySkipTimes.imdbID(in: "Game of Thrones") == nil)
         let withIMDb = Video(json: ["id": "got", "title": "Game of Thrones", "imdbUrlRef": "https://imdb.com/title/tt0944947/"])!

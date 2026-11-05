@@ -1,9 +1,18 @@
-## 2.0.8-beta.1 — Accurate intro timing and scene-skip availability
-- Removed the fixed 90-second Skip Intro fallback: it could skip real story content.
-- The one-tap Skip Intro button now requires an explicit provider chapter or an accurate community timestamp. It is hidden if neither is available.
-- Added optional SkipDB lookup in Settings and the player (disabled by default). Only the IMDb title ID, season, episode and stream duration are requested; no viewing history or account credentials are sent. Only high-confidence exact/shifted timestamp matches are accepted.
-- Clarified when timed mature-scene metadata is unavailable. No automatic visual scene detection is claimed; existing provider-supplied timed segments still skip as before.
-- Kept all series/episode availability, iPad support, approved icon and splash, with new timestamp-validation tests.
+## 2.1.0-beta.1 — shared timestamp sources
+- Optional SkipDB intro, recap, outro and preview markers with IntroDB fallback.
+- Per-episode IMDb ID + season/episode matching and conservative time windows; no guessed skips.
+- Mature-scene skipping uses only explicit time-coded ranges; MovieHavenDB lookup is movie-only and sparse.
+- Movie/series catalog remains visible; no heavy AI or video frame processing.
+- External requests are bounded, cached, source-attributed; unknown markers do not skip.
+
+## 2.0.8-beta.1 — Honest intro timing and scene skip availability
+
+- Removed the fixed 90-second Skip Intro fallback: it was not intro detection and could skip actual story content.
+- Skip Intro now appears only when exact provider timecodes or a supported, high-confidence episode-specific community timestamp are available.
+- Optional SkipDB lookup (off until enabled in Settings or the player) uses IMDb ID, season, episode and actual stream duration. Exact/shifted high-confidence matches only; out-of-range versions are rejected. Source: SkipDB, data licensed ODbL 1.0 + reciprocity. No account, personal viewing history, or credentials are transmitted.
+- The player now explicitly says when mature-scene timings are unavailable. Enabling the preference cannot guarantee filtering if no timed scene data exists. No content is hidden on a rating-only basis, and no timestamps are invented.
+- Preserved episode parsing, compact download icons, approved branding and iPad support.
+- New regression tests for IMDb parsing, community timestamp validation, source version matching and missing intro markers.
 
 ## v2.0.7 beta — Restore first episode and compact episode downloads
 - Preserve episode records whose `nb` / ID matches the parent series ID when the record contains valid episode metadata. Previously the parser discarded some first episodes simply because their ID matched the series catalog entry.
