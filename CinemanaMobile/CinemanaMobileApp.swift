@@ -110,9 +110,10 @@ struct CatalogView: View {
     @AppStorage("cinemana-home-trending") private var showTrending = true
     @AppStorage("cinemana-home-new") private var showNew = true
     @AppStorage(MatureContentFilter.preferenceKey) private var hideMatureContent = false
+    @AppStorage(MatureContentFilter.strictPreferenceKey) private var strictMatureContent = true
 
     private var visibleRows: [CatalogRow] {
-        MatureContentFilter.visibleRows(rows, hideMature: hideMatureContent)
+        MatureContentFilter.visibleRows(rows, hideMature: hideMatureContent, strict: strictMatureContent)
     }
     private var recommendations: [Video] {
         let all = visibleRows.flatMap(\.videos)
@@ -147,7 +148,9 @@ struct CatalogView: View {
                     }
                     if visibleRows.isEmpty && !isLoading && error == nil {
                         EmptyStateView(symbol: "film.stack", title: "Nothing to show yet",
-                                       message: "Refresh the catalog or check your connection.")
+                                       message: hideMatureContent && !rows.isEmpty
+                                       ? "The content filter is hiding these titles. Review Settings → Content filter."
+                                       : "Refresh the catalog or check your connection.")
                     }
                     if (kind != nil || showFeatured), let hero = visibleRows.first?.videos.first {
                         NavigationLink(value: hero) {
@@ -374,9 +377,9 @@ struct FeaturedPoster: View {
     @State private var selectedSeason = 1
     @State private var synopsisExpanded = false
     @State private var loadingEpisodes = false
-    @State private var showBatchDownloader = false
     @State private var episodeError: String?
     @AppStorage(MatureContentFilter.preferenceKey) private var hideMatureContent = false
+    @AppStorage(MatureContentFilter.strictPreferenceKey) private var strictMatureContent = true
     var seriesContext = false
 
     /// A title with no type from the provider is treated as a series once episodes are found.
@@ -385,26 +388,24 @@ struct FeaturedPoster: View {
         (detail.map { $0.isSeries && $0.episode == 0 } ?? false) ||
         (video.kind.isEmpty && !episodes.isEmpty)
     }
-    private var visibleRelated: [Video] { MatureContentFilter.visible(related, hideMature: hideMatureContent) }
-    private var sortedSeasons: [Int] { Array(Set(episodes.map(\.season))).sorted() }
-    private var visibleEpisodes: [Video] {
-        episodes.filter { $0.season == selectedSeason && MatureContentFilter.allows($0, hideMature: hideMatureContent) }
-    }
+    private var visibleRelated: [Video] { MatureContentFilter.visible(related, hideMature: hideMatureContent, strict: strictMatureContent) }
     private var playTarget: Video? {
-        if isSeries && !episodes.isEmpty {
+        if isSeries {
+            let permitted = MatureContentFilter.visible(episodes, hideMature: hideMatureContent,
+                                                         strict: strictMatureContent)
+            guard !permitted.isEmpty else { return nil }
             if let resumed = library.snapshot.recent.first(where: { record in
-                episodes.contains(where: { $0.id == record.id }) && record.fraction < 0.95
-            }) { return episodes.first { $0.id == resumed.id } }
-            return ViewingPlanner.nextUnwatched(episodes: episodes,
-                      watched: Set(library.extras.watched.keys)) ?? episodes.first
+                permitted.contains(where: { $0.id == record.id }) && record.fraction < 0.95
+            }) { return permitted.first { $0.id == resumed.id } }
+            return ViewingPlanner.nextUnwatched(episodes: permitted,
+                       watched: Set(library.extras.watched.keys)) ?? permitted.first
         }
-        if isSeries { return nil } // A series root must never play as if it were an episode.
         return PlaybackPlanner.playTarget(for: video, episodes: episodes, recent: library.snapshot.recent)
     }
 
     var body: some View {
         Group {
-            if !MatureContentFilter.allows(detail ?? video, hideMature: hideMatureContent) {
+            if !MatureContentFilter.allows(detail ?? video, hideMature: hideMatureContent, strict: strictMatureContent) {
                 ContentFilteredView()
             } else {
         ScrollView {
@@ -480,78 +481,15 @@ struct FeaturedPoster: View {
                             .font(.footnote).foregroundStyle(mint)
                     }
                     if isSeries {
-                        HStack {
-                            Text("Episodes").font(.title2.weight(.bold))
-                            Spacer()
-                            if !visibleEpisodes.isEmpty {
-                                Button { showBatchDownloader = true } label: {
-                                    Label("Select episodes", systemImage: "checklist")
-                                        .font(.caption)
-                                }.foregroundStyle(mint)
-                                DownloadQualityMenu(videos: visibleEpisodes, compact: true,
-                                                    title: "Download entire season \(selectedSeason)")
-                                    .foregroundStyle(mint)
-                            }
-                            if sortedSeasons.count > 1 {
-                                Menu {
-                                    ForEach(sortedSeasons, id: \.self) { season in
-                                        Button("Season \(season)") { selectedSeason = season }
-                                    }
-                                } label: {
-                                    Label("Season \(selectedSeason)", systemImage: "chevron.down")
-                                        .font(.subheadline).foregroundStyle(mint)
-                                }
-                            }
-                        }.padding(.top, 10)
-                        if loadingEpisodes {
-                            ProgressView("Loading episodes…").tint(mint)
-                        } else if episodes.isEmpty {
-                            Label("Episodes aren't available yet", systemImage: "exclamationmark.triangle")
-                                .font(.subheadline.weight(.semibold))
-                                .foregroundStyle(.orange)
-                            Text(episodeError ?? "The provider returned no episodes for this series.")
-                                .font(.footnote).foregroundStyle(.secondary)
-                                .fixedSize(horizontal: false, vertical: true)
-                            Button { Task { await reloadEpisodes() } } label: {
-                                Label("Retry loading episodes", systemImage: "arrow.clockwise")
-                            }
-                            .buttonStyle(.bordered)
-                        }
-                        ForEach(visibleEpisodes) { ep in
-                            VStack(alignment: .leading, spacing: 2) {
-                            Button { watch = ep } label: {
-                                HStack(spacing: 12) {
-                                    RemotePoster(url: ep.poster ?? (detail ?? video).poster)
-                                        .frame(width: 96, height: 65).clipShape(RoundedRectangle(cornerRadius: 8))
-                                    VStack(alignment: .leading, spacing: 4) {
-                                        Text("S\(ep.season) · E\(ep.episode)")
-                                            .font(.caption).foregroundStyle(mint)
-                                        Text(ep.title).font(.subheadline).lineLimit(2)
-                                        if library.isWatched(ep.id) {
-                                            Label("Watched", systemImage: "checkmark.circle.fill")
-                                                .font(.caption2).foregroundStyle(.green)
-                                        } else if let record = library.playback(for: ep.id) {
-                                            ProgressView(value: record.fraction).tint(mint)
-                                        }
-                                    }
-                                    Spacer()
-                                    Image(systemName: "play.circle.fill").foregroundStyle(mint)
-                                }.padding(.vertical, 5)
-                            }.buttonStyle(.plain)
-                            HStack {
-                                DownloadAction(video: ep)
-                                Spacer()
-                                Button {
-                                    library.markWatched(ep, watched: !library.isWatched(ep.id))
-                                } label: {
-                                    Label(library.isWatched(ep.id) ? "Unmark watched" : "Mark watched",
-                                          systemImage: library.isWatched(ep.id) ? "checkmark.circle.fill" : "circle")
-                                        .font(.caption2)
-                                }
-                                .buttonStyle(.borderless)
-                            }
-                            }
-                        }
+                        SeriesEpisodeBrowser(
+                            episodes: episodes,
+                            season: $selectedSeason,
+                            loading: loadingEpisodes,
+                            error: episodeError,
+                            parentPoster: (detail ?? video).poster,
+                            onPlay: { watch = $0 },
+                            onRetry: { Task { await reloadEpisodes() } }
+                        )
                     }
                     if !visibleRelated.isEmpty {
                         Text("More like this").font(.title2.weight(.bold)).padding(.top, 10)
@@ -574,9 +512,6 @@ struct FeaturedPoster: View {
         .navigationBarTitleDisplayMode(.inline)
         .navigationDestination(for: Video.self) { MovieDetailView(video: $0) }
         .fullScreenCover(item: $watch) { CinemaPlayerScreen(video: $0, playlist: episodes) }
-        .sheet(isPresented: $showBatchDownloader) {
-            EpisodeBatchDownloadView(videos: visibleEpisodes)
-        }
         .task(id: video.id) {
             // Restore the reliable details-first flow. Never launch playback from
             // a poster tap: Play/Resume and episode row buttons own that action.
@@ -608,7 +543,9 @@ struct FeaturedPoster: View {
                         if value.id == video.id &&
                            (value.kind.isEmpty || value.kind == video.kind) {
                             detail = value
-                            MatureVerdictStore.shared.record(value.id, mature: MatureContentFilter.metadataSaysMature(value))
+                            if MatureContentFilter.metadataSaysMature(value) || MatureContentFilter.hasVerifiedSafeRating(value) {
+                                MatureVerdictStore.shared.record(value.id, mature: MatureContentFilter.metadataSaysMature(value))
+                            }
                         }
                     case .episodes(.ready(let list)):
                         episodes = list
@@ -663,6 +600,7 @@ struct SearchCatalogView: View {
     @EnvironmentObject private var library: LibraryStore
     @EnvironmentObject private var classifier: MatureClassifier
     @AppStorage(MatureContentFilter.preferenceKey) private var hideMatureContent = false
+    @AppStorage(MatureContentFilter.strictPreferenceKey) private var strictMatureContent = true
     @State private var onlyUnwatched = false
     @State private var savedOnly = false
     @State private var minimumYear = 0
@@ -674,13 +612,13 @@ struct SearchCatalogView: View {
     @FocusState private var searchFocused: Bool
 
     private var genres: [String] {
-        Array(Set(MatureContentFilter.visible(results, hideMature: hideMatureContent).flatMap(\.genres))).sorted()
+        Array(Set(MatureContentFilter.visible(results, hideMature: hideMatureContent, strict: strictMatureContent).flatMap(\.genres))).sorted()
     }
     private var filtered: [Video] {
         options.apply(results).filter { video in
             (minimumYear == 0 || (Int(video.year) ?? 0) >= minimumYear) &&
             (!onlyUnwatched || !library.isWatched(video.id)) &&
-            (!savedOnly || library.isSaved(video)) && MatureContentFilter.allows(video, hideMature: hideMatureContent)
+            (!savedOnly || library.isSaved(video)) && MatureContentFilter.allows(video, hideMature: hideMatureContent, strict: strictMatureContent)
         }
     }
 
@@ -1102,11 +1040,12 @@ struct LibraryView: View {
     @EnvironmentObject private var library: LibraryStore
     @EnvironmentObject private var classifier: MatureClassifier
     @AppStorage(MatureContentFilter.preferenceKey) private var hideMatureContent = false
+    @AppStorage(MatureContentFilter.strictPreferenceKey) private var strictMatureContent = true
     private var visibleRecent: [PlaybackRecord] {
-        library.snapshot.recent.filter { MatureContentFilter.allows($0.video, hideMature: hideMatureContent) }
+        library.snapshot.recent.filter { MatureContentFilter.allows($0.video, hideMature: hideMatureContent, strict: strictMatureContent) }
     }
     private var visibleFavorites: [Video] {
-        MatureContentFilter.visible(library.snapshot.favorites, hideMature: hideMatureContent)
+        MatureContentFilter.visible(library.snapshot.favorites, hideMature: hideMatureContent, strict: strictMatureContent)
     }
     @State private var section: LibraryTab = .continueWatching
 
@@ -1213,6 +1152,7 @@ struct LibraryView: View {
 struct AboutView: View {
     @EnvironmentObject private var library: LibraryStore
     @AppStorage(MatureContentFilter.preferenceKey) private var hideMatureContent = false
+    @AppStorage(MatureContentFilter.strictPreferenceKey) private var strictMatureContent = true
     @AppStorage("cinemana-auto-landscape") private var autoLandscape = true
     @AppStorage("cinemana-app-language") private var appLanguage = "system"
     @AppStorage("cinemana-hub-promo-hidden") private var hideHubWelcome = false
@@ -1251,6 +1191,11 @@ struct AboutView: View {
             }
             Section("Content filter") {
                 Toggle("Hide Mature Content", isOn: $hideMatureContent)
+                if hideMatureContent {
+                    Toggle("Strict: also hide unrated titles", isOn: $strictMatureContent)
+                    Text("Strict filtering hides any title without a verified safe age rating. Most unrated titles may disappear. This filters titles, not scenes inside a video.")
+                        .font(.footnote).foregroundStyle(.secondary)
+                }
             }
             Section("Privacy and data") {
                 Toggle("Remember viewing history", isOn: Binding(

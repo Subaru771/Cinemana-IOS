@@ -6,7 +6,7 @@ import Foundation
 final class MatureVerdictStore: @unchecked Sendable {
     static let shared = MatureVerdictStore()
     private let lock = NSLock()
-    private let defaultsKey = "cinemana-mature-verdicts-v2"
+    private let defaultsKey = "cinemana-mature-verdicts-v3-verified"
     private var verdicts: [String: Bool]
 
     private init() {
@@ -47,6 +47,14 @@ final class MatureVerdictStore: @unchecked Sendable {
 /// On-device, metadata-based title filter. Not a frame-by-frame censor or age-verification lock.
 enum MatureContentFilter {
     static let preferenceKey = "cinemana-hide-mature-content"
+    /// Conservative behavior. When enabled, titles without a positively safe
+    /// provider age rating stay hidden instead of briefly appearing during fetch.
+    static let strictPreferenceKey = "cinemana-hide-unrated-content"
+    private static let safeRatings: Set<String> = [
+        "g", "pg", "pg-13", "tv-y", "tv-y7", "tv-g", "tv-pg", "tv-14",
+        "u", "u-a", "ua", "all", "everyone", "general", "family",
+        "0", "0+", "6", "6+", "7", "7+", "12", "12+", "13", "13+"
+    ]
 
     private static let matureTags: Set<String> = [
         "adult", "adults only", "adult only", "adult content", "mature", "explicit",
@@ -91,21 +99,36 @@ enum MatureContentFilter {
         video.adultFlag != nil || video.ageRating != nil
     }
 
+    static func hasVerifiedSafeRating(_ video: Video) -> Bool {
+        guard !metadataSaysMature(video), let age = video.ageRating else { return false }
+        return safeRatings.contains(rating(age))
+    }
+
     static func isMature(_ video: Video) -> Bool {
         if metadataSaysMature(video) { return true }
         return MatureVerdictStore.shared.verdict(for: video.id) == true
     }
 
-    static func allows(_ video: Video, hideMature: Bool) -> Bool { !hideMature || !isMature(video) }
-
-    static func visible(_ videos: [Video], hideMature: Bool) -> [Video] {
-        hideMature ? videos.filter { !isMature($0) } : videos
+    private static var strictPreference: Bool {
+        (UserDefaults.standard.object(forKey: strictPreferenceKey) as? Bool) ?? true
     }
 
-    static func visibleRows(_ rows: [CatalogRow], hideMature: Bool) -> [CatalogRow] {
+    static func allows(_ video: Video, hideMature: Bool, strict: Bool? = nil) -> Bool {
+        guard hideMature else { return true }
+        if isMature(video) { return false }
+        guard strict ?? strictPreference else { return true }
+        // A missing age classification cannot establish that a title is safe.
+        return hasVerifiedSafeRating(video) || MatureVerdictStore.shared.verdict(for: video.id) == false
+    }
+
+    static func visible(_ videos: [Video], hideMature: Bool, strict: Bool? = nil) -> [Video] {
+        videos.filter { allows($0, hideMature: hideMature, strict: strict) }
+    }
+
+    static func visibleRows(_ rows: [CatalogRow], hideMature: Bool, strict: Bool? = nil) -> [CatalogRow] {
         guard hideMature else { return rows }
         return rows.compactMap { row in
-            let filtered = visible(row.videos, hideMature: true)
+            let filtered = visible(row.videos, hideMature: true, strict: strict)
             return filtered.isEmpty ? nil : CatalogRow(title: row.title, videos: filtered)
         }
     }
@@ -172,7 +195,10 @@ final class MatureClassifier: ObservableObject {
                 inFlight.remove(id)
                 if let detail {
                     let mature = MatureContentFilter.metadataSaysMature(detail)
-                    MatureVerdictStore.shared.record(id, mature: mature)
+                    // Never promote an unclassified detail response to "safe".
+                    if mature || MatureContentFilter.hasVerifiedSafeRating(detail) {
+                        MatureVerdictStore.shared.record(id, mature: mature)
+                    }
                     if mature { foundMature = true; revision += 1 }
                 } else {
                     unreachable.insert(id)

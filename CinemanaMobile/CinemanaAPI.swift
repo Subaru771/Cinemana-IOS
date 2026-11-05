@@ -308,84 +308,112 @@ struct CinemanaAPI: Sendable {
         } catch { return nil }
     }
 
-    /// Decode season wrappers and nested episode lists, retaining the season number.
-    /// Do not mistake a series description (episode == 0) for a playable episode.
+    /// Episode parsing is isolated and testable. Only media records underneath
+    /// episode collections are playable; a season wrapper or series root is not.
+    /// Provider schemas differ between series, seasons and individual entries.
     static func decodeEpisodes(_ raw: Any, seriesID: String) -> [Video] {
-        let childKeys = ["episodes", "episodeList", "videos", "videoList", "items", "seasons", "seasonList", "season", "result", "results", "data", "list"]
-        var found = [Video]()
-        var seen = Set<String>()
-        func numeric(_ input: Any?) -> Int? {
-            if let number = input as? NSNumber { return number.intValue }
-            if let string = input as? String { return Int(string) }
+        let episodeKeys: Set<String> = ["episodes", "episodeList", "episode_list", "episodeVideos",
+            "videos", "videoList", "video_list", "videoSeason", "videoSeasons", "items", "entries"]
+        let seasonKeys: Set<String> = ["seasons", "seasonList", "season_list", "videoSeasons", "videoSeason", "season"]
+        let containerKeys: Set<String> = ["data", "result", "results", "list", "content", "response"]
+        let allKeys = episodeKeys.union(seasonKeys).union(containerKeys)
+        var entries: [Video] = []
+        var unique = Set<String>()
+
+        func digits(_ value: Any?) -> Int? {
+            if let n = value as? NSNumber { return n.intValue }
+            guard let str = value as? String else { return nil }
+            if let direct = Int(str.trimmingCharacters(in: .whitespaces)) { return direct }
+            let matched = str.range(of: #"[0-9]+"#, options: .regularExpression)
+            return matched.flatMap { Int(str[$0]) }
+        }
+        func number(_ row: [String: Any], keys: [String]) -> Int? {
+            for k in keys { if let n = digits(row[k]) { return n } }
             return nil
         }
-        func walk(_ entry: Any, season: Int, episodeIndex: Int?, insideList: Bool, depth: Int) {
-            guard depth <= 10, found.count < 1500 else { return }
-            if let items = entry as? [Any] {
-                for (index, child) in items.enumerated() {
-                    walk(child, season: season, episodeIndex: index + 1,
-                         insideList: insideList, depth: depth + 1)
+        func scalar(_ row: [String: Any], keys: [String]) -> String? {
+            for k in keys {
+                if let text = row[k] as? String, !text.isEmpty { return text }
+                if let n = row[k] as? NSNumber { return n.stringValue }
+            }
+            return nil
+        }
+        func walk(_ value: Any, season: Int, ordinal: Int?, inEpisodes: Bool, depth: Int) {
+            guard depth <= 14, entries.count < 2000 else { return }
+            if let list = value as? [Any] {
+                for (index, child) in list.enumerated() {
+                    walk(child, season: season, ordinal: index+1, inEpisodes: inEpisodes, depth: depth+1)
                 }
                 return
             }
-            guard let object = entry as? [String: Any] else { return }
-            let seasonNumber = numeric(object["seasonNumber"]) ?? numeric(object["season_number"])
-                ?? numeric(object["seasonNummer"]) ?? numeric(object["seasonNb"])
-                ?? numeric(object["season"]) ?? season
-            let explicitEpisode = numeric(object["episodeNumber"]) ?? numeric(object["episodeNummer"])
-                ?? numeric(object["episodeNb"]) ?? numeric(object["episode_number"])
-                ?? numeric(object["episode"])
-            let looksLikeSeason = childKeys.prefix(7).contains(where: { object[$0] != nil })
-            // The provider sometimes omits episodeNummer inside an episodes array.
-            let ordinal = explicitEpisode ?? (insideList && !looksLikeSeason ? episodeIndex : nil)
-            if let ordinal, ordinal > 0 {
-                var fields = object
-                fields["episodeNummer"] = ordinal
-                fields["season"] = seasonNumber
+            guard let row = value as? [String: Any] else { return }
+            let hasChildren = row.keys.contains(where: { allKeys.contains($0) })
+            let isSeasonContainer = (ordinal != nil && !inEpisodes) ||
+                row.keys.contains(where: { seasonKeys.contains($0) }) ||
+                (hasChildren && !row.keys.contains(where: { episodeKeys.contains($0) }))
+            let seasonNumber = number(row, keys: ["seasonNumber", "seasonNummer", "season_number",
+                "seasonNb", "seasonNo", "seasonIndex", "season"])
+                ?? (isSeasonContainer ? (ordinal ?? season) : season)
+            let episodeNumber = number(row, keys: ["episodeNumber", "episodeNummer", "episode_number",
+                "episodeNb", "episodeNo", "episodeIndex", "ep", "episode"])
+                ?? ((inEpisodes && !hasChildren) ? ordinal : nil)
+
+            // Some provider responses omit episode title or label. The ID must be
+            // present, and a fallback title is generated only for genuine episodes.
+            if inEpisodes, !hasChildren, let ep = episodeNumber, ep > 0,
+               let identity = scalar(row, keys: ["nb", "id", "videoId", "video_id", "videoNb", "episodeId", "episode_id"]),
+               identity != seriesID, !unique.contains(identity) {
+                var fields = row
+                fields["episodeNummer"] = ep
+                fields["season"] = max(1, seasonNumber)
                 fields["kind"] = "2"
-                if let video = Video(json: fields), video.id != seriesID,
-                   seen.insert(video.id).inserted { found.append(video) }
+                if scalar(fields, keys: ["en_title", "englishTitle", "enTitle", "english_title", "title", "name", "ar_title", "arabicTitle"]) == nil {
+                    fields["title"] = "Episode \(ep)"
+                }
+                if let parsed = Video(json: fields) { unique.insert(identity); entries.append(parsed) }
             }
-            for key in childKeys {
-                guard let child = object[key] else { continue }
-                let isEpisodeList = ["episodes", "episodeList", "videos", "videoList", "items"].contains(key)
-                walk(child, season: seasonNumber, episodeIndex: nil,
-                     insideList: isEpisodeList, depth: depth + 1)
+            for (key, child) in row where allKeys.contains(key) {
+                if let list = child as? [Any], seasonKeys.contains(key) {
+                    // A `videoSeason` value can itself be an episode list or a
+                    // group of season wrappers. Inspect the entries, not its name.
+                    for (index, wrapper) in list.enumerated() {
+                        let isEpisode = (wrapper as? [String: Any]).map { entry in
+                            number(entry, keys: ["episodeNumber", "episodeNummer", "episodeNb", "episodeNo", "episode"]) != nil
+                        } ?? false
+                        walk(wrapper, season: seasonNumber, ordinal: index+1,
+                             inEpisodes: isEpisode, depth: depth+1)
+                    }
+                } else {
+                    walk(child, season: seasonNumber, ordinal: nil,
+                         inEpisodes: episodeKeys.contains(key) || (inEpisodes && !seasonKeys.contains(key)), depth: depth+1)
+                }
             }
         }
-        walk(raw, season: 1, episodeIndex: nil, insideList: true, depth: 0)
-        return found.sorted { ($0.season, $0.episode, $0.id) < ($1.season, $1.episode, $1.id) }
+        walk(raw, season: 1, ordinal: nil, inEpisodes: true, depth: 0)
+        return entries.sorted { ($0.season, $0.episode, $0.id) < ($1.season, $1.episode, $1.id) }
     }
 
-    /// The known season endpoint is authoritative. A detail response is a safe
-    /// fallback when it embeds season arrays; provider failures remain visible.
+    /// Do not silently return an empty collection on upstream failure. Keep
+    /// authorization errors explicit and retry a second existing endpoint.
     func episodesDetailed(_ id: String) async throws -> [Video] {
         var firstError: Error?
         for path in ["videoSeason/id/\(segment(id))", "allVideoInfo/id/\(segment(id))"] {
             do {
-                let raw = try await fetch(path, timeout: 10, ttl: 300)
-                let parsed = Self.decodeEpisodes(raw, seriesID: id)
-                if !parsed.isEmpty { return parsed }
-            } catch is CancellationError {
-                throw CancellationError()
-            } catch {
+                let payload = try await fetch(path, timeout: 12, ttl: 60)
+                let episodes = Self.decodeEpisodes(payload, seriesID: id)
+                if !episodes.isEmpty { return episodes }
+            } catch is CancellationError { throw CancellationError() }
+            catch {
                 if firstError == nil { firstError = error }
-                // Authorization failures should not trigger redundant requests.
-                if let status = error as? APIError {
-                    switch status {
-                    case .unauthorized, .providerRestricted: throw status
-                    default: break
-                    }
+                if let api = error as? APIError {
+                    switch api { case .unauthorized, .providerRestricted: throw api; default: break }
                 }
             }
         }
-        if let firstError { throw firstError }
-        throw APIError.noEpisodes
+        throw firstError ?? APIError.noEpisodes
     }
 
-    func episodes(_ id: String) async -> [Video] {
-        (try? await episodesDetailed(id)) ?? []
-    }
+    func episodes(_ id: String) async -> [Video] { (try? await episodesDetailed(id)) ?? [] }
 
     func related(_ id: String) async -> [Video] {
         do { return videos(try await fetch("relatedVideos/id/\(segment(id))", timeout: 8, ttl: 300)) }

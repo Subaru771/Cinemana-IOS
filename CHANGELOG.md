@@ -1,3 +1,11 @@
+## 2.0.4-beta.1 — Episode browser rebuild and conservative maturity filter
+- Removed the episode checklist and multi-select download screen. Series now have a unified season picker and direct-play episode cards (individual and full-season downloads remain).
+- Rebuilt decoding of nested episode lists, season wrappers and videoSeason responses; added independent regression fixtures and explicit retry errors.
+- The existing Hide Mature Content switch now offers **Strict: hide unrated titles** (enabled by default when the content filter is switched on). A catalog entry without verified safe rating stays hidden rather than briefly appearing. This may hide most unrated titles.
+- Existing negative classification cache cannot whitelist unrated titles in strict mode. The player applies the same restrictions and pauses when the setting changes.
+- Limits: Metadata and content ratings cannot reliably identify every mature scene; the app does not censor video frames or automatically skip mature scenes.
+- Existing artwork, downloads, watch history, player and iPad support retained.
+
 ## 2.0.3
 
 - Hide Mature Content now checks the provider's full title record (rating, adult flag, tags in English and Arabic) for titles that arrive without a classification, remembers the result, and applies it to Home, Movies, Series, Search, My List, related titles and episodes.

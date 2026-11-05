@@ -36,6 +36,27 @@ struct CoreSmokeTests {
         precondition(!MatureContentFilter.allows(flagged, hideMature: true))
         precondition(MatureContentFilter.allows(teen, hideMature: true))
         precondition(MatureContentFilter.visible([flagged, teen], hideMature: true).count == 1)
+        let unrated = Video(json: ["id": "unrated", "title": "No rating", "adult": false])!
+        precondition(!MatureContentFilter.allows(unrated, hideMature: true, strict: true))
+        precondition(MatureContentFilter.allows(unrated, hideMature: true, strict: false))
+        precondition(MatureContentFilter.allows(unrated, hideMature: false, strict: true))
+        precondition(MatureContentFilter.hasVerifiedSafeRating(teen))
+        precondition(!MatureContentFilter.hasVerifiedSafeRating(unrated))
+        // Root lists, nested seasons, sequential episodes without titles,
+        // and `videoSeason` arrays are explicitly supported.
+        let roots: [String: Any] = ["seasons": [
+            ["videoList": [["nb": "root-1", "episodeNummer": 1]]],
+            ["episodeList": [["id": "root-2", "episodeNummer": 1]]]
+        ]]
+        let rootEpisodes = CinemanaAPI.decodeEpisodes(roots, seriesID: "root")
+        precondition(rootEpisodes.map(\.season) == [1, 2])
+        precondition(rootEpisodes.map(\.id) == ["root-1", "root-2"])
+        precondition(rootEpisodes[0].title == "Episode 1")
+        let wrapped: [String: Any] = ["data": ["videoSeason": [
+            ["id": "wrapped1", "title": "First", "episodeNumber": 1],
+            ["id": "wrapped2", "title": "Second", "episodeNumber": 2]
+        ]]]
+        precondition(CinemanaAPI.decodeEpisodes(wrapped, seriesID: "root").map(\.episode) == [1, 2])
         let tvma = Video(json: ["id": "tvma", "title": "Late Show", "contentRating": "TV-MA"])!
         let arabicTag = Video(json: ["id": "ar-tag", "title": "Film", "categories": [["en_title": "Drama", "ar_title": "للكبار فقط"]]])!
         precondition(MatureContentFilter.isMature(tvma) && MatureContentFilter.isMature(arabicTag))

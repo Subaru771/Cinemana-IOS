@@ -45,3 +45,8 @@ swiftc -o /tmp/cinemana-tests CinemanaMobile/Models.swift CinemanaMobile/Cineman
 History, collections, favorites and custom skip markers are stored on the device. No personal telemetry or developer account is required. Select a movie to view details; choose **Play** to start video. Do not assume an arbitrary upstream server permits playback, download or redistribution of its media.
 
 See [CHANGELOG.md](CHANGELOG.md), [DISTRIBUTION.md](DISTRIBUTION.md) and [WINDOWS-APPLE-SIGNING.md](WINDOWS-APPLE-SIGNING.md).
+
+## v2.0.4 beta episode browser and content filter
+Series detail screens now show a season picker and direct-play cards, with no checkbox episode-selection workflow. Download one episode or use the season download menu. If the provider does not return episodes, use **Retry loading episodes**.
+
+**Settings → Content filter → Hide Mature Content** additionally offers **Strict: also hide unrated titles**. With strict mode on, titles without a confirmed safe rating remain hidden. This is an on-device metadata/title-level filter, not automatic censorship of scenes inside a playing video.

@@ -129,10 +129,11 @@ struct CinemaPlayerScreen: View {
     @AppStorage("cinemana-sub-scale") private var subtitleScale = 1.0
     @AppStorage("cinemana-sub-background") private var captionBackdrop = true
     @AppStorage(MatureContentFilter.preferenceKey) private var hideMatureContent = false
+    @AppStorage(MatureContentFilter.strictPreferenceKey) private var strictMatureContent = true
 
     private var isPad: Bool { UIDevice.current.userInterfaceIdiom == .pad }
     private var blockedByFilter: Bool {
-        !MatureContentFilter.allows(current, hideMature: hideMatureContent)
+        !MatureContentFilter.allows(current, hideMature: hideMatureContent, strict: strictMatureContent)
     }
 
     @State private var current: Video
@@ -183,7 +184,7 @@ struct CinemaPlayerScreen: View {
     private var isDownloaded: Bool { downloads.localURL(for: current.id) != nil }
     private var nextEpisode: Video? {
         guard let next = PlaybackPlanner.nextEpisode(after: current, in: playlist),
-              MatureContentFilter.allows(next, hideMature: hideMatureContent) else { return nil }
+              MatureContentFilter.allows(next, hideMature: hideMatureContent, strict: strictMatureContent) else { return nil }
         return next
     }
     private var subtitleLift: CGFloat { showsControls && !locked ? 150 : 46 }
@@ -251,11 +252,14 @@ struct CinemaPlayerScreen: View {
             if phase != .active { session.save(library: library) }
         }
         .onChange(of: hideMatureContent) { enabled in
-            if enabled && MatureContentFilter.isMature(current) {
+            if enabled && !MatureContentFilter.allows(current, hideMature: true, strict: strictMatureContent) {
                 session.player?.pause()
                 playing = false
                 cancelUpNext()
             }
+        }
+        .onChange(of: strictMatureContent) { _ in
+            if blockedByFilter { session.player?.pause(); playing = false; cancelUpNext() }
         }
         .onChange(of: session.player) { _ in
             if blockedByFilter { session.player?.pause() }
@@ -263,7 +267,7 @@ struct CinemaPlayerScreen: View {
         .sheet(isPresented: $showEpisodePicker) {
             NavigationStack {
                 List {
-                    ForEach(playlist.filter { MatureContentFilter.allows($0, hideMature: hideMatureContent) }) { episode in
+                    ForEach(playlist.filter { MatureContentFilter.allows($0, hideMature: hideMatureContent, strict: strictMatureContent) }) { episode in
                         Button {
                             showEpisodePicker = false
                             play(episode)
@@ -750,6 +754,9 @@ struct CinemaPlayerScreen: View {
         Menu {
             Section("Content filter") {
                 Toggle("Hide Mature Content", isOn: $hideMatureContent)
+                if hideMatureContent {
+                    Toggle("Strict: hide unrated titles", isOn: $strictMatureContent)
+                }
             }
             Section("Playback") {
                 speedMenu
@@ -1058,7 +1065,7 @@ struct CinemaPlayerScreen: View {
     // MARK: Episodes
 
     private func play(_ next: Video) {
-        guard MatureContentFilter.allows(next, hideMature: hideMatureContent) else {
+        guard MatureContentFilter.allows(next, hideMature: hideMatureContent, strict: strictMatureContent) else {
             flashMessage("Hidden by content filter")
             return
         }

@@ -4,6 +4,7 @@ import SwiftUI
 struct CollectionsView: View {
     @EnvironmentObject private var library: LibraryStore
     @AppStorage(MatureContentFilter.preferenceKey) private var hideMatureContent = false
+    @AppStorage(MatureContentFilter.strictPreferenceKey) private var strictMatureContent = true
     @State private var name = ""
 
     var body: some View {
@@ -32,7 +33,7 @@ struct CollectionsView: View {
             }
             ForEach(library.extras.collections) { collection in
                 Section {
-                    let matching = library.snapshot.favorites.filter { collection.videoIDs.contains($0.id) && MatureContentFilter.allows($0, hideMature: hideMatureContent) }
+                    let matching = library.snapshot.favorites.filter { collection.videoIDs.contains($0.id) && MatureContentFilter.allows($0, hideMature: hideMatureContent, strict: strictMatureContent) }
                     if matching.isEmpty {
                         Text("Use the Collections menu on a movie's details page to add titles.")
                             .font(.footnote).foregroundStyle(.secondary)
@@ -61,7 +62,7 @@ struct CollectionsView: View {
                     HStack {
                         Text(collection.name)
                         Spacer()
-                        Text("\(library.snapshot.favorites.filter { collection.videoIDs.contains($0.id) && MatureContentFilter.allows($0, hideMature: hideMatureContent) }.count) shown")
+                        Text("\(library.snapshot.favorites.filter { collection.videoIDs.contains($0.id) && MatureContentFilter.allows($0, hideMature: hideMatureContent, strict: strictMatureContent) }.count) shown")
                     }
                 } footer: {
                     Button(role: .destructive) { library.deleteCollection(collection.id) } label: {
@@ -76,75 +77,5 @@ struct CollectionsView: View {
     private func add() {
         library.addCollection(name)
         name = ""
-    }
-}
-
-/// Each season already supports batch download. This adds choose-episodes selection.
-struct EpisodeBatchDownloadView: View {
-    @Environment(\.dismiss) private var dismiss
-    @ObservedObject private var downloader = DownloadCenter.shared
-    let videos: [Video]
-    @State private var selected: Set<String>
-    @State private var quality = 720
-
-    init(videos: [Video]) {
-        self.videos = videos
-        _selected = State(initialValue: Set(videos.map(\.id)))
-    }
-
-    var body: some View {
-        NavigationStack {
-            List {
-                Section {
-                    HStack {
-                        Button("Select all") { selected = Set(videos.map(\.id)) }
-                        Spacer()
-                        Button("Clear") { selected = [] }
-                    }
-                    ForEach(videos) { video in
-                        Button {
-                            if selected.contains(video.id) { selected.remove(video.id) }
-                            else { selected.insert(video.id) }
-                        } label: {
-                            HStack(spacing: 12) {
-                                Image(systemName: selected.contains(video.id)
-                                      ? "checkmark.circle.fill" : "circle")
-                                    .foregroundStyle(selected.contains(video.id) ? Color.red : Color.gray)
-                                VStack(alignment: .leading, spacing: 3) {
-                                    Text("S\(video.season) E\(video.episode)").font(.caption.weight(.bold))
-                                    Text(video.title).lineLimit(2)
-                                }
-                                Spacer()
-                                if downloader.entry(for: video.id)?.status == .ready {
-                                    Image(systemName: "arrow.down.circle.fill").foregroundStyle(.green)
-                                }
-                            }.contentShape(Rectangle())
-                        }.buttonStyle(.plain)
-                    }
-                } header: { Text("Choose episodes (\(selected.count))") }
-                Section("Maximum download resolution") {
-                    Picker("Quality", selection: $quality) {
-                        ForEach([480, 720, 1080, 2160], id: \.self) { value in
-                            Text("Up to \(value)p").tag(value)
-                        }
-                    }.pickerStyle(.segmented)
-                    if let free = downloader.freeBytes {
-                        Label("\(ByteFormat.string(free)) available on this device", systemImage: "internaldrive")
-                            .font(.footnote).foregroundStyle(.secondary)
-                    }
-                }
-            }
-            .navigationTitle("Download episodes")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .topBarLeading) { Button("Cancel") { dismiss() } }
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button("Queue \(selected.count)") {
-                        downloader.enqueue(videos.filter { selected.contains($0.id) }, preferredQuality: quality)
-                        dismiss()
-                    }.disabled(selected.isEmpty)
-                }
-            }
-        }
     }
 }

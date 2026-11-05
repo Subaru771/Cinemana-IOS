@@ -24,7 +24,8 @@ assert 'value.id == video.id' in app[start:end], 'Reject unrelated metadata'
 assert 'PlaybackPlanner.playTarget(for: video,' in app, 'Stable movie target must not depend on asynchronous detail metadata'
 assert 'next.play()\n                        next.seek' in app, 'Resume seek must not block autoplay on failure'
 assert 'if let target = playTarget { watch = target }' in app
-assert 'Button { watch = ep }' in app
+assert 'SeriesEpisodeBrowser(' in app
+assert 'onPlay(episode)' in (root / 'CinemanaMobile/SeriesEpisodeBrowser.swift').read_text()
 assert '.fullScreenCover(item: $watch) { CinemaPlayerScreen(video: $0, playlist: episodes) }' in app
 assert '.task(id: current.id) { await startPlayback() }' in player
 assert 'await session.load(video: current, library: library)' in player
