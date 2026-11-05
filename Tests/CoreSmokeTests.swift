@@ -33,13 +33,33 @@ struct CoreSmokeTests {
         let teen = Video(json: ["id": "teen", "title": "Teen", "ageRating": "PG-13"])!
         precondition(MatureContentFilter.isMature(flagged))
         precondition(MatureContentFilter.allows(flagged, hideMature: false))
-        precondition(!MatureContentFilter.allows(flagged, hideMature: true))
+        precondition(MatureContentFilter.allows(flagged, hideMature: true))
         precondition(MatureContentFilter.allows(teen, hideMature: true))
-        precondition(MatureContentFilter.visible([flagged, teen], hideMature: true).count == 1)
+        precondition(MatureContentFilter.visible([flagged, teen], hideMature: true).count == 2)
         let unrated = Video(json: ["id": "unrated", "title": "No rating", "adult": false])!
-        precondition(!MatureContentFilter.allows(unrated, hideMature: true, strict: true))
+        precondition(MatureContentFilter.allows(unrated, hideMature: true, strict: true))
         precondition(MatureContentFilter.allows(unrated, hideMature: true, strict: false))
         precondition(MatureContentFilter.allows(unrated, hideMature: false, strict: true))
+        // Films and series remain visible even if the old strict-hide setting is enabled.
+        precondition(MatureContentFilter.visibleRows([
+            CatalogRow(title: "Series", videos: [flagged, unrated, teen])
+        ], hideMature: true, strict: true).first?.videos.count == 3)
+        // Skipping a mature scene is legal only when the provider supplies an explicit range.
+        let chapterJSON: [String: Any] = ["data": ["matureScenes": [
+            ["start": "00:02:00", "end": "00:02:24", "type": "nudity"],
+            ["start": 360, "end": 381, "type": "explicit"]],
+            "introEnd": 105]]
+        let timedScenes = SceneSkipPlanner.decode(chapterJSON)
+        precondition(timedScenes.count == 2)
+        precondition(timedScenes[0].start == 120 && timedScenes[0].end == 144)
+        precondition(SceneSkipPlanner.active(timedScenes, at: 128, duration: 1200)?.end == 144)
+        precondition(SceneSkipPlanner.active(timedScenes, at: 160, duration: 1200) == nil)
+        precondition(SceneSkipPlanner.decode(["genres": ["Adult"], "ageRating": "18+"]).isEmpty)
+        precondition(SceneSkipPlanner.introEnd(chapterJSON) == 105)
+        let markedIntro = SceneSkipPlanner.introDestination(current: 30, duration: 1500, marker: 105)
+        precondition(markedIntro?.time == 105 && markedIntro?.estimated == false)
+        let estimatedIntro = SceneSkipPlanner.introDestination(current: 30, duration: 1500, marker: nil)
+        precondition(estimatedIntro?.time == 120 && estimatedIntro?.estimated == true)
         precondition(MatureContentFilter.hasVerifiedSafeRating(teen))
         precondition(!MatureContentFilter.hasVerifiedSafeRating(unrated))
         // Root lists, nested seasons, sequential episodes without titles,

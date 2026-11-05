@@ -1,3 +1,10 @@
+## 2.0.5-beta.1 — series visibility and timed playback skipping
+- Correct the Series tab disappearing when the previous strict mature filter was enabled; **all titles are shown** now.
+- Rename the content preference to **Skip marked mature scenes**. It skips only explicitly time-coded provider ranges; no claims of visual scene detection without markers.
+- Remove manual intro/recap/credits marker-setting menu and add one-tap **Skip Intro** (provider end time when present, otherwise an explicitly estimated 90-second jump).
+- Preserve direct-play season browser, accepted player features, icon/splash branding and iPad layout.
+- Portable regression tests for unchanged series visibility, timestamp-based mature scene skipping, and intro estimation.
+
 ## 2.0.4-beta.1 — Episode browser rebuild and conservative maturity filter
 - Removed the episode checklist and multi-select download screen. Series now have a unified season picker and direct-play episode cards (individual and full-season downloads remain).
 - Rebuilt decoding of nested episode lists, season wrappers and videoSeason responses; added independent regression fixtures and explicit retry errors.

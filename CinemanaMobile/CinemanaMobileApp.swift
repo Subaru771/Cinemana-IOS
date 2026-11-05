@@ -1190,12 +1190,9 @@ struct AboutView: View {
                 Toggle("Recently added sections", isOn: $showNew)
             }
             Section("Content filter") {
-                Toggle("Hide Mature Content", isOn: $hideMatureContent)
-                if hideMatureContent {
-                    Toggle("Strict: also hide unrated titles", isOn: $strictMatureContent)
-                    Text("Strict filtering hides any title without a verified safe age rating. Most unrated titles may disappear. This filters titles, not scenes inside a video.")
-                        .font(.footnote).foregroundStyle(.secondary)
-                }
+                Toggle("Skip marked mature scenes", isOn: $hideMatureContent)
+                Text("All movies and series remain visible. Playback skips only scenes with explicit provider-supplied timestamps. Videos without scene timing cannot be filtered automatically.")
+                    .font(.footnote).foregroundStyle(.secondary)
             }
             Section("Privacy and data") {
                 Toggle("Remember viewing history", isOn: Binding(

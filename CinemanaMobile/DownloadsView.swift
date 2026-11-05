@@ -40,7 +40,7 @@ struct DownloadsView: View {
             Image(systemName: "arrow.down.to.line.compact")
                 .font(.system(size: 54))
                 .foregroundStyle(.mint)
-            Text(hideMatureContent && !center.items.isEmpty ? "Downloads hidden by content filter" : "Your downloads").font(.title2.bold())
+            Text("Your downloads").font(.title2.bold())
             Text("Tap Download on a movie or episode to watch it offline.")
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)

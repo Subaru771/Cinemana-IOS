@@ -128,13 +128,10 @@ struct CinemaPlayerScreen: View {
     @AppStorage("cinemana-auto-landscape") private var autoLandscape = true
     @AppStorage("cinemana-sub-scale") private var subtitleScale = 1.0
     @AppStorage("cinemana-sub-background") private var captionBackdrop = true
-    @AppStorage(MatureContentFilter.preferenceKey) private var hideMatureContent = false
-    @AppStorage(MatureContentFilter.strictPreferenceKey) private var strictMatureContent = true
+    @AppStorage(MatureContentFilter.preferenceKey) private var skipMatureScenes = false
 
     private var isPad: Bool { UIDevice.current.userInterfaceIdiom == .pad }
-    private var blockedByFilter: Bool {
-        !MatureContentFilter.allows(current, hideMature: hideMatureContent, strict: strictMatureContent)
-    }
+    private var blockedByFilter: Bool { false } // Never block a title; scene skipping is time-coded.
 
     @State private var current: Video
     @State private var showsControls = true
@@ -171,6 +168,11 @@ struct CinemaPlayerScreen: View {
     @State private var showDiagnostics = false
     @State private var importingSubtitles = false
     @State private var showEpisodePicker = false
+    @State private var matureSceneRanges: [SceneSkipRange] = []
+    @State private var providerIntroEnd: Double?
+    @State private var introSkipUsed = false
+    @State private var alreadySkippedScenes = Set<String>()
+
 
     private let playlist: [Video]
 
@@ -183,9 +185,7 @@ struct CinemaPlayerScreen: View {
     private var timeLimit: Double { max(1, duration) }
     private var isDownloaded: Bool { downloads.localURL(for: current.id) != nil }
     private var nextEpisode: Video? {
-        guard let next = PlaybackPlanner.nextEpisode(after: current, in: playlist),
-              MatureContentFilter.allows(next, hideMature: hideMatureContent, strict: strictMatureContent) else { return nil }
-        return next
+        PlaybackPlanner.nextEpisode(after: current, in: playlist)
     }
     private var subtitleLift: CGFloat { showsControls && !locked ? 150 : 46 }
 
@@ -217,18 +217,8 @@ struct CinemaPlayerScreen: View {
                 if let next = upNext { upNextCard(next) }
                 if let hud { hudView(hud) }
                 if let flash { flashView(flash) }
-                if !blockedByFilter { skipMarkersOverlay }
-                if blockedByFilter {
-                    Color.black.ignoresSafeArea()
-                    VStack(spacing: 22) {
-                        ContentFilteredView()
-                        Button("Close player") { closePlayer() }
-                            .buttonStyle(.borderedProminent).tint(cinemaAccent)
-                        Button("Show content filter settings") { hideMatureContent = false }
-                            .font(.footnote).foregroundStyle(.secondary)
-                    }
-                    .frame(maxWidth: isPad ? 520 : 360)
-                }
+                skipMarkersOverlay
+
             }
             .frame(width: geometry.size.width, height: geometry.size.height)
         }
@@ -238,7 +228,10 @@ struct CinemaPlayerScreen: View {
         .persistentSystemOverlays(isPad ? .automatic : .hidden)
         .defersSystemGestures(on: isPad ? [] : .all)
         .preferredColorScheme(.dark)
-        .task(id: current.id) { await startPlayback() }
+        .task(id: current.id) {
+            await startPlayback()
+            await loadSkipMarkers()
+        }
         .onAppear { prepareScreen() }
         .onReceive(Timer.publish(every: 0.25, on: .main, in: .common).autoconnect()) { _ in
             updateProgress()
@@ -251,23 +244,10 @@ struct CinemaPlayerScreen: View {
         .onChange(of: scenePhase) { phase in
             if phase != .active { session.save(library: library) }
         }
-        .onChange(of: hideMatureContent) { enabled in
-            if enabled && !MatureContentFilter.allows(current, hideMature: true, strict: strictMatureContent) {
-                session.player?.pause()
-                playing = false
-                cancelUpNext()
-            }
-        }
-        .onChange(of: strictMatureContent) { _ in
-            if blockedByFilter { session.player?.pause(); playing = false; cancelUpNext() }
-        }
-        .onChange(of: session.player) { _ in
-            if blockedByFilter { session.player?.pause() }
-        }
         .sheet(isPresented: $showEpisodePicker) {
             NavigationStack {
                 List {
-                    ForEach(playlist.filter { MatureContentFilter.allows($0, hideMature: hideMatureContent, strict: strictMatureContent) }) { episode in
+                    ForEach(playlist) { episode in
                         Button {
                             showEpisodePicker = false
                             play(episode)
@@ -445,7 +425,6 @@ struct CinemaPlayerScreen: View {
         flashMessage(delta > 0 ? "+\(Int(delta))s" : "−\(Int(-delta))s")
     }
 
-    private var markers: ChapterMarkers { library.markers(for: current.id) }
 
     @ViewBuilder
     private var skipMarkersOverlay: some View {
@@ -454,18 +433,15 @@ struct CinemaPlayerScreen: View {
                 Spacer()
                 HStack {
                     Spacer()
-                    if ViewingPlanner.shouldOfferSkip(position: currentTime, end: markers.recapEndsAt, duration: duration) {
-                        Button("Skip recap") { seek(to: markers.recapEndsAt ?? 0) }
-                            .buttonStyle(.borderedProminent).tint(cinemaAccent)
-                    } else if ViewingPlanner.shouldOfferSkip(position: currentTime, end: markers.introEndsAt, duration: duration) {
-                        Button("Skip intro") { seek(to: markers.introEndsAt ?? 0) }
-                            .buttonStyle(.borderedProminent).tint(cinemaAccent)
-                    } else if let credits = markers.creditsBeginAt, duration > 0,
-                              currentTime >= credits, currentTime < duration - 4 {
-                        Button("Skip credits") {
-                            library.markWatched(current, watched: true)
-                            if let next = nextEpisode { play(next) }
-                            else { seek(to: max(0, duration - 0.2)) }
+                    if !introSkipUsed,
+                       let target = SceneSkipPlanner.introDestination(current: currentTime, duration: duration,
+                                                                       marker: providerIntroEnd),
+                       current.isSeries || current.episode > 0 {
+                        Button("Skip Intro") {
+                            introSkipUsed = true
+                            seek(to: target.time)
+                            if target.estimated { flashMessage("Skipped about 90 seconds (intro timing unavailable)") }
+                            else { flashMessage("Intro skipped") }
                         }
                         .buttonStyle(.borderedProminent).tint(cinemaAccent)
                     }
@@ -475,6 +451,19 @@ struct CinemaPlayerScreen: View {
             }
         }
     }
+
+    @MainActor
+    private func loadSkipMarkers() async {
+        matureSceneRanges = []
+        providerIntroEnd = nil
+        alreadySkippedScenes = []
+        let id = current.id
+        let marks = await CinemanaAPI.shared.playbackSkipMarkers(id)
+        guard !Task.isCancelled && current.id == id else { return }
+        matureSceneRanges = marks.scenes
+        providerIntroEnd = marks.introEnd
+    }
+
 
     // MARK: Overlays
 
@@ -753,10 +742,10 @@ struct CinemaPlayerScreen: View {
     private var optionsMenu: some View {
         Menu {
             Section("Content filter") {
-                Toggle("Hide Mature Content", isOn: $hideMatureContent)
-                if hideMatureContent {
-                    Toggle("Strict: hide unrated titles", isOn: $strictMatureContent)
-                }
+                Toggle("Skip marked mature scenes", isOn: $skipMatureScenes)
+                Text(matureSceneRanges.isEmpty ? "Scene timings unavailable for this video" :
+                     "\(matureSceneRanges.count) marked scene(s)")
+                    .font(.caption).foregroundStyle(.secondary)
             }
             Section("Playback") {
                 speedMenu
@@ -768,7 +757,6 @@ struct CinemaPlayerScreen: View {
             }
             Section("Captions & chapters") {
                 subtitleMenu
-                chapterMenu
             }
             Section("More") {
                 Button { locked = true; showControls() } label: {
@@ -897,27 +885,6 @@ struct CinemaPlayerScreen: View {
         }
     }
 
-    private var chapterMenu: some View {
-        Menu("Skip markers") {
-            Text("Personal timing markers (saved only on this device)")
-            Button("Intro ends at \(formatTime(livePosition()))") {
-                var value = markers; value.introEndsAt = livePosition()
-                library.setMarkers(value, for: current.id)
-            }
-            Button("Recap ends at \(formatTime(livePosition()))") {
-                var value = markers; value.recapEndsAt = livePosition()
-                library.setMarkers(value, for: current.id)
-            }
-            Button("Credits start at \(formatTime(livePosition()))") {
-                var value = markers; value.creditsBeginAt = livePosition()
-                library.setMarkers(value, for: current.id)
-            }
-            Button("Reset skip markers", role: .destructive) {
-                library.setMarkers(ChapterMarkers(), for: current.id)
-            }
-        }
-    }
-
     private var audioMenu: some View {
         Menu("Audio track") {
             if audioTracks.isEmpty { Text("Default audio") }
@@ -999,6 +966,13 @@ struct CinemaPlayerScreen: View {
         }
         let length = player.currentItem?.duration.seconds ?? 0
         duration = length.isFinite && length > 0 ? length : 0
+        if skipMatureScenes && !seekInFlight && !isScrubbing,
+           let scene = SceneSkipPlanner.active(matureSceneRanges, at: currentTime, duration: duration),
+           !alreadySkippedScenes.contains(scene.identifier) {
+            alreadySkippedScenes.insert(scene.identifier)
+            seek(to: scene.end)
+            flashMessage("Skipped a marked mature scene")
+        }
         if let lastRange = player.currentItem?.loadedTimeRanges.last?.timeRangeValue {
             let end = CMTimeGetSeconds(CMTimeRangeGetEnd(lastRange))
             if end.isFinite { bufferedUntil = max(0, end) }
@@ -1065,10 +1039,6 @@ struct CinemaPlayerScreen: View {
     // MARK: Episodes
 
     private func play(_ next: Video) {
-        guard MatureContentFilter.allows(next, hideMature: hideMatureContent, strict: strictMatureContent) else {
-            flashMessage("Hidden by content filter")
-            return
-        }
         cancelUpNext()
         session.player?.pause()
         playing = false
@@ -1081,6 +1051,10 @@ struct CinemaPlayerScreen: View {
         audioTracks = []
         selectedCaption = nil
         selectedAudio = nil
+        matureSceneRanges = []
+        providerIntroEnd = nil
+        alreadySkippedScenes = []
+        introSkipUsed = false
         current = next
         showControls()
     }

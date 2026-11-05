@@ -113,25 +113,15 @@ enum MatureContentFilter {
         (UserDefaults.standard.object(forKey: strictPreferenceKey) as? Bool) ?? true
     }
 
-    static func allows(_ video: Video, hideMature: Bool, strict: Bool? = nil) -> Bool {
-        guard hideMature else { return true }
-        if isMature(video) { return false }
-        guard strict ?? strictPreference else { return true }
-        // A missing age classification cannot establish that a title is safe.
-        return hasVerifiedSafeRating(video) || MatureVerdictStore.shared.verdict(for: video.id) == false
-    }
+    /// Legacy "Hide Mature Content" preference is now a playback-only scene-skip
+    /// preference. Never hide a movie or series because of missing age metadata.
+    /// The separate SceneSkipPlanner operates on verified timestamps, not ratings.
+    static func allows(_ video: Video, hideMature: Bool, strict: Bool? = nil) -> Bool { true }
 
-    static func visible(_ videos: [Video], hideMature: Bool, strict: Bool? = nil) -> [Video] {
-        videos.filter { allows($0, hideMature: hideMature, strict: strict) }
-    }
+    static func visible(_ videos: [Video], hideMature: Bool, strict: Bool? = nil) -> [Video] { videos }
 
-    static func visibleRows(_ rows: [CatalogRow], hideMature: Bool, strict: Bool? = nil) -> [CatalogRow] {
-        guard hideMature else { return rows }
-        return rows.compactMap { row in
-            let filtered = visible(row.videos, hideMature: true, strict: strict)
-            return filtered.isEmpty ? nil : CatalogRow(title: row.title, videos: filtered)
-        }
-    }
+    static func visibleRows(_ rows: [CatalogRow], hideMature: Bool, strict: Bool? = nil) -> [CatalogRow] { rows }
+
 }
 
 #if canImport(Combine)
@@ -144,7 +134,8 @@ final class MatureClassifier: ObservableObject {
     private var inFlight = Set<String>()
     private var unreachable = Set<String>()
 
-    private var enabled: Bool { UserDefaults.standard.bool(forKey: MatureContentFilter.preferenceKey) }
+    // Scene skipping never performs bulk title-classification network requests.
+    private var enabled: Bool { false }
 
     private func pending(_ videos: [Video]) -> [Video] {
         var seen = Set<String>()

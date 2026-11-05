@@ -27,7 +27,7 @@ assert 'if let target = playTarget { watch = target }' in app
 assert 'SeriesEpisodeBrowser(' in app
 assert 'onPlay(episode)' in (root / 'CinemanaMobile/SeriesEpisodeBrowser.swift').read_text()
 assert '.fullScreenCover(item: $watch) { CinemaPlayerScreen(video: $0, playlist: episodes) }' in app
-assert '.task(id: current.id) { await startPlayback() }' in player
+assert 'await startPlayback()' in player and 'await loadSkipMarkers()' in player
 assert 'await session.load(video: current, library: library)' in player
 assert 'case .readyToPlay:' in app
 assert 'next.play()' in app

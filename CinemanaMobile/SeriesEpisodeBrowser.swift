@@ -16,7 +16,7 @@ struct SeriesEpisodeBrowser: View {
     @AppStorage(MatureContentFilter.strictPreferenceKey) private var strictFilter = true
 
     private var shown: [Video] {
-        MatureContentFilter.visible(episodes, hideMature: hideMatureContent, strict: strictFilter)
+        episodes
     }
     private var seasons: [Int] { Array(Set(shown.map(\.season))).sorted() }
     private var currentSeason: [Video] {
@@ -62,7 +62,7 @@ struct SeriesEpisodeBrowser: View {
                 }.padding(16).frame(maxWidth: .infinity, alignment: .leading)
                     .background(.white.opacity(0.06), in: RoundedRectangle(cornerRadius: 14))
             } else if currentSeason.isEmpty {
-                Text("No episodes are shown in this season with the current content filter.")
+                Text("No episodes were returned for this season.")
                     .font(.footnote).foregroundStyle(.secondary)
             } else {
                 LazyVGrid(columns: [GridItem(.adaptive(minimum: 270), spacing: 12)], spacing: 12) {

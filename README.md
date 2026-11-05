@@ -1,6 +1,6 @@
 ### v2.0.2 beta fixes
 - Series detail screens now always show **Episodes** when opened from the Series tab, and report errors with Retry if the provider cannot return a list.
-- In Settings or in the fullscreen player menu choose **Hide Mature Content**. This uses provider tags/classification only; it cannot skip or censor individual scenes.
+- In Settings or in the fullscreen player menu choose **Skip marked mature scenes**. This never hides titles and only skips scenes when the provider supplies verified timestamps.
 - A centered, approved Home Screen icon and a 3x splash PNG are shipped directly in the source, and the icon generator validates and copies the approved master.
 - The player groups controls into Playback, Captions, Content Filter, and More and includes an in-player Episodes chooser.
 - iPad preserves device orientation and gestures for multitasking; it has an adaptive catalog grid and wider player controls.
@@ -49,4 +49,4 @@ See [CHANGELOG.md](CHANGELOG.md), [DISTRIBUTION.md](DISTRIBUTION.md) and [WINDOW
 ## v2.0.4 beta episode browser and content filter
 Series detail screens now show a season picker and direct-play cards, with no checkbox episode-selection workflow. Download one episode or use the season download menu. If the provider does not return episodes, use **Retry loading episodes**.
 
-**Settings → Content filter → Hide Mature Content** additionally offers **Strict: also hide unrated titles**. With strict mode on, titles without a confirmed safe rating remain hidden. This is an on-device metadata/title-level filter, not automatic censorship of scenes inside a playing video.
+**Settings → Content filter → Skip marked mature scenes** shows all titles, even when previously hidden by Strict. It seeks over an explicit mature scene only if its provider has sent time-coded markers. No markers means that the app cannot guarantee removal of mature scenes. **Skip Intro** is a one-tap player control: use the provider's opening marker where present; otherwise it jumps forward an estimated 90 seconds. No manual marker-setting UI.

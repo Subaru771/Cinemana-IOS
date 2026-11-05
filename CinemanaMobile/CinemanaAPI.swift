@@ -210,7 +210,7 @@ struct CinemanaAPI: Sendable {
                         for video in pool {
                             for genre in video.genres {
                                 let name = genre.trimmingCharacters(in: .whitespacesAndNewlines)
-                                if !name.isEmpty, !MatureContentFilter.isMatureTag(name) {
+                                if !name.isEmpty {
                                     byGenre[name, default: []].append(video)
                                 }
                             }
@@ -414,6 +414,15 @@ struct CinemanaAPI: Sendable {
     }
 
     func episodes(_ id: String) async -> [Video] { (try? await episodesDetailed(id)) ?? [] }
+
+    /// Optional provider chapter metadata; nil/empty when the provider has no
+    /// time-coded scenes. We do NOT guess scene boundaries from age ratings.
+    func playbackSkipMarkers(_ id: String) async -> (scenes: [SceneSkipRange], introEnd: Double?) {
+        do {
+            let response = try await fetch("allVideoInfo/id/\(segment(id))", timeout: 7, ttl: 600)
+            return (SceneSkipPlanner.decode(response), SceneSkipPlanner.introEnd(response))
+        } catch { return ([], nil) }
+    }
 
     func related(_ id: String) async -> [Video] {
         do { return videos(try await fetch("relatedVideos/id/\(segment(id))", timeout: 8, ttl: 300)) }
