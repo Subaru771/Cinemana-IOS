@@ -19,12 +19,15 @@ jobs:
         with:
           distribution: temurin
           java-version: '17'
-      - name: Android SDK command-line tools
-        uses: android-actions/setup-android@v3
+      - name: Use preinstalled GitHub runner Android SDK
+        run: |
+          echo "ANDROID_HOME=${ANDROID_HOME:-/usr/local/lib/android/sdk}" >> "$GITHUB_ENV"
+          echo "ANDROID_SDK_ROOT=${ANDROID_HOME:-/usr/local/lib/android/sdk}" >> "$GITHUB_ENV"
+          ls "${ANDROID_HOME:-/usr/local/lib/android/sdk}/cmdline-tools"
       - name: Install Android 35 SDK
         run: |
-          yes | sdkmanager --licenses >/dev/null || true
-          sdkmanager "platforms;android-35" "build-tools;35.0.0" "platform-tools"
+          SDKMANAGER="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
+          "$SDKMANAGER" "platforms;android-35" "build-tools;35.0.0" "platform-tools"
       - name: Unpack TV sources
         run: |
           test -s ci-sources/CinemanaTV-v1.4.8-Scene-Markers-SOURCE.zip
