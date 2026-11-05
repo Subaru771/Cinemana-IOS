@@ -33,9 +33,73 @@ struct CoreSmokeTests {
         let teen = Video(json: ["id": "teen", "title": "Teen", "ageRating": "PG-13"])!
         precondition(MatureContentFilter.isMature(flagged))
         precondition(MatureContentFilter.allows(flagged, hideMature: false))
-        precondition(!MatureContentFilter.allows(flagged, hideMature: true))
+        precondition(MatureContentFilter.allows(flagged, hideMature: true))
         precondition(MatureContentFilter.allows(teen, hideMature: true))
-        precondition(MatureContentFilter.visible([flagged, teen], hideMature: true).count == 1)
+        precondition(MatureContentFilter.visible([flagged, teen], hideMature: true).count == 2)
+        let unrated = Video(json: ["id": "unrated", "title": "No rating", "adult": false])!
+        precondition(MatureContentFilter.allows(unrated, hideMature: true, strict: true))
+        precondition(MatureContentFilter.allows(unrated, hideMature: true, strict: false))
+        precondition(MatureContentFilter.allows(unrated, hideMature: false, strict: true))
+        // Films and series remain visible even if the old strict-hide setting is enabled.
+        precondition(MatureContentFilter.visibleRows([
+            CatalogRow(title: "Series", videos: [flagged, unrated, teen])
+        ], hideMature: true, strict: true).first?.videos.count == 3)
+        // Skipping a mature scene is legal only when the provider supplies an explicit range.
+        let chapterJSON: [String: Any] = ["data": ["matureScenes": [
+            ["start": "00:02:00", "end": "00:02:24", "type": "nudity"],
+            ["start": 360, "end": 381, "type": "explicit"]],
+            "introEnd": 105]]
+        let timedScenes = SceneSkipPlanner.decode(chapterJSON)
+        precondition(timedScenes.count == 2)
+        precondition(timedScenes[0].start == 120 && timedScenes[0].end == 144)
+        precondition(SceneSkipPlanner.active(timedScenes, at: 128, duration: 1200)?.end == 144)
+        precondition(SceneSkipPlanner.active(timedScenes, at: 160, duration: 1200) == nil)
+        precondition(SceneSkipPlanner.decode(["genres": ["Adult"], "ageRating": "18+"]).isEmpty)
+        precondition(SceneSkipPlanner.introEnd(chapterJSON) == 105)
+        let markedIntro = SceneSkipPlanner.introDestination(current: 30, duration: 1500, marker: 105)
+        precondition(markedIntro?.time == 105 && markedIntro?.estimated == false)
+        let estimatedIntro = SceneSkipPlanner.introDestination(current: 30, duration: 1500, marker: nil)
+        precondition(estimatedIntro?.time == 120 && estimatedIntro?.estimated == true)
+        precondition(MatureContentFilter.hasVerifiedSafeRating(teen))
+        precondition(!MatureContentFilter.hasVerifiedSafeRating(unrated))
+        // Root lists, nested seasons, sequential episodes without titles,
+        // and `videoSeason` arrays are explicitly supported.
+        let roots: [String: Any] = ["seasons": [
+            ["videoList": [["nb": "root-1", "episodeNummer": 1]]],
+            ["episodeList": [["id": "root-2", "episodeNummer": 1]]]
+        ]]
+        let rootEpisodes = CinemanaAPI.decodeEpisodes(roots, seriesID: "root")
+        precondition(rootEpisodes.map(\.season) == [1, 2])
+        precondition(rootEpisodes.map(\.id) == ["root-1", "root-2"])
+        precondition(rootEpisodes[0].title == "Episode 1")
+        let wrapped: [String: Any] = ["data": ["videoSeason": [
+            ["id": "wrapped1", "title": "First", "episodeNumber": 1],
+            ["id": "wrapped2", "title": "Second", "episodeNumber": 2]
+        ]]]
+        precondition(CinemanaAPI.decodeEpisodes(wrapped, seriesID: "root").map(\.episode) == [1, 2])
+        // Real Shabakaty videoSeason rows are flat and contain a scalar
+        // `season`. This was erroneously classified as a nested collection.
+        let flatProviderEpisodes: [[String: Any]] = [
+            ["nb": 101, "season": 1, "episodeNummer": 1],
+            ["nb": "102", "season": "1", "episodeNummer": "2"],
+            ["nb": 103, "season": 2, "episodeNummer": 1]
+        ]
+        let flat = CinemanaAPI.decodeEpisodes(flatProviderEpisodes, seriesID: "onepiece")
+        precondition(flat.map(\.id) == ["101", "102", "103"])
+        precondition(flat.map(\.season) == [1, 1, 2])
+        precondition(flat.map(\.episode) == [1, 2, 1])
+        precondition(flat[0].title == "Episode 1")
+        precondition(CinemanaAPI.episodePayloadSummary(flatProviderEpisodes).contains("count=3"))
+        let keyWrapped: [String: Any] = ["data": ["videoSeason": flatProviderEpisodes]]
+        precondition(CinemanaAPI.decodeEpisodes(keyWrapped, seriesID: "onepiece").map(\.id) == flat.map(\.id))
+        let tvma = Video(json: ["id": "tvma", "title": "Late Show", "contentRating": "TV-MA"])!
+        let arabicTag = Video(json: ["id": "ar-tag", "title": "Film", "categories": [["en_title": "Drama", "ar_title": "للكبار فقط"]]])!
+        precondition(MatureContentFilter.isMature(tvma) && MatureContentFilter.isMature(arabicTag))
+        precondition(arabicTag.genres == ["للكبار فقط"])
+        let rowOrder = [CatalogRow(title: "Action Series", videos: []), CatalogRow(title: "New Movies", videos: []),
+                        CatalogRow(title: "Trending Series", videos: []), CatalogRow(title: "Trending Movies", videos: [])]
+            .sorted { $0.sortKey < $1.sortKey }.map(\.title)
+        precondition(rowOrder == ["Trending Movies", "Trending Series", "New Movies", "Action Series"])
         // Old library JSON contains no age classifications: decoding stays backwards compatible.
         let oldVideo = try JSONEncoder().encode(movie)
         var payload = try JSONSerialization.jsonObject(with: oldVideo) as! [String: Any]

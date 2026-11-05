@@ -2,7 +2,9 @@ import SwiftUI
 import ImageIO
 import UIKit
 
-/// Downsample decoded posters off the main thread; preserve a modest memory cache.
+/// In-memory cache of decoded, downsampled posters.
+/// AsyncImage re-decodes full-size images every time a cell scrolls back on screen,
+/// which is the main cause of stutter and flicker in poster rows.
 final class PosterImageCache: @unchecked Sendable {
     static let shared = PosterImageCache()
     private let cache = NSCache<NSURL, UIImage>()
@@ -25,6 +27,7 @@ final class PosterImageCache: @unchecked Sendable {
         request.cachePolicy = .returnCacheDataElseLoad
         guard let (data, _) = try? await URLSession.shared.data(for: request),
               !Task.isCancelled else { return nil }
+        // Decode off the main thread, at the size we actually display.
         let decoded = await Task.detached(priority: .userInitiated) {
             PosterImageCache.downsample(data, maxPixel: maxPixel)
         }.value
