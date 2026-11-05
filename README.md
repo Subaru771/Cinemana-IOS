@@ -1,6 +1,6 @@
 ### v2.0.2 beta fixes
 - Series detail screens now always show **Episodes** when opened from the Series tab, and report errors with Retry if the provider cannot return a list.
-- In Settings or in the fullscreen player menu choose **Hide Mature Content**. This uses provider tags/classification only; it cannot skip or censor individual scenes.
+- In Settings or in the fullscreen player menu choose **Skip marked mature scenes**. This never hides titles and only skips scenes when the provider supplies verified timestamps.
 - A centered, approved Home Screen icon and a 3x splash PNG are shipped directly in the source, and the icon generator validates and copies the approved master.
 - The player groups controls into Playback, Captions, Content Filter, and More and includes an in-player Episodes chooser.
 - iPad preserves device orientation and gestures for multitasking; it has an adaptive catalog grid and wider player controls.
@@ -45,3 +45,8 @@ swiftc -o /tmp/cinemana-tests CinemanaMobile/Models.swift CinemanaMobile/Cineman
 History, collections, favorites and custom skip markers are stored on the device. No personal telemetry or developer account is required. Select a movie to view details; choose **Play** to start video. Do not assume an arbitrary upstream server permits playback, download or redistribution of its media.
 
 See [CHANGELOG.md](CHANGELOG.md), [DISTRIBUTION.md](DISTRIBUTION.md) and [WINDOWS-APPLE-SIGNING.md](WINDOWS-APPLE-SIGNING.md).
+
+## v2.0.4 beta episode browser and content filter
+Series detail screens now show a season picker and direct-play cards, with no checkbox episode-selection workflow. Download one episode or use the season download menu. If the provider does not return episodes, use **Retry loading episodes**.
+
+**Settings → Content filter → Skip marked mature scenes** shows all titles, even when previously hidden by Strict. It seeks over an explicit mature scene only if its provider has sent time-coded markers. No markers means that the app cannot guarantee removal of mature scenes. **Skip Intro** is a one-tap player control: use the provider's opening marker where present; otherwise it jumps forward an estimated 90 seconds. No manual marker-setting UI.

@@ -40,7 +40,6 @@
 "Offline downloads" = "Offline downloads";
 "In progress" = "In progress";
 "Ready to watch" = "Ready to watch";
-"Wi-Fi only" = "Wi-Fi only";
 "Remove completed only" = "Remove completed only";
 "Remove completed videos" = "Remove completed videos";
 "Remove completed offline videos?" = "Remove completed offline videos?";
@@ -51,7 +50,6 @@
 "Manage downloads" = "Manage downloads";
 "Try again" = "Try again";
 "Delete all downloads" = "Delete all downloads";
-"Download on Wi-Fi only" = "Download on Wi-Fi only";
 "Storage nearly full — remove old videos before downloading." = "Storage nearly full — remove old videos before downloading.";
 "Player settings" = "Player settings";
 "Your downloads" = "Your downloads";
@@ -101,7 +99,6 @@
 "Clear Continue Watching" = "Clear Continue Watching";
 "Clear My List" = "Clear My List";
 "Your list and playback progress stay on this device." = "Your list and playback progress stay on this device.";
-"Preferred download quality" = "Preferred download quality";
 "Downloads require provider-authorized MP4 or HLS media. Some streams cannot be saved." = "Downloads require provider-authorized MP4 or HLS media. Some streams cannot be saved.";
 "Rotate to landscape when playing" = "Rotate to landscape when playing";
 "Double-tap the left or right side to skip 10 seconds. Swipe up or down on the left side for brightness and on the right side for volume." = "Double-tap the left or right side to skip 10 seconds. Swipe up or down on the left side for brightness and on the right side for volume.";
@@ -149,8 +146,6 @@
 "Download options" = "Download options";
 "Download season" = "Download season";
 "Download quality" = "Download quality";
-"Use preferred quality" = "Use preferred quality";
-"Best available" = "Best available";
 "Retry with quality" = "Retry with quality";
 "Retry download" = "Retry download";
 "Not Now" = "Not Now";
@@ -158,3 +153,18 @@
 "Follow our Telegram Channel" = "Follow our Telegram Channel";
 "Join on Telegram" = "Join on Telegram";
 "Optional channel. Cinemana works without Telegram." = "Optional channel. Cinemana works without Telegram.";
+
+// My List tab
+"Favorites" = "Favorites";
+"Nothing to continue yet" = "Nothing to continue yet";
+"Titles you start watching will appear here so you can pick up where you left off." = "Titles you start watching will appear here so you can pick up where you left off.";
+"New Movies" = "New Movies";
+"New Series" = "New Series";
+"Recent Hit Movies" = "Recent Hit Movies";
+"Recent Hit Series" = "Recent Hit Series";
+"Classic Movies" = "Classic Movies";
+"Classic Series" = "Classic Series";
+"Cache cleared" = "Cache cleared";
+"Turn off Hide Mature Content in Settings to view this title." = "Turn off Hide Mature Content in Settings to view this title.";
+"Tap Download on a movie or episode to watch it offline." = "Tap Download on a movie or episode to watch it offline.";
+"Group your saved titles into lists." = "Group your saved titles into lists.";

@@ -1,0 +1,18 @@
+{
+  "Cinemana-iOS-v1.6.13-Approved-Icon-2x.png": {
+    "sha256": "8ac729e4e1933cdb55daa7219e4ea4b932164115d21c83dd42d06db2366b0785",
+    "bytes": 2606597
+  },
+  "CinemanaAppIcon-Approved-1024.png": {
+    "sha256": "550fed71113a84309a53d55a666a48749b54517552e3062ce3fd4ca00afbfc98",
+    "bytes": 885720
+  },
+  "Cinemana-iOS-v1.6.13-Approved-Splash-2x.png": {
+    "sha256": "bcad48bc3bbe0d6574ecccbc2c7b889706ff670124ad3c334c150ca7083ef8a1",
+    "bytes": 2239220
+  },
+  "CinemanaSplash-3x.png": {
+    "sha256": "8b9dac72eacc83bd93b697c82bfdb539a1d4498f7ea6b23892b28a7cd5fc317c",
+    "bytes": 3402570
+  }
+}
