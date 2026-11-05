@@ -1,3 +1,10 @@
+## v2.0.7 beta — Restore first episode and compact episode downloads
+- Preserve episode records whose `nb` / ID matches the parent series ID when the record contains valid episode metadata. Previously the parser discarded some first episodes simply because their ID matched the series catalog entry.
+- Decode provider seasons numbered from zero: preserve Episode 0 and normalize the whole season to one-based display (1, 2, …) without creating duplicate labels.
+- Replace the episode card's full-width `DownloadAction` with a fixed 40-point download icon. Show compact controls for ready, active and paused downloads without expanding the row height.
+- Regression tests cover series ID reuse, zero-based episode lists, the absent checkbox UI and compact download layout.
+- No fabricated episodes: if the provider omits an item entirely, use the Copy diagnostics flow to troubleshoot it.
+
 ## v2.0.6 beta — Restore series episodes and report provider diagnostics
 - Fix episode decoding of flat provider records: the scalar `season` field is not a nested episode collection. This blocked every otherwise valid row for series such as One Piece.
 - Support ordered `videoSeason` records with IDs but no explicit episode numbering.

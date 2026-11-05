@@ -53,3 +53,6 @@ Series detail screens now show a season picker and direct-play cards, with no ch
 
 ### v2.0.6: episode loading fix
 The series API returns flat episode rows with `nb`, `season`, and `episodeNummer`. The older decoder mistakenly treated a scalar `season` value as a nested collection and discarded real episodes. The revised decoder accepts the flat response, keeps the direct-play episode browser, and includes **Copy diagnostics** when the server returns an empty/unrecognized episode response. A successful Xcode compilation does not verify provider availability; test One Piece and another series on the device and send the copied error diagnostic if either still fails.
+
+### v2.0.7 — episode 1 and compact download fix
+The episode decoder no longer omits a playable Episode 1 just because its ID matches the parent series listing. Zero-based episode numbering is normalized consistently for that season. On the detail screen, each episode has a compact 40-point download icon rather than a full-width download menu that stretches episode rows. Physical device QA remains necessary for provider results.

@@ -89,6 +89,24 @@ struct CoreSmokeTests {
         precondition(flat.map(\.season) == [1, 1, 2])
         precondition(flat.map(\.episode) == [1, 2, 1])
         precondition(flat[0].title == "Episode 1")
+        // Episode 1 can share the series ID; it is a playable row, not a
+        // duplicate catalog root. This caused Episode 2 to appear first.
+        let reusedSeriesID: [[String: Any]] = [
+            ["nb": "got-series", "season": 1, "episodeNummer": 1],
+            ["nb": "got-second", "season": 1, "episodeNummer": 2]
+        ]
+        let reusedResult = CinemanaAPI.decodeEpisodes(reusedSeriesID, seriesID: "got-series")
+        precondition(reusedResult.map(\.id) == ["got-series", "got-second"])
+        precondition(reusedResult.map(\.episode) == [1, 2])
+        // Some catalogs number a season from zero; preserve both entries and
+        // display one-based episode labels without creating duplicate numbers.
+        let zeroBased: [[String: Any]] = [
+            ["nb": "zero-first", "season": 1, "episodeNummer": 0],
+            ["nb": "zero-second", "season": 1, "episodeNummer": 1]
+        ]
+        let normalized = CinemanaAPI.decodeEpisodes(zeroBased, seriesID: "series")
+        precondition(normalized.map(\.episode) == [1, 2])
+        precondition(normalized.map(\.id) == ["zero-first", "zero-second"])
         precondition(CinemanaAPI.episodePayloadSummary(flatProviderEpisodes).contains("count=3"))
         let keyWrapped: [String: Any] = ["data": ["videoSeason": flatProviderEpisodes]]
         precondition(CinemanaAPI.decodeEpisodes(keyWrapped, seriesID: "onepiece").map(\.id) == flat.map(\.id))

@@ -317,7 +317,9 @@ struct CinemanaAPI: Sendable {
         let seasonKeys: Set<String> = ["seasons", "seasonList", "season_list", "videoSeasons", "videoSeason", "season"]
         let containerKeys: Set<String> = ["data", "result", "results", "list", "content", "response"]
         let allKeys = episodeKeys.union(seasonKeys).union(containerKeys)
-        var entries: [Video] = []
+        // Preserve the provider's raw episode numbers until the full collection
+        // is known. Some seasons start at zero; others start at one.
+        var candidates: [(fields: [String: Any], season: Int, episode: Int)] = []
         var unique = Set<String>()
 
         func digits(_ value: Any?) -> Int? {
@@ -339,7 +341,7 @@ struct CinemanaAPI: Sendable {
             return nil
         }
         func walk(_ value: Any, season: Int, ordinal: Int?, inEpisodes: Bool, depth: Int) {
-            guard depth <= 14, entries.count < 2000 else { return }
+            guard depth <= 14, candidates.count < 2000 else { return }
             if let list = value as? [Any] {
                 for (index, child) in list.enumerated() {
                     walk(child, season: season, ordinal: index+1, inEpisodes: inEpisodes, depth: depth+1)
@@ -365,17 +367,19 @@ struct CinemanaAPI: Sendable {
 
             // Some provider responses omit episode title or label. The ID must be
             // present, and a fallback title is generated only for genuine episodes.
-            if inEpisodes, !hasChildren, let ep = episodeNumber, ep > 0,
+            // Important: the first episode may reuse the series catalog ID.
+            // Do not discard it solely because identity == seriesID: the
+            // explicit episode number identifies a playable episode record.
+            if inEpisodes, !hasChildren, let ep = episodeNumber, ep >= 0,
                let identity = scalar(row, keys: ["nb", "id", "videoId", "video_id", "videoNb", "episodeId", "episode_id"]),
-               identity != seriesID, !unique.contains(identity) {
+               !unique.contains(identity) {
                 var fields = row
-                fields["episodeNummer"] = ep
                 fields["season"] = max(1, seasonNumber)
                 fields["kind"] = "2"
-                if scalar(fields, keys: ["en_title", "englishTitle", "enTitle", "english_title", "title", "name", "ar_title", "arabicTitle"]) == nil {
-                    fields["title"] = "Episode \(ep)"
-                }
-                if let parsed = Video(json: fields) { unique.insert(identity); entries.append(parsed) }
+                // A lone catalog root without an episode number and without
+                // a position in an episode array is never a playable episode.
+                candidates.append((fields: fields, season: max(1, seasonNumber), episode: ep))
+                unique.insert(identity)
             }
             for (key, child) in row where allKeys.contains(key) {
                 if let list = child as? [Any], seasonKeys.contains(key) {
@@ -401,6 +405,19 @@ struct CinemanaAPI: Sendable {
             }
         }
         walk(raw, season: 1, ordinal: nil, inEpisodes: true, depth: 0)
+        // A provider may number a season 0,1,2... instead of 1,2,3... .
+        // Normalize that season as a group so two source entries never both
+        // become "Episode 1". Do not shift correctly numbered seasons.
+        let zeroBasedSeasons = Set(candidates.filter { $0.episode == 0 }.map(\.season))
+        let entries: [Video] = candidates.compactMap { candidate in
+            var row = candidate.fields
+            let normalized = candidate.episode + (zeroBasedSeasons.contains(candidate.season) ? 1 : 0)
+            row["episodeNummer"] = normalized
+            if scalar(row, keys: ["en_title", "englishTitle", "enTitle", "english_title", "title", "name", "ar_title", "arabicTitle"]) == nil {
+                row["title"] = "Episode \(normalized)"
+            }
+            return Video(json: row)
+        }
         return entries.sorted { ($0.season, $0.episode, $0.id) < ($1.season, $1.episode, $1.id) }
     }
 

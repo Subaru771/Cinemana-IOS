@@ -75,7 +75,7 @@ struct SeriesEpisodeBrowser: View {
                 Text("No episodes were returned for this season.")
                     .font(.footnote).foregroundStyle(.secondary)
             } else {
-                LazyVGrid(columns: [GridItem(.adaptive(minimum: 270), spacing: 12)], spacing: 12) {
+                LazyVGrid(columns: [GridItem(.adaptive(minimum: 290), spacing: 12)], spacing: 12) {
                     ForEach(currentSeason) { ep in
                         episodeCard(ep)
                     }
@@ -109,15 +109,60 @@ struct SeriesEpisodeBrowser: View {
                     Image(systemName: "play.circle.fill").font(.title2).foregroundStyle(.red)
                 }.contentShape(Rectangle())
             }.buttonStyle(.plain)
-            DownloadAction(video: episode)
-                .frame(width: 44)
+            EpisodeDownloadControl(video: episode)
+                .frame(width: 40, height: 40)
         }
         .padding(10)
+        .frame(minHeight: 86)
         .background(.white.opacity(0.055), in: RoundedRectangle(cornerRadius: 12))
         .contextMenu {
             Button(library.isWatched(episode.id) ? "Mark unwatched" : "Mark watched") {
                 library.markWatched(episode, watched: !library.isWatched(episode.id))
             }
         }
+    }
+}
+
+/// Compact, fixed-size download control for one episode.
+/// Never embed the full-width DownloadAction row inside a 40-point column:
+/// its text labels and spacers can expand a grid card to hundreds of points.
+private struct EpisodeDownloadControl: View {
+    let video: Video
+    @ObservedObject private var downloads = DownloadCenter.shared
+
+    var body: some View {
+        Group {
+            if let entry = downloads.entry(for: video.id),
+               entry.status == .ready, downloads.localURL(for: video.id) != nil {
+                Menu {
+                    Button("Remove offline copy", role: .destructive) { downloads.remove(video.id) }
+                } label: {
+                    Image(systemName: "checkmark.circle.fill")
+                        .foregroundStyle(.green)
+                        .font(.title3)
+                }
+                .accessibilityLabel("Episode downloaded")
+            } else if let entry = downloads.entry(for: video.id), entry.isActive {
+                Menu {
+                    if entry.status == .paused {
+                        Button("Resume download", systemImage: "play.fill") { downloads.resume(video.id) }
+                    } else {
+                        Button("Pause download", systemImage: "pause.fill") { downloads.pause(video.id) }
+                    }
+                    Button("Cancel download", role: .destructive) { downloads.cancel(video.id) }
+                } label: {
+                    Image(systemName: entry.status == .paused ? "pause.circle" : "arrow.down.circle.fill")
+                        .foregroundStyle(.red)
+                        .font(.title3)
+                }
+                .accessibilityLabel("Manage episode download")
+            } else {
+                DownloadQualityMenu(video: video, compact: true,
+                                    title: "Download episode \(video.episode)")
+                    .buttonStyle(.plain)
+            }
+        }
+        .frame(width: 40, height: 40)
+        .contentShape(Rectangle())
     }
 }
