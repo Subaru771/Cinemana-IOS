@@ -1,3 +1,47 @@
+## 2.0.8-beta.1 — Accurate intro timing and scene-skip availability
+- Removed the fixed 90-second Skip Intro fallback: it could skip real story content.
+- The one-tap Skip Intro button now requires an explicit provider chapter or an accurate community timestamp. It is hidden if neither is available.
+- Added optional SkipDB lookup in Settings and the player (disabled by default). Only the IMDb title ID, season, episode and stream duration are requested; no viewing history or account credentials are sent. Only high-confidence exact/shifted timestamp matches are accepted.
+- Clarified when timed mature-scene metadata is unavailable. No automatic visual scene detection is claimed; existing provider-supplied timed segments still skip as before.
+- Kept all series/episode availability, iPad support, approved icon and splash, with new timestamp-validation tests.
+
+## v2.0.7 beta — Restore first episode and compact episode downloads
+- Preserve episode records whose `nb` / ID matches the parent series ID when the record contains valid episode metadata. Previously the parser discarded some first episodes simply because their ID matched the series catalog entry.
+- Decode provider seasons numbered from zero: preserve Episode 0 and normalize the whole season to one-based display (1, 2, …) without creating duplicate labels.
+- Replace the episode card's full-width `DownloadAction` with a fixed 40-point download icon. Show compact controls for ready, active and paused downloads without expanding the row height.
+- Regression tests cover series ID reuse, zero-based episode lists, the absent checkbox UI and compact download layout.
+- No fabricated episodes: if the provider omits an item entirely, use the Copy diagnostics flow to troubleshoot it.
+
+## v2.0.6 beta — Restore series episodes and report provider diagnostics
+- Fix episode decoding of flat provider records: the scalar `season` field is not a nested episode collection. This blocked every otherwise valid row for series such as One Piece.
+- Support ordered `videoSeason` records with IDs but no explicit episode numbering.
+- Add non-sensitive response shape diagnostics and a Copy diagnostics button if both provider endpoints return no usable episodes.
+- Do not cache empty episode responses; retry refetches the provider.
+- Preserve one-tap episode play, mature-scene skipping, skip intro, and existing approved artwork.
+
+## 2.0.5-beta.1 — series visibility and timed playback skipping
+- Correct the Series tab disappearing when the previous strict mature filter was enabled; **all titles are shown** now.
+- Rename the content preference to **Skip marked mature scenes**. It skips only explicitly time-coded provider ranges; no claims of visual scene detection without markers.
+- Remove manual intro/recap/credits marker-setting menu and add one-tap **Skip Intro** (provider end time when present, otherwise an explicitly estimated 90-second jump).
+- Preserve direct-play season browser, accepted player features, icon/splash branding and iPad layout.
+- Portable regression tests for unchanged series visibility, timestamp-based mature scene skipping, and intro estimation.
+
+## 2.0.4-beta.1 — Episode browser rebuild and conservative maturity filter
+- Removed the episode checklist and multi-select download screen. Series now have a unified season picker and direct-play episode cards (individual and full-season downloads remain).
+- Rebuilt decoding of nested episode lists, season wrappers and videoSeason responses; added independent regression fixtures and explicit retry errors.
+- The existing Hide Mature Content switch now offers **Strict: hide unrated titles** (enabled by default when the content filter is switched on). A catalog entry without verified safe rating stays hidden rather than briefly appearing. This may hide most unrated titles.
+- Existing negative classification cache cannot whitelist unrated titles in strict mode. The player applies the same restrictions and pauses when the setting changes.
+- Limits: Metadata and content ratings cannot reliably identify every mature scene; the app does not censor video frames or automatically skip mature scenes.
+- Existing artwork, downloads, watch history, player and iPad support retained.
+
+## 2.0.3
+
+- Hide Mature Content now checks the provider's full title record (rating, adult flag, tags in English and Arabic) for titles that arrive without a classification, remembers the result, and applies it to Home, Movies, Series, Search, My List, related titles and episodes.
+- Episodes now appear for series opened from Search, My List and related titles, even when the provider omits the title type. Long episode lists scroll smoothly.
+- Faster: catalog rows appear one by one as they load, saved rows show instantly and refresh in the background, responses are cached briefly, and the launch splash is shorter.
+- More sections on Home, Movies and Series: Top Rated, Popular, Recent Hit, Classic, and the most common genres, alongside Trending and New.
+- Removed technical and explanatory text from Settings, error messages, network diagnostics, downloads and collections; messages are now short and plain.
+
 ## v2.0.2-beta.1 — Series episodes, mature filter in player, iPad and branding fixes
 - Repair Series tab routing so a series opens the episode browser even if a provider response omits its kind.
 - Parse nested season/episode arrays; show real provider/network errors and explicit retry instead of playing the series root.

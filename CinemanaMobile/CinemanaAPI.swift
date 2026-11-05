@@ -14,16 +14,15 @@ struct CinemanaAPI: Sendable {
     ]
 
     enum APIError: LocalizedError {
-        case unauthorized, providerRestricted, server(Int), invalidResponse, unreachable, noStream, noEpisodes
+        case unauthorized, providerRestricted, server(Int), invalidResponse, unreachable, noStream, noEpisodes(String)
         var errorDescription: String? {
             switch self {
-            case .unauthorized: return "The content provider requires authorization."
-            case .providerRestricted: return "This network is not authorized to access the provider."
-            case .server(let code): return "Provider server responded with HTTP \(code)."
-            case .invalidResponse: return "The provider returned an unsupported response."
-            case .unreachable: return "Cannot reach the provider on this network."
-            case .noStream: return "No compatible video stream is available."
-            case .noEpisodes: return "The provider returned no episode records for this series. Please retry or check the source."
+            case .unauthorized, .providerRestricted, .unreachable:
+                return "Can't connect right now. Check your connection and try again."
+            case .server, .invalidResponse:
+                return "Something went wrong loading this. Please try again."
+            case .noStream: return "This video isn't available to play right now."
+            case .noEpisodes(let diagnostics): return "No playable episodes were found. " + diagnostics
             }
         }
     }
@@ -33,14 +32,29 @@ struct CinemanaAPI: Sendable {
         return value.addingPercentEncoding(withAllowedCharacters: allowed) ?? value
     }
 
-    private func fetch(_ path: String, timeout: TimeInterval = 18) async throws -> Any {
+    private static let session: URLSession = {
+        let config = URLSessionConfiguration.default
+        config.httpMaximumConnectionsPerHost = 10
+        config.timeoutIntervalForResource = 30
+        #if canImport(Darwin)
+        config.waitsForConnectivity = false
+        #endif
+        config.requestCachePolicy = .useProtocolCachePolicy
+        return URLSession(configuration: config)
+    }()
+
+    private func fetch(_ path: String, timeout: TimeInterval = 10, ttl: TimeInterval = 0) async throws -> Any {
+        if ttl > 0, let cached = await ResponseCache.shared.get(path, maxAge: ttl),
+           let object = try? JSONSerialization.jsonObject(with: cached, options: [.fragmentsAllowed]) {
+            return object
+        }
         guard let url = URL(string: base + path) else { throw APIError.invalidResponse }
         var req = URLRequest(url: url)
         req.timeoutInterval = timeout
         let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1"
         req.setValue("CinemanaMobile/\(version) (iOS)", forHTTPHeaderField: "User-Agent")
         do {
-            let (data, response) = try await URLSession.shared.data(for: req)
+            let (data, response) = try await Self.session.data(for: req)
             guard let http = response as? HTTPURLResponse else { throw APIError.invalidResponse }
             switch http.statusCode {
             case 200..<300: break
@@ -49,7 +63,9 @@ struct CinemanaAPI: Sendable {
             default: throw APIError.server(http.statusCode)
             }
             do {
-                return try JSONSerialization.jsonObject(with: data, options: [.fragmentsAllowed])
+                let object = try JSONSerialization.jsonObject(with: data, options: [.fragmentsAllowed])
+                if ttl > 0 { await ResponseCache.shared.put(path, data: data) }
+                return object
             } catch {
                 // A 200 response containing HTML is not a successful JSON response.
                 throw APIError.invalidResponse
@@ -79,42 +95,147 @@ struct CinemanaAPI: Sendable {
         return result
     }
 
-    func catalog(_ kind: Int? = nil) async throws -> [CatalogRow] {
-        let kinds = kind.map { [$0] } ?? [1, 2]
-        let (rows, failures, restriction) = await withTaskGroup(of: Result<(String, [Video]), Error>.self) { group in
-            for k in kinds {
-                for (sort, heading) in [("views_desc", "Trending"), ("desc", "New")] {
-                    let title = "\(heading) \(k == 1 ? "Movies" : "Series")"
-                    group.addTask {
-                        do {
-                            let json = try await fetch("video/videoKind/\(k)/categoryNb/0/langNb/0/sortParam/\(sort)/itemsPerPage/20/searchTextValue/-/pageNumber/0")
-                            return .success((title, videos(fetchOrThrow: json, kind: String(k))))
-                        } catch { return .failure(error) }
+    private enum CatalogPart: Sendable { case trending0, trending1, new0, new1, top }
+
+    private struct CatalogPage: Sendable {
+        let kind: Int
+        let part: CatalogPart
+        let videos: [Video]?
+        let failure: APIError?
+    }
+
+    /// Delivers catalog rows one by one as soon as each is ready, so the first
+    /// row appears after the fastest request instead of the slowest.
+    func catalogStream(_ kind: Int? = nil) -> AsyncThrowingStream<CatalogRow, Error> {
+        AsyncThrowingStream { continuation in
+            let worker = Task {
+                let kinds = kind.map { [$0] } ?? [1, 2]
+                let specs: [(CatalogPart, String, Int)] = [
+                    (.trending0, "views_desc", 0), (.new0, "desc", 0), (.top, "stars_desc", 0),
+                    (.trending1, "views_desc", 1), (.new1, "desc", 1)
+                ]
+                var restriction: APIError?
+                var emitted = 0
+                var parts: [Int: [String: [Video]]] = [:]
+
+                func label(_ k: Int) -> String { k == 1 ? "Movies" : "Series" }
+                func emit(_ base: String, _ k: Int, _ items: [Video]) {
+                    guard !items.isEmpty else { return }
+                    emitted += 1
+                    continuation.yield(CatalogRow(title: "\(base) \(label(k))", videos: items))
+                }
+                func unique(_ lists: [Video]...) -> [Video] {
+                    var seen = Set<String>()
+                    return lists.flatMap { $0 }.filter { seen.insert($0.id).inserted }
+                }
+                func looksSortedByRating(_ items: [Video]) -> Bool {
+                    let values = items.compactMap(\.rating)
+                    guard values.count >= 6 else { return false }
+                    var ordered = 0
+                    for index in 0..<(values.count - 1) where values[index] >= values[index + 1] { ordered += 1 }
+                    return Double(ordered) >= 0.8 * Double(values.count - 1)
+                }
+                func partKey(_ part: CatalogPart) -> String {
+                    switch part {
+                    case .trending0: return "t0"
+                    case .trending1: return "t1"
+                    case .new0: return "n0"
+                    case .new1: return "n1"
+                    case .top: return "top"
                     }
                 }
-            }
-            var rows = [CatalogRow]()
-            var failures = 0
-            var restriction: APIError?
-            for await awaitResult in group {
-                switch awaitResult {
-                case .success(let (title, items)):
-                    if !items.isEmpty { rows.append(CatalogRow(title: title, videos: items)) }
-                case .failure(let error):
-                    failures += 1
-                    if let reason = error as? APIError {
-                        switch reason {
-                        case .unauthorized, .providerRestricted: restriction = reason
-                        default: break
+
+                await withTaskGroup(of: CatalogPage.self) { group in
+                    for k in kinds {
+                        for (part, sort, page) in specs {
+                            group.addTask {
+                                do {
+                                    let json = try await fetch("video/videoKind/\(k)/categoryNb/0/langNb/0/sortParam/\(sort)/itemsPerPage/20/searchTextValue/-/pageNumber/\(page)", timeout: 10, ttl: 60)
+                                    return CatalogPage(kind: k, part: part,
+                                                       videos: videos(fetchOrThrow: json, kind: String(k)), failure: nil)
+                                } catch {
+                                    return CatalogPage(kind: k, part: part, videos: nil,
+                                                       failure: (error as? APIError) ?? .unreachable)
+                                }
+                            }
+                        }
+                    }
+                    for await page in group {
+                        if Task.isCancelled { group.cancelAll(); break }
+                        guard let fetched = page.videos else {
+                            if let failure = page.failure {
+                                switch failure {
+                                case .unauthorized, .providerRestricted: restriction = failure
+                                default: break
+                                }
+                            }
+                            continue
+                        }
+                        var items = fetched
+                        // Ignore a "top rated" list the provider did not really sort by rating.
+                        if page.part == .top && !looksSortedByRating(items) { items = [] }
+                        parts[page.kind, default: [:]][partKey(page.part)] = items
+                        let have = parts[page.kind] ?? [:]
+                        switch page.part {
+                        case .trending0: emit("Trending", page.kind, items)
+                        case .new0, .new1:
+                            emit("New", page.kind, unique(have["n0"] ?? [], have["n1"] ?? []))
+                        case .top: emit("Top Rated", page.kind, items)
+                        case .trending1: break
                         }
                     }
                 }
+
+                if !Task.isCancelled {
+                    // Extra sections built from everything that was fetched.
+                    let year = Calendar.current.component(.year, from: Date())
+                    for k in kinds {
+                        let have = parts[k] ?? [:]
+                        let pool = unique(have["t0"] ?? [], have["t1"] ?? [], have["n0"] ?? [],
+                                          have["n1"] ?? [], have["top"] ?? [])
+                        let byRating: (Video, Video) -> Bool = { ($0.rating ?? 0) > ($1.rating ?? 0) }
+                        if (have["top"] ?? []).isEmpty {
+                            let rated = pool.filter { ($0.rating ?? 0) >= 6.5 }.sorted(by: byRating)
+                            emit("Top Rated", k, Array(rated.prefix(30)))
+                        }
+                        let trendingIDs = Set((have["t0"] ?? []).map(\.id))
+                        emit("Popular", k, (have["t1"] ?? []).filter { !trendingIDs.contains($0.id) })
+                        let recent = pool.filter { (Int($0.year) ?? 0) >= year - 2 && ($0.rating ?? 0) >= 6 }
+                            .sorted(by: byRating)
+                        if recent.count >= 6 { emit("Recent Hit", k, Array(recent.prefix(30))) }
+                        let classics = pool.filter { (Int($0.year) ?? 9999) <= 2005 && ($0.rating ?? 0) >= 6 }
+                            .sorted(by: byRating)
+                        if classics.count >= 6 { emit("Classic", k, Array(classics.prefix(30))) }
+                        var byGenre: [String: [Video]] = [:]
+                        for video in pool {
+                            for genre in video.genres {
+                                let name = genre.trimmingCharacters(in: .whitespacesAndNewlines)
+                                if !name.isEmpty {
+                                    byGenre[name, default: []].append(video)
+                                }
+                            }
+                        }
+                        let topGenres = byGenre.filter { $0.value.count >= 8 }.sorted {
+                            $0.value.count != $1.value.count ? $0.value.count > $1.value.count : $0.key < $1.key
+                        }.prefix(4)
+                        for (name, items) in topGenres { emit(name, k, Array(items.prefix(30))) }
+                    }
+                }
+
+                if emitted == 0 {
+                    continuation.finish(throwing: restriction ?? APIError.unreachable)
+                } else {
+                    continuation.finish()
+                }
             }
-            return (rows, failures, restriction)
+            continuation.onTermination = { _ in worker.cancel() }
         }
-        if rows.isEmpty && failures == kinds.count * 2 { throw restriction ?? APIError.unreachable }
-        let order = ["Trending Movies", "New Movies", "Trending Series", "New Series"]
-        return rows.sorted { (order.firstIndex(of: $0.title) ?? 99) < (order.firstIndex(of: $1.title) ?? 99) }
+    }
+
+    func catalog(_ kind: Int? = nil) async throws -> [CatalogRow] {
+        var rows: [String: CatalogRow] = [:]
+        for try await row in catalogStream(kind) { rows[row.title] = row }
+        return rows.values.sorted { $0.sortKey < $1.sortKey }
     }
 
     func search(_ text: String) async throws -> [Video] {
@@ -176,93 +297,211 @@ struct CinemanaAPI: Sendable {
     }
 
     func detail(_ fallback: Video) async -> Video {
-        do {
-            let json = try await fetch("allVideoInfo/id/\(segment(fallback.id))")
-            return videos(json, limit: 1).first ?? fallback
-        } catch { return fallback }
+        await detailIfAvailable(fallback) ?? fallback
     }
 
-    /// Decode season wrappers and nested episode lists, retaining the season number.
-    /// Do not mistake a series description (episode == 0) for a playable episode.
+    /// The provider's full record, or nil when it could not be loaded.
+    func detailIfAvailable(_ fallback: Video) async -> Video? {
+        do {
+            let json = try await fetch("allVideoInfo/id/\(segment(fallback.id))", timeout: 8, ttl: 600)
+            return videos(json, limit: 1).first ?? fallback
+        } catch { return nil }
+    }
+
+    /// Episode parsing is isolated and testable. Only media records underneath
+    /// episode collections are playable; a season wrapper or series root is not.
+    /// Provider schemas differ between series, seasons and individual entries.
     static func decodeEpisodes(_ raw: Any, seriesID: String) -> [Video] {
-        let childKeys = ["episodes", "episodeList", "videos", "videoList", "items", "seasons", "seasonList", "season", "result", "results", "data", "list"]
-        var found = [Video]()
-        var seen = Set<String>()
-        func numeric(_ input: Any?) -> Int? {
-            if let number = input as? NSNumber { return number.intValue }
-            if let string = input as? String { return Int(string) }
+        let episodeKeys: Set<String> = ["episodes", "episodeList", "episode_list", "episodeVideos",
+            "videos", "videoList", "video_list", "videoSeason", "videoSeasons", "items", "entries"]
+        let seasonKeys: Set<String> = ["seasons", "seasonList", "season_list", "videoSeasons", "videoSeason", "season"]
+        let containerKeys: Set<String> = ["data", "result", "results", "list", "content", "response"]
+        let allKeys = episodeKeys.union(seasonKeys).union(containerKeys)
+        // Preserve the provider's raw episode numbers until the full collection
+        // is known. Some seasons start at zero; others start at one.
+        var candidates: [(fields: [String: Any], season: Int, episode: Int)] = []
+        var unique = Set<String>()
+
+        func digits(_ value: Any?) -> Int? {
+            if let n = value as? NSNumber { return n.intValue }
+            guard let str = value as? String else { return nil }
+            if let direct = Int(str.trimmingCharacters(in: .whitespaces)) { return direct }
+            let matched = str.range(of: #"[0-9]+"#, options: .regularExpression)
+            return matched.flatMap { Int(str[$0]) }
+        }
+        func number(_ row: [String: Any], keys: [String]) -> Int? {
+            for k in keys { if let n = digits(row[k]) { return n } }
             return nil
         }
-        func walk(_ entry: Any, season: Int, episodeIndex: Int?, insideList: Bool, depth: Int) {
-            guard depth <= 10, found.count < 1500 else { return }
-            if let items = entry as? [Any] {
-                for (index, child) in items.enumerated() {
-                    walk(child, season: season, episodeIndex: index + 1,
-                         insideList: insideList, depth: depth + 1)
+        func scalar(_ row: [String: Any], keys: [String]) -> String? {
+            for k in keys {
+                if let text = row[k] as? String, !text.isEmpty { return text }
+                if let n = row[k] as? NSNumber { return n.stringValue }
+            }
+            return nil
+        }
+        func walk(_ value: Any, season: Int, ordinal: Int?, inEpisodes: Bool, depth: Int) {
+            guard depth <= 14, candidates.count < 2000 else { return }
+            if let list = value as? [Any] {
+                for (index, child) in list.enumerated() {
+                    walk(child, season: season, ordinal: index+1, inEpisodes: inEpisodes, depth: depth+1)
                 }
                 return
             }
-            guard let object = entry as? [String: Any] else { return }
-            let seasonNumber = numeric(object["seasonNumber"]) ?? numeric(object["season_number"])
-                ?? numeric(object["seasonNummer"]) ?? numeric(object["seasonNb"])
-                ?? numeric(object["season"]) ?? season
-            let explicitEpisode = numeric(object["episodeNumber"]) ?? numeric(object["episodeNummer"])
-                ?? numeric(object["episodeNb"]) ?? numeric(object["episode_number"])
-                ?? numeric(object["episode"])
-            let looksLikeSeason = childKeys.prefix(7).contains(where: { object[$0] != nil })
-            // The provider sometimes omits episodeNummer inside an episodes array.
-            let ordinal = explicitEpisode ?? (insideList && !looksLikeSeason ? episodeIndex : nil)
-            if let ordinal, ordinal > 0 {
-                var fields = object
-                fields["episodeNummer"] = ordinal
-                fields["season"] = seasonNumber
-                fields["kind"] = "2"
-                if let video = Video(json: fields), video.id != seriesID,
-                   seen.insert(video.id).inserted { found.append(video) }
+            guard let row = value as? [String: Any] else { return }
+            // A scalar `season` is metadata, not a nested collection. Treating
+            // every row with a `season` key as a parent made the real provider's
+            // flat {nb, season, episodeNummer} records disappear completely.
+            let hasChildren = row.contains { key, value in
+                allKeys.contains(key) && (value is [Any] || value is [String: Any])
             }
-            for key in childKeys {
-                guard let child = object[key] else { continue }
-                let isEpisodeList = ["episodes", "episodeList", "videos", "videoList", "items"].contains(key)
-                walk(child, season: seasonNumber, episodeIndex: nil,
-                     insideList: isEpisodeList, depth: depth + 1)
-            }
-        }
-        walk(raw, season: 1, episodeIndex: nil, insideList: true, depth: 0)
-        return found.sorted { ($0.season, $0.episode, $0.id) < ($1.season, $1.episode, $1.id) }
-    }
+            let isSeasonContainer = (ordinal != nil && !inEpisodes) ||
+                row.keys.contains(where: { seasonKeys.contains($0) }) ||
+                (hasChildren && !row.keys.contains(where: { episodeKeys.contains($0) }))
+            let seasonNumber = number(row, keys: ["seasonNumber", "seasonNummer", "season_number",
+                "seasonNb", "seasonNo", "seasonIndex", "season"])
+                ?? (isSeasonContainer ? (ordinal ?? season) : season)
+            let episodeNumber = number(row, keys: ["episodeNumber", "episodeNummer", "episode_number",
+                "episodeNb", "episodeNo", "episodeIndex", "ep", "episode"])
+                ?? ((inEpisodes && !hasChildren) ? ordinal : nil)
 
-    /// The known season endpoint is authoritative. A detail response is a safe
-    /// fallback when it embeds season arrays; provider failures remain visible.
-    func episodesDetailed(_ id: String) async throws -> [Video] {
-        var firstError: Error?
-        for path in ["videoSeason/id/\(segment(id))", "allVideoInfo/id/\(segment(id))"] {
-            do {
-                let raw = try await fetch(path, timeout: 14)
-                let parsed = Self.decodeEpisodes(raw, seriesID: id)
-                if !parsed.isEmpty { return parsed }
-            } catch is CancellationError {
-                throw CancellationError()
-            } catch {
-                if firstError == nil { firstError = error }
-                // Authorization failures should not trigger redundant requests.
-                if let status = error as? APIError {
-                    switch status {
-                    case .unauthorized, .providerRestricted: throw status
-                    default: break
+            // Some provider responses omit episode title or label. The ID must be
+            // present, and a fallback title is generated only for genuine episodes.
+            // Important: the first episode may reuse the series catalog ID.
+            // Do not discard it solely because identity == seriesID: the
+            // explicit episode number identifies a playable episode record.
+            if inEpisodes, !hasChildren, let ep = episodeNumber, ep >= 0,
+               let identity = scalar(row, keys: ["nb", "id", "videoId", "video_id", "videoNb", "episodeId", "episode_id"]),
+               !unique.contains(identity) {
+                var fields = row
+                fields["season"] = max(1, seasonNumber)
+                fields["kind"] = "2"
+                // A lone catalog root without an episode number and without
+                // a position in an episode array is never a playable episode.
+                candidates.append((fields: fields, season: max(1, seasonNumber), episode: ep))
+                unique.insert(identity)
+            }
+            for (key, child) in row where allKeys.contains(key) {
+                if let list = child as? [Any], seasonKeys.contains(key) {
+                    // A `videoSeason` value can itself be an episode list or a
+                    // group of season wrappers. Inspect the entries, not its name.
+                    for (index, wrapper) in list.enumerated() {
+                        let isEpisode = (wrapper as? [String: Any]).map { entry in
+                            let nested = entry.contains { k, v in
+                                allKeys.contains(k) && (v is [Any] || v is [String: Any])
+                            }
+                            // Some seasons supply an ordered list of episode IDs
+                            // without explicit episode numbers. Use the list index.
+                            return number(entry, keys: ["episodeNumber", "episodeNummer", "episodeNb", "episodeNo", "episode"]) != nil
+                                || (!nested && scalar(entry, keys: ["nb", "id", "videoId", "episodeId"]) != nil)
+                        } ?? false
+                        walk(wrapper, season: seasonNumber, ordinal: index+1,
+                             inEpisodes: isEpisode, depth: depth+1)
                     }
+                } else {
+                    walk(child, season: seasonNumber, ordinal: nil,
+                         inEpisodes: episodeKeys.contains(key) || (inEpisodes && !seasonKeys.contains(key)), depth: depth+1)
                 }
             }
         }
-        if let firstError { throw firstError }
-        throw APIError.noEpisodes
+        walk(raw, season: 1, ordinal: nil, inEpisodes: true, depth: 0)
+        // A provider may number a season 0,1,2... instead of 1,2,3... .
+        // Normalize that season as a group so two source entries never both
+        // become "Episode 1". Do not shift correctly numbered seasons.
+        let zeroBasedSeasons = Set(candidates.filter { $0.episode == 0 }.map(\.season))
+        let entries: [Video] = candidates.compactMap { candidate in
+            var row = candidate.fields
+            let normalized = candidate.episode + (zeroBasedSeasons.contains(candidate.season) ? 1 : 0)
+            row["episodeNummer"] = normalized
+            if scalar(row, keys: ["en_title", "englishTitle", "enTitle", "english_title", "title", "name", "ar_title", "arabicTitle"]) == nil {
+                row["title"] = "Episode \(normalized)"
+            }
+            return Video(json: row)
+        }
+        return entries.sorted { ($0.season, $0.episode, $0.id) < ($1.season, $1.episode, $1.id) }
     }
 
-    func episodes(_ id: String) async -> [Video] {
-        (try? await episodesDetailed(id)) ?? []
+    /// Diagnostic summary contains only array counts and field names; it never
+    /// copies streaming URLs or untrusted response bodies into the UI.
+    static func episodePayloadSummary(_ json: Any) -> String {
+        if let items = json as? [Any] {
+            let fields = (items.first as? [String: Any])?.keys.sorted().prefix(12).joined(separator: ",") ?? "none"
+            return "array count=\(items.count), fields=\(fields)"
+        }
+        if let object = json as? [String: Any] {
+            let keys = object.keys.sorted().prefix(12).joined(separator: ",")
+            let nested = ["episodes", "videoSeason", "seasons", "data", "result", "items"]
+                .compactMap { key -> String? in
+                    guard let collection = object[key] as? [Any] else { return nil }
+                    return "\(key)=\(collection.count)"
+                }.joined(separator: ",")
+            return "object fields=\(keys)\(nested.isEmpty ? "" : "; " + nested)"
+        }
+        if json is NSNull { return "null JSON" }
+        return "unexpected \(String(describing: type(of: json))) response"
+    }
+
+    /// Do not silently return an empty collection. Report whether the provider
+    /// returned an empty list or a shape the parser could not understand.
+    func episodesDetailed(_ id: String) async throws -> [Video] {
+        var reports: [String] = []
+        for (name, path) in [
+            ("videoSeason", "videoSeason/id/\(segment(id))"),
+            ("allVideoInfo", "allVideoInfo/id/\(segment(id))")
+        ] {
+            do {
+                let payload = try await fetch(path, timeout: 12, ttl: 0)
+                let episodes = Self.decodeEpisodes(payload, seriesID: id)
+                if !episodes.isEmpty { return episodes }
+                reports.append("\(name): \(Self.episodePayloadSummary(payload))")
+            } catch is CancellationError { throw CancellationError() }
+            catch {
+                if let api = error as? APIError {
+                    switch api {
+                    case .unauthorized, .providerRestricted: throw api
+                    case .server(let code): reports.append("\(name): HTTP \(code)")
+                    case .invalidResponse: reports.append("\(name): invalid JSON")
+                    case .unreachable: reports.append("\(name): network unreachable")
+                    default: reports.append("\(name): request failed")
+                    }
+                } else { reports.append("\(name): request failed") }
+            }
+        }
+        // The id is an ordinary public catalog ID, useful for diagnosing cases
+        // where the provider's season endpoint expects a different series ID.
+        throw APIError.noEpisodes("Series ID \(id). " + reports.joined(separator: " | "))
+    }
+
+    func episodes(_ id: String) async -> [Video] { (try? await episodesDetailed(id)) ?? [] }
+
+    /// Optional provider chapter metadata; nil/empty when the provider has no
+    /// time-coded scenes. We do NOT guess scene boundaries from age ratings.
+    func playbackSkipMarkers(_ id: String) async -> (scenes: [SceneSkipRange], introEnd: Double?, imdbID: String?) {
+        do {
+            let response = try await fetch("allVideoInfo/id/\(segment(id))", timeout: 7, ttl: 600)
+            return (SceneSkipPlanner.decode(response), SceneSkipPlanner.introEnd(response), CommunitySkipTimes.imdbID(in: response))
+        } catch { return ([], nil, nil) }
+    }
+
+    /// Public SkipDB read API; requests only the IMDb title ID, season/episode and
+    /// playback length, never the user's name, history, or app credentials.
+    /// Caller must require the user's explicit opt-in first.
+    func communityIntro(imdbID: String, season: Int, episode: Int, duration: Double) async -> VerifiedIntroSegment? {
+        guard let url = CommunitySkipTimes.requestURL(imdbID: imdbID, season: season,
+                                                      episode: episode, duration: duration) else { return nil }
+        var request = URLRequest(url: url, cachePolicy: .returnCacheDataElseLoad, timeoutInterval: 8)
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
+        do {
+            let (body, response) = try await URLSession.shared.data(for: request)
+            guard let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode),
+                  body.count < 64_000,
+                  let payload = try? JSONSerialization.jsonObject(with: body) else { return nil }
+            return CommunitySkipTimes.decodeIntro(payload, duration: duration)
+        } catch { return nil }
     }
 
     func related(_ id: String) async -> [Video] {
-        do { return videos(try await fetch("relatedVideos/id/\(segment(id))")) }
+        do { return videos(try await fetch("relatedVideos/id/\(segment(id))", timeout: 8, ttl: 300)) }
         catch { return [] }
     }
 
@@ -443,4 +682,20 @@ private actor PlaybackStreamCache {
         entries[id] = (Date(), streams)
     }
     func remove(_ id: String) { entries.removeValue(forKey: id) }
+}
+
+
+/// Short-lived memory cache for catalog, detail and episode responses so
+/// revisiting a screen is instant. Stream URLs are never stored here.
+private actor ResponseCache {
+    static let shared = ResponseCache()
+    private var entries: [String: (date: Date, data: Data)] = [:]
+    func get(_ key: String, maxAge: TimeInterval) -> Data? {
+        guard let entry = entries[key], Date().timeIntervalSince(entry.date) < maxAge else { return nil }
+        return entry.data
+    }
+    func put(_ key: String, data: Data) {
+        if entries.count > 80 { entries.removeAll() }
+        entries[key] = (Date(), data)
+    }
 }
