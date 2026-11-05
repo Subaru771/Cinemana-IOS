@@ -11,12 +11,18 @@ struct Video: Identifiable, Hashable, Codable, Sendable {
     let poster: URL?
     let backdrop: URL?
     let genres: [String]
-    /// Optional parental classification, NOT the numeric IMDb/critic score.
+    /// Optional parental classification (not the IMDb rating).
     let ageRating: String?
-    /// Explicit adult-content flag from provider metadata, when present.
+    /// Provider-supplied adult content flag, if present.
     let adultFlag: Bool?
     let season: Int
     let episode: Int
+
+    /// Treat common provider type aliases as series; episode records are not series roots.
+    var isSeries: Bool {
+        ["2", "series", "tv", "tvshow", "tv-show", "tv series", "show"].contains(
+            kind.lowercased().trimmingCharacters(in: .whitespacesAndNewlines))
+    }
 
     static func == (a: Video, b: Video) -> Bool { a.id == b.id }
     func hash(into h: inout Hasher) { h.combine(id) }
@@ -29,7 +35,7 @@ struct Video: Identifiable, Hashable, Codable, Sendable {
             }
             return ""
         }
-        let id = s("nb", "id", "videoId", "video_id")
+        let id = s("nb", "id", "videoId", "video_id", "videoNb", "episodeId", "episode_id")
         let title = s("en_title", "englishTitle", "enTitle", "english_title", "title", "name")
         let arabic = s("ar_title", "arabicTitle", "arTitle", "arabic_title")
         guard !id.isEmpty, !(title.isEmpty && arabic.isEmpty) else { return nil }
@@ -46,20 +52,18 @@ struct Video: Identifiable, Hashable, Codable, Sendable {
         let backdrop = s("imgObjUrl", "imageObjUrl", "img", "imageUrl")
         self.poster = URL(string: poster.isEmpty ? img : poster)
         self.backdrop = URL(string: backdrop.isEmpty ? poster : backdrop)
-        self.season = Int(s("season")) ?? 1
-        self.episode = Int(s("episodeNummer", "episodeNumber", "episode")) ?? 0
+        self.season = Int(s("season", "seasonNumber", "seasonNummer", "season_number", "seasonNb")) ?? 1
+        self.episode = Int(s("episodeNummer", "episodeNumber", "episode", "episodeNb", "episode_number", "episodeNo")) ?? 0
         let cats = json["categories"] ?? json["genres"] ?? json["genre"]
         if let strings = cats as? [String] { self.genres = strings }
         else if let strings = cats as? String { self.genres = strings.split(separator: ",").map { $0.trimmingCharacters(in: .whitespaces) } }
         else if let objects = cats as? [[String: Any]] {
             self.genres = objects.compactMap { ($0["en_title"] ?? $0["name"] ?? $0["title"]) as? String }
         } else { self.genres = [] }
-        // Never interpret `stars`, `imdbRating`, or numeric `rating` as an age rating.
-        let classification = s("ageRating", "age_rating", "contentRating", "content_rating",
-                               "parentalRating", "parental_rating", "certification", "certificate",
-                               "mpaa", "mpaa_rating", "tvRating", "tv_rating", "rated")
-        self.ageRating = classification.isEmpty ? nil : classification
-        // A real false value is different from unspecified metadata.
+        let rating = s("ageRating", "age_rating", "contentRating", "content_rating",
+                       "parentalRating", "parental_rating", "certification", "certificate",
+                       "mpaa", "mpaa_rating", "tvRating", "tv_rating", "rated")
+        self.ageRating = rating.isEmpty ? nil : rating
         func adultValue(_ value: Any?) -> Bool? {
             guard let value else { return nil }
             if let number = value as? NSNumber { return number.boolValue }
@@ -72,10 +76,10 @@ struct Video: Identifiable, Hashable, Codable, Sendable {
             }
             return nil
         }
-        let explicitKeys = ["adult", "isAdult", "is_adult", "mature", "isMature",
-                            "is_mature", "explicit", "isExplicit", "is_explicit", "pornographic"]
-        let adultFlags = explicitKeys.compactMap { adultValue(json[$0]) }
-        self.adultFlag = adultFlags.contains(true) ? true : adultFlags.first
+        let flags = ["adult", "isAdult", "is_adult", "mature", "isMature",
+                     "is_mature", "explicit", "isExplicit", "is_explicit", "pornographic"]
+            .compactMap { adultValue(json[$0]) }
+        self.adultFlag = flags.contains(true) ? true : flags.first
     }
 }
 

@@ -1,9 +1,13 @@
-## v2.0.1 beta.1 — Hide Mature Content
-- Optional **Settings → Content filter → Hide Mature Content** toggle, off by default.
-- Filter provider-tagged adult titles and explicit age classifications from browsing, recommendations, Search, personal collections and downloaded-items display. Does not delete data.
-- Preserve existing local video bookmarks in the decoder even when the content provider supplies no parental rating.
-- No frame-by-frame scene censorship: items with missing or incorrect provider metadata may still be shown.
-- Portable tests cover classification, disabled state, filtered rows, and backwards-compatible saved videos.
+## v2.0.2-beta.1 — Series episodes, mature filter in player, iPad and branding fixes
+- Repair Series tab routing so a series opens the episode browser even if a provider response omits its kind.
+- Parse nested season/episode arrays; show real provider/network errors and explicit retry instead of playing the series root.
+- Keep the existing Settings maturity filter and expose the same preference under Player Settings. When turned on, provider-classified mature titles cannot keep playing. This is not scene-by-scene redaction.
+- Reorganize player settings by Content, Playback, Captions and More. Add in-player episode picker and simplify the top/bottom controls.
+- Keep iPad multitasking and orientation intact; widen the player and use existing grid/adaptive layouts.
+- Fix the Home Screen icon generator to use the actual approved 1024px RGB icon, not the unrelated transparent glyph. Verify icon master checksum.
+- Upscale the approved splash to a 2823×5016 RGB PNG; render aspect-fit over a blurred full-bleed background so it stays sharp without cropping the wordmark.
+- Add core regression tests for nested episodes, maturity metadata and old-library decoding.
+- Known limitation: provider metadata does not guarantee mature-scene detection, and access to series/streams depends on provider authorization.
 
 # Cinemana iOS — Changelog
 

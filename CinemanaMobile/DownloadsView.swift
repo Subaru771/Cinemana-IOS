@@ -40,7 +40,7 @@ struct DownloadsView: View {
                 .font(.system(size: 54))
                 .foregroundStyle(.mint)
             Text(hideMatureContent && !center.items.isEmpty ? "Downloads hidden by content filter" : "Your downloads").font(.title2.bold())
-            Text(hideMatureContent && !center.items.isEmpty ? "These downloads remain saved. Turn off Hide Mature Content in Settings to show them." : "Choose Download from a movie or episode. Supported videos will appear here for offline playback.")
+            Text("Choose Download from a movie or episode. Supported videos will appear here for offline playback.")
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
             Text("Availability depends on the video provider.")

@@ -1,3 +1,10 @@
+### v2.0.2 beta fixes
+- Series detail screens now always show **Episodes** when opened from the Series tab, and report errors with Retry if the provider cannot return a list.
+- In Settings or in the fullscreen player menu choose **Hide Mature Content**. This uses provider tags/classification only; it cannot skip or censor individual scenes.
+- A centered, approved Home Screen icon and a 3x splash PNG are shipped directly in the source, and the icon generator validates and copies the approved master.
+- The player groups controls into Playback, Captions, Content Filter, and More and includes an in-player Episodes chooser.
+- iPad preserves device orientation and gestures for multitasking; it has an adaptive catalog grid and wider player controls.
+
 # Cinemana iOS — v2.0.0 beta source
 
 Unofficial, independent native SwiftUI client for iPhone and iPad (iOS 16+). Content availability and streaming access depend on the upstream provider's permissions and supported networks.
@@ -38,6 +45,3 @@ swiftc -o /tmp/cinemana-tests CinemanaMobile/Models.swift CinemanaMobile/Cineman
 History, collections, favorites and custom skip markers are stored on the device. No personal telemetry or developer account is required. Select a movie to view details; choose **Play** to start video. Do not assume an arbitrary upstream server permits playback, download or redistribution of its media.
 
 See [CHANGELOG.md](CHANGELOG.md), [DISTRIBUTION.md](DISTRIBUTION.md) and [WINDOWS-APPLE-SIGNING.md](WINDOWS-APPLE-SIGNING.md).
-
-### Optional maturity filter (v2.0.1 beta)
-Open Settings → Content filter → **Hide Mature Content**. The filter runs locally using provider-supplied explicit adult flags, genre tags and age classifications (e.g. 18+, TV-MA). It hides tagged items from catalog, search, recommendations, libraries, and the downloads UI but does **not** delete any saved videos. Missing/inaccurate metadata cannot be detected and may slip through; this is not a parental-control lock or scene-skipping tool.

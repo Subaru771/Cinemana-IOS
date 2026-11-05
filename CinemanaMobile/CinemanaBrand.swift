@@ -21,6 +21,8 @@ struct CinemanaGlyph: View {
                     .interpolation(.high)
                     .aspectRatio(contentMode: .fit)
             } else {
+                // Never upscale a compressed 256px JPEG: use resolution-
+                // independent SwiftUI artwork until the master PNG is installed.
                 CinemanaVectorFallbackGlyph()
             }
         }
@@ -36,6 +38,7 @@ private struct CinemanaVectorFallbackGlyph: View {
         GeometryReader { geo in
             let side = min(geo.size.width, geo.size.height)
             ZStack {
+                // The fallback never draws a rounded icon tile.
                 Text("C")
                     .font(.system(size: side * 0.90, weight: .black, design: .rounded))
                     .foregroundStyle(LinearGradient(colors: [Color(red: 1, green: 0.57, blue: 0.61),
@@ -53,23 +56,39 @@ private struct CinemanaVectorFallbackGlyph: View {
     }
 }
 
+/// Lets the opening animation end when the Home catalog has actually been
+/// restored or fetched, rather than waiting an arbitrary number of seconds.
 @MainActor
 final class CinemanaStartupState: ObservableObject {
     @Published private(set) var catalogReady = false
-    func finishInitialCatalogLoad() { catalogReady = true }
+
+    func finishInitialCatalogLoad() {
+        catalogReady = true
+    }
 }
 
-/// The approved full-screen, red and black Cinemana iOS splash screen.
+/// Exact user-approved full-screen Cinemana iOS artwork: original neon red
+/// filmstrip C and Cinemana Hub-style rounded wordmark, with no icon tile.
+/// Only affects the splash overlay; playback and downloads are unchanged.
 struct CinemanaSplashView: View {
     var body: some View {
         GeometryReader { geometry in
-            Image("CinemanaSplash")
-                .resizable()
-                .interpolation(.high)
-                .scaledToFill()
-                .frame(width: geometry.size.width, height: geometry.size.height)
-                .clipped()
-                .accessibilityHidden(true)
+            ZStack {
+                // Fill screen ratios without enlarging/cropping the approved logo.
+                Image("CinemanaSplash")
+                    .resizable().scaledToFill()
+                    .frame(width: geometry.size.width, height: geometry.size.height)
+                    .blur(radius: 22)
+                    .overlay(Color.black.opacity(0.38))
+                    .clipped()
+                Image("CinemanaSplash")
+                    .resizable()
+                    .interpolation(.high)
+                    .scaledToFit()
+                    .frame(width: geometry.size.width, height: geometry.size.height)
+                    .accessibilityHidden(true)
+            }
+            .frame(width: geometry.size.width, height: geometry.size.height)
         }
         .background(Color.black)
         .ignoresSafeArea()
