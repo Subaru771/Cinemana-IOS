@@ -36,6 +36,14 @@ struct CoreSmokeTests {
         precondition(!MatureContentFilter.allows(flagged, hideMature: true))
         precondition(MatureContentFilter.allows(teen, hideMature: true))
         precondition(MatureContentFilter.visible([flagged, teen], hideMature: true).count == 1)
+        let tvma = Video(json: ["id": "tvma", "title": "Late Show", "contentRating": "TV-MA"])!
+        let arabicTag = Video(json: ["id": "ar-tag", "title": "Film", "categories": [["en_title": "Drama", "ar_title": "للكبار فقط"]]])!
+        precondition(MatureContentFilter.isMature(tvma) && MatureContentFilter.isMature(arabicTag))
+        precondition(arabicTag.genres == ["للكبار فقط"])
+        let rowOrder = [CatalogRow(title: "Action Series", videos: []), CatalogRow(title: "New Movies", videos: []),
+                        CatalogRow(title: "Trending Series", videos: []), CatalogRow(title: "Trending Movies", videos: [])]
+            .sorted { $0.sortKey < $1.sortKey }.map(\.title)
+        precondition(rowOrder == ["Trending Movies", "Trending Series", "New Movies", "Action Series"])
         // Old library JSON contains no age classifications: decoding stays backwards compatible.
         let oldVideo = try JSONEncoder().encode(movie)
         var payload = try JSONSerialization.jsonObject(with: oldVideo) as! [String: Any]

@@ -23,7 +23,7 @@ struct CollectionsView: View {
                     VStack(spacing: 10) {
                         Image(systemName: "folder").font(.largeTitle).foregroundStyle(.secondary)
                         Text("No collections yet").font(.headline)
-                        Text("Organize saved titles. Everything stays on this device.")
+                        Text("Group your saved titles into lists.")
                             .font(.footnote).foregroundStyle(.secondary)
                     }
                     .frame(maxWidth: .infinity)
@@ -132,8 +132,6 @@ struct EpisodeBatchDownloadView: View {
                         Label("\(ByteFormat.string(free)) available on this device", systemImage: "internaldrive")
                             .font(.footnote).foregroundStyle(.secondary)
                     }
-                    Text("Actual quality and size depend on the media provider. Unavailable resolutions will fail visibly instead of exceeding your limit.")
-                        .font(.footnote).foregroundStyle(.secondary)
                 }
             }
             .navigationTitle("Download episodes")

@@ -6,8 +6,9 @@ api = (root / 'CinemanaMobile/CinemanaAPI.swift').read_text()
 brand = (root / 'CinemanaMobile/CinemanaBrand.swift').read_text()
 player = (root / 'CinemanaMobile/CinemaPlayerFullscreen.swift').read_text()
 assert 'if kind == nil && !library.snapshot.recent.isEmpty' not in app
-assert 'if rows.isEmpty { await refresh() }' in app
-assert 'milliseconds(560)' in app
+assert 'if rows.isEmpty, let cached = await CatalogCache.shared.readEntry(kind: kind)' in app
+assert 'await refresh()' in app
+assert 'milliseconds(300)' in app
 assert 'addingTimeInterval(2.8)' not in app
 assert 'if !preferComplete { finish = true }' in api
 assert '2_500_000_000' in api

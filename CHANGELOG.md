@@ -1,3 +1,11 @@
+## 2.0.3
+
+- Hide Mature Content now checks the provider's full title record (rating, adult flag, tags in English and Arabic) for titles that arrive without a classification, remembers the result, and applies it to Home, Movies, Series, Search, My List, related titles and episodes.
+- Episodes now appear for series opened from Search, My List and related titles, even when the provider omits the title type. Long episode lists scroll smoothly.
+- Faster: catalog rows appear one by one as they load, saved rows show instantly and refresh in the background, responses are cached briefly, and the launch splash is shorter.
+- More sections on Home, Movies and Series: Top Rated, Popular, Recent Hit, Classic, and the most common genres, alongside Trending and New.
+- Removed technical and explanatory text from Settings, error messages, network diagnostics, downloads and collections; messages are now short and plain.
+
 ## v2.0.2-beta.1 — Series episodes, mature filter in player, iPad and branding fixes
 - Repair Series tab routing so a series opens the episode browser even if a provider response omits its kind.
 - Parse nested season/episode arrays; show real provider/network errors and explicit retry instead of playing the series root.
