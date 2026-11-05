@@ -17,13 +17,12 @@ struct CinemanaAPI: Sendable {
         case unauthorized, providerRestricted, server(Int), invalidResponse, unreachable, noStream, noEpisodes
         var errorDescription: String? {
             switch self {
-            case .unauthorized: return "The content provider requires authorization."
-            case .providerRestricted: return "This network is not authorized to access the provider."
-            case .server(let code): return "Provider server responded with HTTP \(code)."
-            case .invalidResponse: return "The provider returned an unsupported response."
-            case .unreachable: return "Cannot reach the provider on this network."
-            case .noStream: return "No compatible video stream is available."
-            case .noEpisodes: return "The provider returned no episode records for this series. Please retry or check the source."
+            case .unauthorized, .providerRestricted, .unreachable:
+                return "Can't connect right now. Check your connection and try again."
+            case .server, .invalidResponse:
+                return "Something went wrong loading this. Please try again."
+            case .noStream: return "This video isn't available to play right now."
+            case .noEpisodes: return "No episodes are available yet."
             }
         }
     }
@@ -33,14 +32,29 @@ struct CinemanaAPI: Sendable {
         return value.addingPercentEncoding(withAllowedCharacters: allowed) ?? value
     }
 
-    private func fetch(_ path: String, timeout: TimeInterval = 18) async throws -> Any {
+    private static let session: URLSession = {
+        let config = URLSessionConfiguration.default
+        config.httpMaximumConnectionsPerHost = 10
+        config.timeoutIntervalForResource = 30
+        #if canImport(Darwin)
+        config.waitsForConnectivity = false
+        #endif
+        config.requestCachePolicy = .useProtocolCachePolicy
+        return URLSession(configuration: config)
+    }()
+
+    private func fetch(_ path: String, timeout: TimeInterval = 10, ttl: TimeInterval = 0) async throws -> Any {
+        if ttl > 0, let cached = await ResponseCache.shared.get(path, maxAge: ttl),
+           let object = try? JSONSerialization.jsonObject(with: cached, options: [.fragmentsAllowed]) {
+            return object
+        }
         guard let url = URL(string: base + path) else { throw APIError.invalidResponse }
         var req = URLRequest(url: url)
         req.timeoutInterval = timeout
         let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1"
         req.setValue("CinemanaMobile/\(version) (iOS)", forHTTPHeaderField: "User-Agent")
         do {
-            let (data, response) = try await URLSession.shared.data(for: req)
+            let (data, response) = try await Self.session.data(for: req)
             guard let http = response as? HTTPURLResponse else { throw APIError.invalidResponse }
             switch http.statusCode {
             case 200..<300: break
@@ -49,7 +63,9 @@ struct CinemanaAPI: Sendable {
             default: throw APIError.server(http.statusCode)
             }
             do {
-                return try JSONSerialization.jsonObject(with: data, options: [.fragmentsAllowed])
+                let object = try JSONSerialization.jsonObject(with: data, options: [.fragmentsAllowed])
+                if ttl > 0 { await ResponseCache.shared.put(path, data: data) }
+                return object
             } catch {
                 // A 200 response containing HTML is not a successful JSON response.
                 throw APIError.invalidResponse
@@ -79,42 +95,147 @@ struct CinemanaAPI: Sendable {
         return result
     }
 
-    func catalog(_ kind: Int? = nil) async throws -> [CatalogRow] {
-        let kinds = kind.map { [$0] } ?? [1, 2]
-        let (rows, failures, restriction) = await withTaskGroup(of: Result<(String, [Video]), Error>.self) { group in
-            for k in kinds {
-                for (sort, heading) in [("views_desc", "Trending"), ("desc", "New")] {
-                    let title = "\(heading) \(k == 1 ? "Movies" : "Series")"
-                    group.addTask {
-                        do {
-                            let json = try await fetch("video/videoKind/\(k)/categoryNb/0/langNb/0/sortParam/\(sort)/itemsPerPage/20/searchTextValue/-/pageNumber/0")
-                            return .success((title, videos(fetchOrThrow: json, kind: String(k))))
-                        } catch { return .failure(error) }
+    private enum CatalogPart: Sendable { case trending0, trending1, new0, new1, top }
+
+    private struct CatalogPage: Sendable {
+        let kind: Int
+        let part: CatalogPart
+        let videos: [Video]?
+        let failure: APIError?
+    }
+
+    /// Delivers catalog rows one by one as soon as each is ready, so the first
+    /// row appears after the fastest request instead of the slowest.
+    func catalogStream(_ kind: Int? = nil) -> AsyncThrowingStream<CatalogRow, Error> {
+        AsyncThrowingStream { continuation in
+            let worker = Task {
+                let kinds = kind.map { [$0] } ?? [1, 2]
+                let specs: [(CatalogPart, String, Int)] = [
+                    (.trending0, "views_desc", 0), (.new0, "desc", 0), (.top, "stars_desc", 0),
+                    (.trending1, "views_desc", 1), (.new1, "desc", 1)
+                ]
+                var restriction: APIError?
+                var emitted = 0
+                var parts: [Int: [String: [Video]]] = [:]
+
+                func label(_ k: Int) -> String { k == 1 ? "Movies" : "Series" }
+                func emit(_ base: String, _ k: Int, _ items: [Video]) {
+                    guard !items.isEmpty else { return }
+                    emitted += 1
+                    continuation.yield(CatalogRow(title: "\(base) \(label(k))", videos: items))
+                }
+                func unique(_ lists: [Video]...) -> [Video] {
+                    var seen = Set<String>()
+                    return lists.flatMap { $0 }.filter { seen.insert($0.id).inserted }
+                }
+                func looksSortedByRating(_ items: [Video]) -> Bool {
+                    let values = items.compactMap(\.rating)
+                    guard values.count >= 6 else { return false }
+                    var ordered = 0
+                    for index in 0..<(values.count - 1) where values[index] >= values[index + 1] { ordered += 1 }
+                    return Double(ordered) >= 0.8 * Double(values.count - 1)
+                }
+                func partKey(_ part: CatalogPart) -> String {
+                    switch part {
+                    case .trending0: return "t0"
+                    case .trending1: return "t1"
+                    case .new0: return "n0"
+                    case .new1: return "n1"
+                    case .top: return "top"
                     }
                 }
-            }
-            var rows = [CatalogRow]()
-            var failures = 0
-            var restriction: APIError?
-            for await awaitResult in group {
-                switch awaitResult {
-                case .success(let (title, items)):
-                    if !items.isEmpty { rows.append(CatalogRow(title: title, videos: items)) }
-                case .failure(let error):
-                    failures += 1
-                    if let reason = error as? APIError {
-                        switch reason {
-                        case .unauthorized, .providerRestricted: restriction = reason
-                        default: break
+
+                await withTaskGroup(of: CatalogPage.self) { group in
+                    for k in kinds {
+                        for (part, sort, page) in specs {
+                            group.addTask {
+                                do {
+                                    let json = try await fetch("video/videoKind/\(k)/categoryNb/0/langNb/0/sortParam/\(sort)/itemsPerPage/20/searchTextValue/-/pageNumber/\(page)", timeout: 10, ttl: 60)
+                                    return CatalogPage(kind: k, part: part,
+                                                       videos: videos(fetchOrThrow: json, kind: String(k)), failure: nil)
+                                } catch {
+                                    return CatalogPage(kind: k, part: part, videos: nil,
+                                                       failure: (error as? APIError) ?? .unreachable)
+                                }
+                            }
+                        }
+                    }
+                    for await page in group {
+                        if Task.isCancelled { group.cancelAll(); break }
+                        guard let fetched = page.videos else {
+                            if let failure = page.failure {
+                                switch failure {
+                                case .unauthorized, .providerRestricted: restriction = failure
+                                default: break
+                                }
+                            }
+                            continue
+                        }
+                        var items = fetched
+                        // Ignore a "top rated" list the provider did not really sort by rating.
+                        if page.part == .top && !looksSortedByRating(items) { items = [] }
+                        parts[page.kind, default: [:]][partKey(page.part)] = items
+                        let have = parts[page.kind] ?? [:]
+                        switch page.part {
+                        case .trending0: emit("Trending", page.kind, items)
+                        case .new0, .new1:
+                            emit("New", page.kind, unique(have["n0"] ?? [], have["n1"] ?? []))
+                        case .top: emit("Top Rated", page.kind, items)
+                        case .trending1: break
                         }
                     }
                 }
+
+                if !Task.isCancelled {
+                    // Extra sections built from everything that was fetched.
+                    let year = Calendar.current.component(.year, from: Date())
+                    for k in kinds {
+                        let have = parts[k] ?? [:]
+                        let pool = unique(have["t0"] ?? [], have["t1"] ?? [], have["n0"] ?? [],
+                                          have["n1"] ?? [], have["top"] ?? [])
+                        let byRating: (Video, Video) -> Bool = { ($0.rating ?? 0) > ($1.rating ?? 0) }
+                        if (have["top"] ?? []).isEmpty {
+                            let rated = pool.filter { ($0.rating ?? 0) >= 6.5 }.sorted(by: byRating)
+                            emit("Top Rated", k, Array(rated.prefix(30)))
+                        }
+                        let trendingIDs = Set((have["t0"] ?? []).map(\.id))
+                        emit("Popular", k, (have["t1"] ?? []).filter { !trendingIDs.contains($0.id) })
+                        let recent = pool.filter { (Int($0.year) ?? 0) >= year - 2 && ($0.rating ?? 0) >= 6 }
+                            .sorted(by: byRating)
+                        if recent.count >= 6 { emit("Recent Hit", k, Array(recent.prefix(30))) }
+                        let classics = pool.filter { (Int($0.year) ?? 9999) <= 2005 && ($0.rating ?? 0) >= 6 }
+                            .sorted(by: byRating)
+                        if classics.count >= 6 { emit("Classic", k, Array(classics.prefix(30))) }
+                        var byGenre: [String: [Video]] = [:]
+                        for video in pool {
+                            for genre in video.genres {
+                                let name = genre.trimmingCharacters(in: .whitespacesAndNewlines)
+                                if !name.isEmpty, !MatureContentFilter.isMatureTag(name) {
+                                    byGenre[name, default: []].append(video)
+                                }
+                            }
+                        }
+                        let topGenres = byGenre.filter { $0.value.count >= 8 }.sorted {
+                            $0.value.count != $1.value.count ? $0.value.count > $1.value.count : $0.key < $1.key
+                        }.prefix(4)
+                        for (name, items) in topGenres { emit(name, k, Array(items.prefix(30))) }
+                    }
+                }
+
+                if emitted == 0 {
+                    continuation.finish(throwing: restriction ?? APIError.unreachable)
+                } else {
+                    continuation.finish()
+                }
             }
-            return (rows, failures, restriction)
+            continuation.onTermination = { _ in worker.cancel() }
         }
-        if rows.isEmpty && failures == kinds.count * 2 { throw restriction ?? APIError.unreachable }
-        let order = ["Trending Movies", "New Movies", "Trending Series", "New Series"]
-        return rows.sorted { (order.firstIndex(of: $0.title) ?? 99) < (order.firstIndex(of: $1.title) ?? 99) }
+    }
+
+    func catalog(_ kind: Int? = nil) async throws -> [CatalogRow] {
+        var rows: [String: CatalogRow] = [:]
+        for try await row in catalogStream(kind) { rows[row.title] = row }
+        return rows.values.sorted { $0.sortKey < $1.sortKey }
     }
 
     func search(_ text: String) async throws -> [Video] {
@@ -176,10 +297,15 @@ struct CinemanaAPI: Sendable {
     }
 
     func detail(_ fallback: Video) async -> Video {
+        await detailIfAvailable(fallback) ?? fallback
+    }
+
+    /// The provider's full record, or nil when it could not be loaded.
+    func detailIfAvailable(_ fallback: Video) async -> Video? {
         do {
-            let json = try await fetch("allVideoInfo/id/\(segment(fallback.id))")
+            let json = try await fetch("allVideoInfo/id/\(segment(fallback.id))", timeout: 8, ttl: 600)
             return videos(json, limit: 1).first ?? fallback
-        } catch { return fallback }
+        } catch { return nil }
     }
 
     /// Decode season wrappers and nested episode lists, retaining the season number.
@@ -237,7 +363,7 @@ struct CinemanaAPI: Sendable {
         var firstError: Error?
         for path in ["videoSeason/id/\(segment(id))", "allVideoInfo/id/\(segment(id))"] {
             do {
-                let raw = try await fetch(path, timeout: 14)
+                let raw = try await fetch(path, timeout: 10, ttl: 300)
                 let parsed = Self.decodeEpisodes(raw, seriesID: id)
                 if !parsed.isEmpty { return parsed }
             } catch is CancellationError {
@@ -262,7 +388,7 @@ struct CinemanaAPI: Sendable {
     }
 
     func related(_ id: String) async -> [Video] {
-        do { return videos(try await fetch("relatedVideos/id/\(segment(id))")) }
+        do { return videos(try await fetch("relatedVideos/id/\(segment(id))", timeout: 8, ttl: 300)) }
         catch { return [] }
     }
 
@@ -443,4 +569,20 @@ private actor PlaybackStreamCache {
         entries[id] = (Date(), streams)
     }
     func remove(_ id: String) { entries.removeValue(forKey: id) }
+}
+
+
+/// Short-lived memory cache for catalog, detail and episode responses so
+/// revisiting a screen is instant. Stream URLs are never stored here.
+private actor ResponseCache {
+    static let shared = ResponseCache()
+    private var entries: [String: (date: Date, data: Data)] = [:]
+    func get(_ key: String, maxAge: TimeInterval) -> Data? {
+        guard let entry = entries[key], Date().timeIntervalSince(entry.date) < maxAge else { return nil }
+        return entry.data
+    }
+    func put(_ key: String, data: Data) {
+        if entries.count > 80 { entries.removeAll() }
+        entries[key] = (Date(), data)
+    }
 }

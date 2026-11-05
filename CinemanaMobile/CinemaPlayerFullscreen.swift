@@ -750,7 +750,6 @@ struct CinemaPlayerScreen: View {
         Menu {
             Section("Content filter") {
                 Toggle("Hide Mature Content", isOn: $hideMatureContent)
-                Text("Uses provider tags; cannot skip individual scenes")
             }
             Section("Playback") {
                 speedMenu
