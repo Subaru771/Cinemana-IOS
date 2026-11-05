@@ -61,7 +61,7 @@ struct CollectionsView: View {
                     HStack {
                         Text(collection.name)
                         Spacer()
-                        Text("\(matchingCount(in: collection)) shown")
+                        Text("\(library.snapshot.favorites.filter { collection.videoIDs.contains($0.id) && MatureContentFilter.allows($0, hideMature: hideMatureContent) }.count) shown")
                     }
                 } footer: {
                     Button(role: .destructive) { library.deleteCollection(collection.id) } label: {
@@ -71,10 +71,6 @@ struct CollectionsView: View {
             }
         }
         .navigationTitle("Collections")
-    }
-
-    private func matchingCount(in collection: WatchCollection) -> Int {
-        library.snapshot.favorites.filter { collection.videoIDs.contains($0.id) && MatureContentFilter.allows($0, hideMature: hideMatureContent) }.count
     }
 
     private func add() {

@@ -32,8 +32,8 @@ brand = (root / "CinemanaMobile/CinemanaBrand.swift").read_text()
 header = (root / "CinemanaMobile/CinemaPlayerFullscreen.swift").read_text()
 assert 'CFBundleDisplayName: Cinemana iOS' in project
 assert 'Image("CinemanaSplash")' in brand
-splash = root / "CinemanaMobile/Assets.xcassets/CinemanaSplash.imageset/CinemanaSplash.jpg"
-assert splash.read_bytes().startswith(bytes.fromhex("FFD8FF")), "Approved splash asset must be a JPEG"
+splash = root / "CinemanaMobile/Assets.xcassets/CinemanaSplash.imageset/CinemanaSplash-3x.png"
+assert png_dimensions(splash) == (2823, 5016), "Approved splash must be a Retina-size PNG"
 assert 'Text("iOS")' in header
 assert 'RoundedRectangle(cornerRadius: side' not in brand, "Do not add an inner icon tile"
 menu = (root / "CinemanaMobile/DownloadQualityMenu.swift").read_text()
@@ -43,8 +43,16 @@ for removed in ["Best available", "Use preferred quality", "Wi-Fi only", "wifiOn
 print("Full-resolution icon and four-option download menu validated.")
 
 # The approved v1.6.13 iOS icon is RGB, opaque and exactly 1024px.
-assert "CFBundleShortVersionString: '2.0.1'" in project
+assert "CFBundleShortVersionString: '2.0.2'" in project
 assert splash.stat().st_size > 500_000, "Full-resolution approved startup asset missing"
 assert icon.stat().st_size > 500_000, "Full-resolution approved Home Screen icon missing"
 manifest = root / "Branding/v1.6.13-assets-manifest.json"
 assert manifest.is_file(), "Expected approved-asset manifest"
+
+# Verify that the icon generator cannot silently overwrite the approved image.
+# Pin the exact approved icon bytes shipped in the current repository; never
+# let a generator overwrite it with the older transparent Cinemana C glyph.
+from hashlib import sha256
+assert sha256(icon.read_bytes()).hexdigest() == "b6ca1864af05c8e7cce125c9d3dd1c9d67bf87592fcd9c532d3a2d8fadd51562"
+assert "Never overwrite" in (root / "scripts/make_app_icon.swift").read_text()
+print("Approved iOS icon and 3x startup artwork verified")

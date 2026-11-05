@@ -128,6 +128,12 @@ struct CinemaPlayerScreen: View {
     @AppStorage("cinemana-auto-landscape") private var autoLandscape = true
     @AppStorage("cinemana-sub-scale") private var subtitleScale = 1.0
     @AppStorage("cinemana-sub-background") private var captionBackdrop = true
+    @AppStorage(MatureContentFilter.preferenceKey) private var hideMatureContent = false
+
+    private var isPad: Bool { UIDevice.current.userInterfaceIdiom == .pad }
+    private var blockedByFilter: Bool {
+        !MatureContentFilter.allows(current, hideMature: hideMatureContent)
+    }
 
     @State private var current: Video
     @State private var showsControls = true
@@ -163,6 +169,7 @@ struct CinemaPlayerScreen: View {
     @State private var watchedPlayerID: ObjectIdentifier?
     @State private var showDiagnostics = false
     @State private var importingSubtitles = false
+    @State private var showEpisodePicker = false
 
     private let playlist: [Video]
 
@@ -174,7 +181,11 @@ struct CinemaPlayerScreen: View {
     private var speed: Float { Float(savedSpeed) }
     private var timeLimit: Double { max(1, duration) }
     private var isDownloaded: Bool { downloads.localURL(for: current.id) != nil }
-    private var nextEpisode: Video? { PlaybackPlanner.nextEpisode(after: current, in: playlist) }
+    private var nextEpisode: Video? {
+        guard let next = PlaybackPlanner.nextEpisode(after: current, in: playlist),
+              MatureContentFilter.allows(next, hideMature: hideMatureContent) else { return nil }
+        return next
+    }
     private var subtitleLift: CGFloat { showsControls && !locked ? 150 : 46 }
 
     // MARK: Body
@@ -205,15 +216,26 @@ struct CinemaPlayerScreen: View {
                 if let next = upNext { upNextCard(next) }
                 if let hud { hudView(hud) }
                 if let flash { flashView(flash) }
-                skipMarkersOverlay
+                if !blockedByFilter { skipMarkersOverlay }
+                if blockedByFilter {
+                    Color.black.ignoresSafeArea()
+                    VStack(spacing: 22) {
+                        ContentFilteredView()
+                        Button("Close player") { closePlayer() }
+                            .buttonStyle(.borderedProminent).tint(cinemaAccent)
+                        Button("Show content filter settings") { hideMatureContent = false }
+                            .font(.footnote).foregroundStyle(.secondary)
+                    }
+                    .frame(maxWidth: isPad ? 520 : 360)
+                }
             }
             .frame(width: geometry.size.width, height: geometry.size.height)
         }
         .background(.black)
         .ignoresSafeArea()
-        .statusBarHidden(true)
-        .persistentSystemOverlays(.hidden)
-        .defersSystemGestures(on: .all)
+        .statusBarHidden(!isPad)
+        .persistentSystemOverlays(isPad ? .automatic : .hidden)
+        .defersSystemGestures(on: isPad ? [] : .all)
         .preferredColorScheme(.dark)
         .task(id: current.id) { await startPlayback() }
         .onAppear { prepareScreen() }
@@ -227,6 +249,49 @@ struct CinemaPlayerScreen: View {
         .onChange(of: duration > 0) { _ in refreshNowPlaying() }
         .onChange(of: scenePhase) { phase in
             if phase != .active { session.save(library: library) }
+        }
+        .onChange(of: hideMatureContent) { enabled in
+            if enabled && MatureContentFilter.isMature(current) {
+                session.player?.pause()
+                playing = false
+                cancelUpNext()
+            }
+        }
+        .onChange(of: session.player) { _ in
+            if blockedByFilter { session.player?.pause() }
+        }
+        .sheet(isPresented: $showEpisodePicker) {
+            NavigationStack {
+                List {
+                    ForEach(playlist.filter { MatureContentFilter.allows($0, hideMature: hideMatureContent) }) { episode in
+                        Button {
+                            showEpisodePicker = false
+                            play(episode)
+                        } label: {
+                            HStack(spacing: 14) {
+                                Image(systemName: episode.id == current.id ? "play.circle.fill" : "play.circle")
+                                    .foregroundStyle(cinemaAccent)
+                                VStack(alignment: .leading, spacing: 4) {
+                                    Text("Season \(episode.season) · Episode \(episode.episode)")
+                                        .font(.subheadline.weight(.semibold))
+                                    Text(episode.title).font(.caption).foregroundStyle(.secondary)
+                                }
+                                Spacer()
+                                if library.isWatched(episode.id) {
+                                    Image(systemName: "checkmark.circle.fill").foregroundStyle(.green)
+                                }
+                            }
+                        }
+                    }
+                }
+                .navigationTitle("Episodes")
+                .toolbar {
+                    ToolbarItem(placement: .topBarTrailing) {
+                        Button("Done") { showEpisodePicker = false }
+                    }
+                }
+            }
+            .presentationDetents([.medium, .large])
         }
         .onDisappear { teardown() }
         .fileImporter(isPresented: $importingSubtitles,
@@ -262,6 +327,7 @@ struct CinemaPlayerScreen: View {
     // MARK: Lifecycle
 
     private func startPlayback() async {
+        guard !blockedByFilter else { session.player?.pause(); return }
         do {
             try AVAudioSession.sharedInstance().setCategory(.playback, mode: .moviePlayback)
             try AVAudioSession.sharedInstance().setActive(true)
@@ -276,7 +342,7 @@ struct CinemaPlayerScreen: View {
     private func prepareScreen() {
         originalBrightness = UIScreen.main.brightness
         UIApplication.shared.isIdleTimerDisabled = true
-        if autoLandscape { PlayerOrientation.request(.landscape) }
+        if autoLandscape && !isPad { PlayerOrientation.request(.landscape) }
         let sessionRef = session
         NowPlayingBridge.shared.activate(
             player: { sessionRef.player },
@@ -299,7 +365,7 @@ struct CinemaPlayerScreen: View {
         NowPlayingBridge.shared.deactivate()
         UIApplication.shared.isIdleTimerDisabled = false
         UIScreen.main.brightness = originalBrightness
-        if autoLandscape { PlayerOrientation.request(.portrait) }
+        if autoLandscape && !isPad { PlayerOrientation.request(.portrait) }
     }
 
     // MARK: Gestures
@@ -522,10 +588,12 @@ struct CinemaPlayerScreen: View {
     private var controlOverlay: some View {
         VStack(spacing: 0) {
             topBar
+                .frame(maxWidth: isPad ? 1100 : .infinity)
             Spacer(minLength: 10)
             if session.player != nil { centerControls }
             Spacer(minLength: 10)
             bottomBar
+                .frame(maxWidth: isPad ? 960 : .infinity)
         }
         .foregroundStyle(.white)
         .background {
@@ -537,34 +605,35 @@ struct CinemaPlayerScreen: View {
     }
 
     private var topBar: some View {
-        HStack(spacing: 12) {
-            overlayButton("chevron.down", label: "Close") { closePlayer() }
-            CinemanaLogo(compact: true)
-            Spacer(minLength: 6)
-            if session.player != nil {
-                if savedSpeed != 1 {
-                    Text("\(savedSpeed.formatted())×")
-                        .font(.caption.weight(.bold))
-                        .padding(.horizontal, 8).padding(.vertical, 3)
-                        .background(.white.opacity(0.18), in: Capsule())
-                }
-                Text(isDownloaded ? "OFFLINE" : (session.selected?.label ?? "AUTO"))
-                    .font(.caption2.weight(.bold))
-                    .foregroundStyle(cinemaAccent)
+        HStack(spacing: isPad ? 16 : 8) {
+            overlayButton("chevron.down", label: "Close player") { closePlayer() }
+            VStack(alignment: .leading, spacing: 3) {
+                Text(current.title)
+                    .font((isPad ? Font.title3 : Font.subheadline).weight(.semibold))
                     .lineLimit(1)
+                HStack(spacing: 7) {
+                    if current.episode > 0 {
+                        Text("S\(current.season) · E\(current.episode)")
+                    }
+                    Text(isDownloaded ? "OFFLINE" : (session.selected?.label ?? "AUTO"))
+                    if savedSpeed != 1 { Text("\(savedSpeed.formatted())×") }
+                }
+                .font(.caption2.weight(.semibold))
+                .foregroundStyle(cinemaAccent)
             }
+            .frame(maxWidth: .infinity, alignment: .leading)
             if pip.possible {
                 overlayButton("pip.enter", label: "Picture in Picture") { pip.toggle() }
             }
             CinemanaAirPlayButton().frame(width: 36, height: 36)
             optionsMenu
         }
-        .padding(.horizontal, 18)
-        .padding(.top, 30)
+        .padding(.horizontal, isPad ? 28 : 14)
+        .padding(.top, isPad ? 18 : 25)
     }
 
     private var centerControls: some View {
-        HStack(spacing: 36) {
+        HStack(spacing: isPad ? 56 : 27) {
             overlayButton("gobackward.10", label: "Back 10 seconds", size: 29) {
                 seek(to: livePosition() - 10)
             }
@@ -574,7 +643,7 @@ struct CinemaPlayerScreen: View {
                 Image(systemName: playing ? "pause.fill" : "play.fill")
                     .font(.system(size: 27, weight: .bold))
                     .foregroundStyle(.black)
-                    .frame(width: 76, height: 76)
+                    .frame(width: isPad ? 86 : 70, height: isPad ? 86 : 70)
                     .background(cinemaAccent, in: Circle())
             }
             .accessibilityLabel(playing ? "Pause" : "Play")
@@ -592,9 +661,6 @@ struct CinemaPlayerScreen: View {
                     .font(.caption).foregroundStyle(.yellow)
                     .lineLimit(2)
             }
-            Text(current.title)
-                .font(.headline.weight(.bold))
-                .lineLimit(1)
             if session.player != nil { timeline }
             actionRow
         }
@@ -647,26 +713,18 @@ struct CinemaPlayerScreen: View {
     }
 
     private var actionRow: some View {
-        HStack(spacing: 18) {
-            Button { locked = true; showControls() } label: {
-                Label("Lock", systemImage: "lock")
-            }
-            Button {
-                cropVideo.toggle()
-                showControls()
-            } label: {
-                Label(cropVideo ? "Fit" : "Fill", systemImage: "arrow.up.left.and.arrow.down.right")
+        HStack(spacing: isPad ? 24 : 12) {
+            if !playlist.isEmpty {
+                Button { showEpisodePicker = true } label: {
+                    Label("Episodes", systemImage: "list.bullet.rectangle")
+                }
             }
             if let next = nextEpisode {
                 Button { play(next) } label: {
-                    Label("Next episode", systemImage: "forward.end.fill")
+                    Label("Next", systemImage: "forward.end.fill")
                 }
             }
-            Button { library.markWatched(current, watched: !library.isWatched(current.id)) } label: {
-                Label(library.isWatched(current.id) ? "Watched" : "Mark watched",
-                      systemImage: library.isWatched(current.id) ? "checkmark.circle.fill" : "checkmark.circle")
-            }
-            Spacer()
+            Spacer(minLength: 4)
             downloadStatus
         }
         .font(.caption.weight(.medium))
@@ -690,27 +748,44 @@ struct CinemaPlayerScreen: View {
 
     private var optionsMenu: some View {
         Menu {
-            speedMenu
-            if !isDownloaded && !session.streams.isEmpty { qualityMenu }
-            subtitleMenu
-            chapterMenu
-            audioMenu
-            Button {
-                showDiagnostics = true
-                showControls()
-            } label: {
-                Label("Playback diagnostics", systemImage: "waveform.path.ecg")
+            Section("Content filter") {
+                Toggle("Hide Mature Content", isOn: $hideMatureContent)
+                Text("Uses provider tags; cannot skip individual scenes")
             }
-            Button(cropVideo ? "Fit original aspect ratio" : "Fill screen (crop edges)") {
-                cropVideo.toggle()
+            Section("Playback") {
+                speedMenu
+                if !isDownloaded && !session.streams.isEmpty { qualityMenu }
+                audioMenu
+                Button(cropVideo ? "Fit original aspect ratio" : "Fill screen (crop edges)") {
+                    cropVideo.toggle()
+                }
+            }
+            Section("Captions & chapters") {
+                subtitleMenu
+                chapterMenu
+            }
+            Section("More") {
+                Button { locked = true; showControls() } label: {
+                    Label("Lock controls", systemImage: "lock")
+                }
+                Button { library.markWatched(current, watched: !library.isWatched(current.id)) } label: {
+                    Label(library.isWatched(current.id) ? "Unmark watched" : "Mark watched",
+                          systemImage: "checkmark.circle")
+                }
+                Button {
+                    showDiagnostics = true
+                    showControls()
+                } label: {
+                    Label("Playback diagnostics", systemImage: "waveform.path.ecg")
+                }
             }
         } label: {
             Image(systemName: "gearshape.fill")
                 .font(.system(size: 20, weight: .medium))
                 .foregroundStyle(.white)
-                .frame(width: 42, height: 42)
+                .frame(width: 44, height: 44)
         }
-        .accessibilityLabel("Player settings")
+        .accessibilityLabel("Player settings, including maturity filter")
     }
 
     private var speedMenu: some View {
@@ -984,6 +1059,10 @@ struct CinemaPlayerScreen: View {
     // MARK: Episodes
 
     private func play(_ next: Video) {
+        guard MatureContentFilter.allows(next, hideMature: hideMatureContent) else {
+            flashMessage("Hidden by content filter")
+            return
+        }
         cancelUpNext()
         session.player?.pause()
         playing = false
