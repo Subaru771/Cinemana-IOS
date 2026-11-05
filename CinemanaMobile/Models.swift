@@ -58,18 +58,27 @@ struct Video: Identifiable, Hashable, Codable, Sendable {
         if let strings = cats as? [String] { self.genres = strings }
         else if let strings = cats as? String { self.genres = strings.split(separator: ",").map { $0.trimmingCharacters(in: .whitespaces) } }
         else if let objects = cats as? [[String: Any]] {
-            self.genres = objects.compactMap { ($0["en_title"] ?? $0["name"] ?? $0["title"]) as? String }
+            self.genres = objects.compactMap { object -> String? in
+                let english = ["en_title", "enTitle", "en_name", "name", "title"]
+                    .compactMap { object[$0] as? String }.filter { !$0.isEmpty }
+                let arabic = ["ar_title", "arTitle", "ar_name"]
+                    .compactMap { object[$0] as? String }.filter { !$0.isEmpty }
+                // Show English names, but keep an Arabic adult tag so the mature filter can see it.
+                if let flagged = arabic.first(where: { MatureContentFilter.isMatureTag($0) }) { return flagged }
+                return english.first ?? arabic.first
+            }
         } else { self.genres = [] }
         let rating = s("ageRating", "age_rating", "contentRating", "content_rating",
                        "parentalRating", "parental_rating", "certification", "certificate",
-                       "mpaa", "mpaa_rating", "tvRating", "tv_rating", "rated")
+                       "mpaa", "mpaa_rating", "tvRating", "tv_rating", "rated",
+                       "minAge", "min_age", "ageLimit", "age_limit", "age", "minimumAge")
         self.ageRating = rating.isEmpty ? nil : rating
         func adultValue(_ value: Any?) -> Bool? {
             guard let value else { return nil }
             if let number = value as? NSNumber { return number.boolValue }
             if let string = value as? String {
                 switch string.lowercased().trimmingCharacters(in: .whitespacesAndNewlines) {
-                case "true", "yes", "1", "adult", "explicit", "mature": return true
+                case "true", "yes", "1", "adult", "adults", "explicit", "mature", "18+": return true
                 case "false", "no", "0": return false
                 default: return nil
                 }
@@ -77,7 +86,8 @@ struct Video: Identifiable, Hashable, Codable, Sendable {
             return nil
         }
         let flags = ["adult", "isAdult", "is_adult", "mature", "isMature",
-                     "is_mature", "explicit", "isExplicit", "is_explicit", "pornographic"]
+                     "is_mature", "explicit", "isExplicit", "is_explicit", "pornographic",
+                     "adultContent", "adult_content", "isAdultContent", "is_adult_content"]
             .compactMap { adultValue(json[$0]) }
         self.adultFlag = flags.contains(true) ? true : flags.first
     }
@@ -87,6 +97,14 @@ struct CatalogRow: Identifiable, Codable, Sendable {
     let title: String
     let videos: [Video]
     var id: String { title }
+
+    private static let baseOrder = ["Trending", "New", "Top Rated", "Popular", "Recent Hit", "Classic"]
+    /// Stable on-screen order for rows that arrive at different times.
+    var sortKey: Int {
+        let kindRank = title.hasSuffix("Series") ? 1 : 0
+        let base = Self.baseOrder.firstIndex { title.hasPrefix($0 + " ") } ?? Self.baseOrder.count
+        return base * 10 + kindRank
+    }
 }
 
 struct Stream: Identifiable, Hashable, Sendable {

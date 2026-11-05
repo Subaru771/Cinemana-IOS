@@ -4,12 +4,13 @@ import SwiftUI
 struct DownloadsView: View {
     @ObservedObject private var center = DownloadCenter.shared
     @AppStorage(MatureContentFilter.preferenceKey) private var hideMatureContent = false
+    @AppStorage(MatureContentFilter.strictPreferenceKey) private var strictMatureContent = true
     @State private var watch: Video?
     @State private var confirmDeleteAll = false
     @State private var confirmClearFinished = false
 
     private var visibleItems: [OfflineEntry] {
-        center.items.filter { MatureContentFilter.allows($0.video, hideMature: hideMatureContent) }
+        center.items.filter { MatureContentFilter.allows($0.video, hideMature: hideMatureContent, strict: strictMatureContent) }
     }
     private var queue: [OfflineEntry] { visibleItems.filter { $0.status != .ready } }
     private var finished: [OfflineEntry] { visibleItems.filter { $0.status == .ready } }
@@ -40,12 +41,9 @@ struct DownloadsView: View {
                 .font(.system(size: 54))
                 .foregroundStyle(.mint)
             Text(hideMatureContent && !center.items.isEmpty ? "Downloads hidden by content filter" : "Your downloads").font(.title2.bold())
-            Text("Choose Download from a movie or episode. Supported videos will appear here for offline playback.")
+            Text("Tap Download on a movie or episode to watch it offline.")
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
-            Text("Availability depends on the video provider.")
-                .font(.caption)
-                .foregroundStyle(.secondary)
         }
         .padding(24)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
