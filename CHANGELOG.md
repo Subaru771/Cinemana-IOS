@@ -1,3 +1,10 @@
+## v2.0.6 beta — Restore series episodes and report provider diagnostics
+- Fix episode decoding of flat provider records: the scalar `season` field is not a nested episode collection. This blocked every otherwise valid row for series such as One Piece.
+- Support ordered `videoSeason` records with IDs but no explicit episode numbering.
+- Add non-sensitive response shape diagnostics and a Copy diagnostics button if both provider endpoints return no usable episodes.
+- Do not cache empty episode responses; retry refetches the provider.
+- Preserve one-tap episode play, mature-scene skipping, skip intro, and existing approved artwork.
+
 ## 2.0.5-beta.1 — series visibility and timed playback skipping
 - Correct the Series tab disappearing when the previous strict mature filter was enabled; **all titles are shown** now.
 - Rename the content preference to **Skip marked mature scenes**. It skips only explicitly time-coded provider ranges; no claims of visual scene detection without markers.

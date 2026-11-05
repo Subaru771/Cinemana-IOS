@@ -77,6 +77,21 @@ struct CoreSmokeTests {
             ["id": "wrapped2", "title": "Second", "episodeNumber": 2]
         ]]]
         precondition(CinemanaAPI.decodeEpisodes(wrapped, seriesID: "root").map(\.episode) == [1, 2])
+        // Real Shabakaty videoSeason rows are flat and contain a scalar
+        // `season`. This was erroneously classified as a nested collection.
+        let flatProviderEpisodes: [[String: Any]] = [
+            ["nb": 101, "season": 1, "episodeNummer": 1],
+            ["nb": "102", "season": "1", "episodeNummer": "2"],
+            ["nb": 103, "season": 2, "episodeNummer": 1]
+        ]
+        let flat = CinemanaAPI.decodeEpisodes(flatProviderEpisodes, seriesID: "onepiece")
+        precondition(flat.map(\.id) == ["101", "102", "103"])
+        precondition(flat.map(\.season) == [1, 1, 2])
+        precondition(flat.map(\.episode) == [1, 2, 1])
+        precondition(flat[0].title == "Episode 1")
+        precondition(CinemanaAPI.episodePayloadSummary(flatProviderEpisodes).contains("count=3"))
+        let keyWrapped: [String: Any] = ["data": ["videoSeason": flatProviderEpisodes]]
+        precondition(CinemanaAPI.decodeEpisodes(keyWrapped, seriesID: "onepiece").map(\.id) == flat.map(\.id))
         let tvma = Video(json: ["id": "tvma", "title": "Late Show", "contentRating": "TV-MA"])!
         let arabicTag = Video(json: ["id": "ar-tag", "title": "Film", "categories": [["en_title": "Drama", "ar_title": "للكبار فقط"]]])!
         precondition(MatureContentFilter.isMature(tvma) && MatureContentFilter.isMature(arabicTag))

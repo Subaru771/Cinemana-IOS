@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 /// An ordinary episode browser: choose a season, tap an episode to play.
 /// No multi-select or checkbox state anywhere in the viewing flow.
@@ -56,9 +57,18 @@ struct SeriesEpisodeBrowser: View {
                         .foregroundStyle(.orange)
                     Text(error ?? "The provider did not return a playable episode list.")
                         .font(.footnote).foregroundStyle(.secondary)
-                    Button(action: onRetry) {
-                        Label("Retry loading episodes", systemImage: "arrow.clockwise")
-                    }.buttonStyle(.bordered)
+                    HStack(spacing: 12) {
+                        Button(action: onRetry) {
+                            Label("Retry loading episodes", systemImage: "arrow.clockwise")
+                        }.buttonStyle(.bordered)
+                        if let error, !error.isEmpty {
+                            Button {
+                                UIPasteboard.general.string = error
+                            } label: {
+                                Label("Copy diagnostics", systemImage: "doc.on.doc")
+                            }.buttonStyle(.bordered)
+                        }
+                    }
                 }.padding(16).frame(maxWidth: .infinity, alignment: .leading)
                     .background(.white.opacity(0.06), in: RoundedRectangle(cornerRadius: 14))
             } else if currentSeason.isEmpty {

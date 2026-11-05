@@ -50,3 +50,6 @@ See [CHANGELOG.md](CHANGELOG.md), [DISTRIBUTION.md](DISTRIBUTION.md) and [WINDOW
 Series detail screens now show a season picker and direct-play cards, with no checkbox episode-selection workflow. Download one episode or use the season download menu. If the provider does not return episodes, use **Retry loading episodes**.
 
 **Settings → Content filter → Skip marked mature scenes** shows all titles, even when previously hidden by Strict. It seeks over an explicit mature scene only if its provider has sent time-coded markers. No markers means that the app cannot guarantee removal of mature scenes. **Skip Intro** is a one-tap player control: use the provider's opening marker where present; otherwise it jumps forward an estimated 90 seconds. No manual marker-setting UI.
+
+### v2.0.6: episode loading fix
+The series API returns flat episode rows with `nb`, `season`, and `episodeNummer`. The older decoder mistakenly treated a scalar `season` value as a nested collection and discarded real episodes. The revised decoder accepts the flat response, keeps the direct-play episode browser, and includes **Copy diagnostics** when the server returns an empty/unrecognized episode response. A successful Xcode compilation does not verify provider availability; test One Piece and another series on the device and send the copied error diagnostic if either still fails.

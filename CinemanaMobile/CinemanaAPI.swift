@@ -14,7 +14,7 @@ struct CinemanaAPI: Sendable {
     ]
 
     enum APIError: LocalizedError {
-        case unauthorized, providerRestricted, server(Int), invalidResponse, unreachable, noStream, noEpisodes
+        case unauthorized, providerRestricted, server(Int), invalidResponse, unreachable, noStream, noEpisodes(String)
         var errorDescription: String? {
             switch self {
             case .unauthorized, .providerRestricted, .unreachable:
@@ -22,7 +22,7 @@ struct CinemanaAPI: Sendable {
             case .server, .invalidResponse:
                 return "Something went wrong loading this. Please try again."
             case .noStream: return "This video isn't available to play right now."
-            case .noEpisodes: return "No episodes are available yet."
+            case .noEpisodes(let diagnostics): return "No playable episodes were found. " + diagnostics
             }
         }
     }
@@ -347,7 +347,12 @@ struct CinemanaAPI: Sendable {
                 return
             }
             guard let row = value as? [String: Any] else { return }
-            let hasChildren = row.keys.contains(where: { allKeys.contains($0) })
+            // A scalar `season` is metadata, not a nested collection. Treating
+            // every row with a `season` key as a parent made the real provider's
+            // flat {nb, season, episodeNummer} records disappear completely.
+            let hasChildren = row.contains { key, value in
+                allKeys.contains(key) && (value is [Any] || value is [String: Any])
+            }
             let isSeasonContainer = (ordinal != nil && !inEpisodes) ||
                 row.keys.contains(where: { seasonKeys.contains($0) }) ||
                 (hasChildren && !row.keys.contains(where: { episodeKeys.contains($0) }))
@@ -378,7 +383,13 @@ struct CinemanaAPI: Sendable {
                     // group of season wrappers. Inspect the entries, not its name.
                     for (index, wrapper) in list.enumerated() {
                         let isEpisode = (wrapper as? [String: Any]).map { entry in
-                            number(entry, keys: ["episodeNumber", "episodeNummer", "episodeNb", "episodeNo", "episode"]) != nil
+                            let nested = entry.contains { k, v in
+                                allKeys.contains(k) && (v is [Any] || v is [String: Any])
+                            }
+                            // Some seasons supply an ordered list of episode IDs
+                            // without explicit episode numbers. Use the list index.
+                            return number(entry, keys: ["episodeNumber", "episodeNummer", "episodeNb", "episodeNo", "episode"]) != nil
+                                || (!nested && scalar(entry, keys: ["nb", "id", "videoId", "episodeId"]) != nil)
                         } ?? false
                         walk(wrapper, season: seasonNumber, ordinal: index+1,
                              inEpisodes: isEpisode, depth: depth+1)
@@ -393,24 +404,55 @@ struct CinemanaAPI: Sendable {
         return entries.sorted { ($0.season, $0.episode, $0.id) < ($1.season, $1.episode, $1.id) }
     }
 
-    /// Do not silently return an empty collection on upstream failure. Keep
-    /// authorization errors explicit and retry a second existing endpoint.
+    /// Diagnostic summary contains only array counts and field names; it never
+    /// copies streaming URLs or untrusted response bodies into the UI.
+    static func episodePayloadSummary(_ json: Any) -> String {
+        if let items = json as? [Any] {
+            let fields = (items.first as? [String: Any])?.keys.sorted().prefix(12).joined(separator: ",") ?? "none"
+            return "array count=\(items.count), fields=\(fields)"
+        }
+        if let object = json as? [String: Any] {
+            let keys = object.keys.sorted().prefix(12).joined(separator: ",")
+            let nested = ["episodes", "videoSeason", "seasons", "data", "result", "items"]
+                .compactMap { key -> String? in
+                    guard let collection = object[key] as? [Any] else { return nil }
+                    return "\(key)=\(collection.count)"
+                }.joined(separator: ",")
+            return "object fields=\(keys)\(nested.isEmpty ? "" : "; " + nested)"
+        }
+        if json is NSNull { return "null JSON" }
+        return "unexpected \(String(describing: type(of: json))) response"
+    }
+
+    /// Do not silently return an empty collection. Report whether the provider
+    /// returned an empty list or a shape the parser could not understand.
     func episodesDetailed(_ id: String) async throws -> [Video] {
-        var firstError: Error?
-        for path in ["videoSeason/id/\(segment(id))", "allVideoInfo/id/\(segment(id))"] {
+        var reports: [String] = []
+        for (name, path) in [
+            ("videoSeason", "videoSeason/id/\(segment(id))"),
+            ("allVideoInfo", "allVideoInfo/id/\(segment(id))")
+        ] {
             do {
-                let payload = try await fetch(path, timeout: 12, ttl: 60)
+                let payload = try await fetch(path, timeout: 12, ttl: 0)
                 let episodes = Self.decodeEpisodes(payload, seriesID: id)
                 if !episodes.isEmpty { return episodes }
+                reports.append("\(name): \(Self.episodePayloadSummary(payload))")
             } catch is CancellationError { throw CancellationError() }
             catch {
-                if firstError == nil { firstError = error }
                 if let api = error as? APIError {
-                    switch api { case .unauthorized, .providerRestricted: throw api; default: break }
-                }
+                    switch api {
+                    case .unauthorized, .providerRestricted: throw api
+                    case .server(let code): reports.append("\(name): HTTP \(code)")
+                    case .invalidResponse: reports.append("\(name): invalid JSON")
+                    case .unreachable: reports.append("\(name): network unreachable")
+                    default: reports.append("\(name): request failed")
+                    }
+                } else { reports.append("\(name): request failed") }
             }
         }
-        throw firstError ?? APIError.noEpisodes
+        // The id is an ordinary public catalog ID, useful for diagnosing cases
+        // where the provider's season endpoint expects a different series ID.
+        throw APIError.noEpisodes("Series ID \(id). " + reports.joined(separator: " | "))
     }
 
     func episodes(_ id: String) async -> [Video] { (try? await episodesDetailed(id)) ?? [] }
