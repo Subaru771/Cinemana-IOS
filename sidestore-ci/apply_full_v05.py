@@ -27,8 +27,13 @@ settings_file = source / "AltStore/Settings/SettingsViewController.swift"
 settings = settings_file.read_text(encoding="utf-8")
 if not settings.rstrip().endswith(candidate):
     raise RuntimeError("Expected previously-applied candidate at end of Settings; refusing to overwrite")
+view = files["CinemanaAssistantView.swift"].strip()
+# The legacy Settings target has a UIKit Button type; explicitly resolve SwiftUI.
+view = view.replace("Button {", "SwiftUI.Button {")
+# SwiftUI Text.bold() is unavailable with SideStore's iOS 15 deployment target.
+view = view.replace(".bold()", ".fontWeight(.bold)")
 settings = (settings.rstrip()[:-len(candidate)].rstrip()
     + "\n\n" + files["CinemanaRecoveryRules.swift"].strip()
-    + "\n\n" + files["CinemanaAssistantView.swift"].strip() + "\n")
+    + "\n\n" + view + "\n")
 settings_file.write_text(settings, encoding="utf-8")
 print("Full Cinemana SideStore v0.5 native setup UI applied and SHA256 verified.")
