@@ -1,0 +1,65 @@
+name: Build Cinemana SideStore full v0.5
+on:
+  push:
+    branches: [build/cinemana-sidestore-v05]
+    paths: ['sidestore-ci/**', '.github/workflows/build-cinemana-sidestore-full.yml']
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  build:
+    runs-on: macos-26
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - name: Select Xcode
+        uses: maxim-lobanov/setup-xcode@v1.6.0
+        with:
+          xcode-version: '26.4.1'
+      - name: Clone pinned SideStore source
+        shell: bash
+        run: |
+          set -euo pipefail
+          git clone https://github.com/SideStore/SideStore.git sidestore-upstream
+          git -C sidestore-upstream checkout cd260851ae99bf1fc946b123db24e89c8cd21dc6
+          git -C sidestore-upstream submodule update --init --recursive
+          test "$(git -C sidestore-upstream rev-parse HEAD)" = cd260851ae99bf1fc946b123db24e89c8cd21dc6
+      - name: Apply full v0.5 UI and compatibility fixes
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 sidestore-ci/apply_patch.py sidestore-upstream
+          python3 sidestore-ci/apply_full_v05.py sidestore-upstream
+          xcrun swiftc -frontend -parse sidestore-upstream/AltStore/Settings/SettingsViewController.swift
+          xcrun swiftc -frontend -parse sidestore-upstream/SideStore/Core/Pairing/PairingFileManager.swift
+      - name: Prepare signing tool
+        run: brew install ldid
+      - name: Build test IPA
+        working-directory: sidestore-upstream
+        shell: bash
+        run: |
+          set -o pipefail
+          make build fakesign ipa 2>&1 | tee ../sidestore-full-build.log
+      - name: Validate and stage IPA
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f sidestore-upstream/SideStore.ipa
+          unzip -t sidestore-upstream/SideStore.ipa >/dev/null
+          unzip -Z1 sidestore-upstream/SideStore.ipa | grep '^Payload/SideStore.app/Info.plist$' >/dev/null
+          mkdir -p sidestore-full-output
+          cp sidestore-upstream/SideStore.ipa sidestore-full-output/Cinemana-SideStore-FULL-V0.5.ipa
+          shasum -a 256 sidestore-full-output/Cinemana-SideStore-FULL-V0.5.ipa > sidestore-full-output/SHA256.txt
+      - name: Upload private draft release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          TAG="cinemana-sidestore-full-${GITHUB_SHA:0:12}"
+          gh release create "$TAG" \
+            sidestore-full-output/Cinemana-SideStore-FULL-V0.5.ipa \
+            sidestore-full-output/SHA256.txt \
+            --target "$GITHUB_SHA" --draft --prerelease \
+            --title "Cinemana SideStore full v0.5 test build ($TAG)" \
+            --notes "Full v0.5 SwiftUI compatibility build. Private test IPA; not device-verified, requires signing. Independent SideStore AGPLv3 modification."
