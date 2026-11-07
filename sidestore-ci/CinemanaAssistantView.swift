@@ -46,7 +46,7 @@ private struct CinemanaAssistantView: View {
                     Text(tr("Automatic prefers Remote Pairing on iOS 26.4+ when available. Existing files stay untouched.",
                             "التلقائي يفضل Remote Pairing على iOS 26.4 وفوك إذا الملف موجود. ما يحذف أي ملف."))
                         .font(.caption).foregroundColor(.secondary)
-                    Button(tr("Use Remote Pairing now", "اختار Remote Pairing هسه")) {
+                    SwiftUI.Button(tr("Use Remote Pairing now", "اختار Remote Pairing هسه")) {
                         PairingFileManager.shared.preferredProtocol = .rppairing
                         pairingMode = "manual"
                         message = tr("Preference saved. Restart SideStore for an active session.",
@@ -60,14 +60,14 @@ private struct CinemanaAssistantView: View {
                     HStack { Text("Apple"); Spacer(); Text(apple).foregroundColor(.secondary) }
                     HStack { Text("Anisette"); Spacer(); Text(anisette).foregroundColor(.secondary) }
                     HStack { Text(tr("Local tunnel", "النفق المحلي")); Spacer(); Text(tunnel).foregroundColor(.secondary) }
-                    Button(tr("Check all connections", "افحص كل الاتصالات")) {
+                    SwiftUI.Button(tr("Check all connections", "افحص كل الاتصالات")) {
                         Task { await runChecks() }
                     }
                     .disabled(busy)
                     Toggle(tr("Auto-request LocalDevVPN on tunnel failure", "اطلب LocalDevVPN تلقائياً بعد فشل النفق"),
                            isOn: $autoStartLocalVPN)
                     Toggle(tr("Check on launch", "افحص عند الفتح"), isOn: $checkOnOpen)
-                    Button(tr("Connect LocalDevVPN", "شغّل LocalDevVPN")) {
+                    SwiftUI.Button(tr("Connect LocalDevVPN", "شغّل LocalDevVPN")) {
                         requestLocalVPN()
                     }
                     Link(tr("Get LocalDevVPN", "نزّل LocalDevVPN"),
@@ -79,7 +79,7 @@ private struct CinemanaAssistantView: View {
                 Section(header: Text(tr("Error assistance", "مساعدة بالأخطاء"))) {
                     TextField(tr("Paste an error code", "الصق رمز الخطأ"), text: $errorText)
                         .textInputAutocapitalization(.never)
-                    Button(tr("Analyze", "شخّص")) { analyze() }
+                    SwiftUI.Button(tr("Analyze", "شخّص")) { analyze() }
                 }
                 Section(header: Text(tr("Customize", "التخصيص"))) {
                     Picker(tr("Language", "اللغة"), selection: $language) {
@@ -102,7 +102,7 @@ private struct CinemanaAssistantView: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
-                    Button(tr("Done", "تم")) { dismiss() }
+                    SwiftUI.Button(tr("Done", "تم")) { dismiss() }
                 }
             }
             .task { if checkOnOpen { await runChecks() } }
