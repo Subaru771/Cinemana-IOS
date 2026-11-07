@@ -1,0 +1,71 @@
+name: Build Cinemana SideStore candidate
+on:
+  push:
+    branches:
+      - build/cinemana-sidestore-v05
+    paths:
+      - 'sidestore-ci/**'
+      - '.github/workflows/build-cinemana-sidestore.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: macos-26
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - name: Select Xcode
+        uses: maxim-lobanov/setup-xcode@v1.6.0
+        with:
+          xcode-version: '26.4.1'
+      - name: Show build environment
+        run: |
+          xcodebuild -version
+          python3 --version
+      - name: Download upstream source (pinned)
+        shell: bash
+        run: |
+          set -euo pipefail
+          git clone https://github.com/SideStore/SideStore.git sidestore-upstream
+          git -C sidestore-upstream checkout cd260851ae99bf1fc946b123db24e89c8cd21dc6
+          git -C sidestore-upstream submodule update --init --recursive
+          test "$(git -C sidestore-upstream rev-parse HEAD)" = cd260851ae99bf1fc946b123db24e89c8cd21dc6
+      - name: Apply Cinemana compatibility patch
+        run: |
+          python3 sidestore-ci/apply_patch.py sidestore-upstream
+          xcrun swiftc -frontend -parse sidestore-upstream/AltStore/Settings/SettingsViewController.swift
+          xcrun swiftc -frontend -parse sidestore-upstream/SideStore/Core/Pairing/PairingFileManager.swift
+      - name: Install ad-hoc signing helper
+        run: brew install ldid
+      - name: Build and package test IPA
+        working-directory: sidestore-upstream
+        shell: bash
+        run: |
+          set -o pipefail
+          make build fakesign ipa 2>&1 | tee ../sidestore-build.log
+      - name: Stage build and verify IPA archive
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f sidestore-upstream/SideStore.ipa
+          unzip -t sidestore-upstream/SideStore.ipa >/dev/null
+          unzip -Z1 sidestore-upstream/SideStore.ipa | grep -q '^Payload/SideStore.app/Info.plist$'
+          mkdir -p sidestore-output
+          cp sidestore-upstream/SideStore.ipa sidestore-output/Cinemana-SideStore-CANDIDATE.ipa
+          shasum -a 256 sidestore-output/Cinemana-SideStore-CANDIDATE.ipa > sidestore-output/SHA256.txt
+      - name: Upload build logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cinemana-sidestore-build-logs
+          path: sidestore-build.log
+          if-no-files-found: ignore
+      - name: Upload test IPA
+        uses: actions/upload-artifact@v4
+        with:
+          name: cinemana-sidestore-test-ipa
+          path: sidestore-output/
+          if-no-files-found: error
