@@ -52,7 +52,7 @@ jobs:
           set -euo pipefail
           test -f sidestore-upstream/SideStore.ipa
           unzip -t sidestore-upstream/SideStore.ipa >/dev/null
-          unzip -Z1 sidestore-upstream/SideStore.ipa | grep '^Payload/SideStore.app/Info.plist
+          unzip -Z1 sidestore-upstream/SideStore.ipa | grep '^Payload/SideStore.app/Info.plist$' >/dev/null
           mkdir -p sidestore-output
           cp sidestore-upstream/SideStore.ipa sidestore-output/Cinemana-SideStore-CANDIDATE.ipa
           shasum -a 256 sidestore-output/Cinemana-SideStore-CANDIDATE.ipa > sidestore-output/SHA256.txt
