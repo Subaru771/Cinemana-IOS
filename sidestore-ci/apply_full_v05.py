@@ -31,7 +31,9 @@ view = files["CinemanaAssistantView.swift"].strip()
 # The legacy Settings target has a UIKit Button type; explicitly resolve SwiftUI.
 view = view.replace("Button {", "SwiftUI.Button {")
 # SwiftUI Text.bold() is unavailable with SideStore's iOS 15 deployment target.
-view = view.replace(".bold()", ".fontWeight(.bold)")
+view = view.replace(".font(.title3).bold()", ".font(.title3.weight(.bold))")
+view = view.replace(".font(.caption).bold()", ".font(.caption.weight(.bold))")
+view = view.replace(".font(.subheadline).bold()", ".font(.subheadline.weight(.bold))")
 settings = (settings.rstrip()[:-len(candidate)].rstrip()
     + "\n\n" + files["CinemanaRecoveryRules.swift"].strip()
     + "\n\n" + view + "\n")
