@@ -9,7 +9,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   build:
@@ -52,20 +52,20 @@ jobs:
           set -euo pipefail
           test -f sidestore-upstream/SideStore.ipa
           unzip -t sidestore-upstream/SideStore.ipa >/dev/null
-          unzip -Z1 sidestore-upstream/SideStore.ipa | grep -q '^Payload/SideStore.app/Info.plist$'
+          unzip -Z1 sidestore-upstream/SideStore.ipa | grep '^Payload/SideStore.app/Info.plist
           mkdir -p sidestore-output
           cp sidestore-upstream/SideStore.ipa sidestore-output/Cinemana-SideStore-CANDIDATE.ipa
           shasum -a 256 sidestore-output/Cinemana-SideStore-CANDIDATE.ipa > sidestore-output/SHA256.txt
-      - name: Upload build logs
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: cinemana-sidestore-build-logs
-          path: sidestore-build.log
-          if-no-files-found: ignore
-      - name: Upload test IPA
-        uses: actions/upload-artifact@v4
-        with:
-          name: cinemana-sidestore-test-ipa
-          path: sidestore-output/
-          if-no-files-found: error
+      - name: Save build in private draft GitHub Release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          TAG="cinemana-sidestore-ci-${GITHUB_SHA:0:12}"
+          gh release create "$TAG" \
+            sidestore-output/Cinemana-SideStore-CANDIDATE.ipa \
+            sidestore-output/SHA256.txt \
+            --target "$GITHUB_SHA" --draft --prerelease \
+            --title "Cinemana SideStore CI candidate ($TAG)" \
+            --notes "Private, unsigned-for-distribution testing build. Not device-verified. Independent AGPLv3 SideStore modification."
