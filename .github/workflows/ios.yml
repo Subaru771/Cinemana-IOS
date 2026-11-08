@@ -93,5 +93,11 @@ jobs:
       - name: Export unsigned IPA bytes for authenticated GitHub connector handoff
         run: |
           echo CINEMANA_IPA_B64_BEGIN
-          base64 -i dist/Cinemana-iOS-v2.1.1-beta.1-Unsigned.ipa | tr -d '\\n' | fold -w 2048
+          python3 - <<'PY'
+          import base64
+          from pathlib import Path
+          content = base64.b64encode(Path('dist/Cinemana-iOS-v2.1.1-beta.1-Unsigned.ipa').read_bytes()).decode('ascii')
+          for i in range(0, len(content), 2048):
+              print(content[i:i+2048])
+          PY
           echo CINEMANA_IPA_B64_END
