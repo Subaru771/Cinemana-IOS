@@ -1,7 +1,7 @@
 import Foundation
 
 /// A *timed* segment supplied by the stream provider; never inferred from a title's age rating.
-struct SceneSkipRange: Equatable, Sendable {
+struct SceneSkipRange: Codable, Equatable, Sendable {
     let start: Double
     let end: Double
     let category: String
@@ -100,5 +100,50 @@ enum SceneSkipPlanner {
               marker > current + 2, marker < duration - 1,
               current <= min(420, duration * 0.30) else { return nil }
         return (marker, false)
+    }
+}
+
+
+/// Per-video mature-scene bookmarks; these never leave the device. The local
+/// duration is checked when saving and before playing. Storage is v1 namespaced,
+/// capped, and does not modify downloads, history or remote community data.
+enum PersonalSceneMarkers {
+    private static func key(_ videoID: String) -> String {
+        "cinemana-personal-scenes-v1-" + videoID
+    }
+
+    static func normalize(_ ranges: [SceneSkipRange], duration: Double) -> [SceneSkipRange] {
+        guard duration.isFinite, duration > 0 else { return [] }
+        var output: [SceneSkipRange] = []
+        for item in ranges.sorted(by: { $0.start < $1.start }).prefix(120) {
+            guard item.start.isFinite, item.end.isFinite, item.start >= 0,
+                  item.end > item.start + 0.5, item.end - item.start <= 1200,
+                  item.end < duration - 0.5 else { continue }
+            if let last = output.last, item.start <= last.end,
+               max(last.end, item.end) - last.start <= 1200 {
+                output[output.count - 1] = SceneSkipRange(
+                    start: last.start, end: max(last.end, item.end), category: "personal")
+            } else {
+                output.append(SceneSkipRange(start: item.start, end: item.end, category: "personal"))
+            }
+            if output.count >= 80 { break }
+        }
+        return output
+    }
+
+    static func load(videoID: String, duration: Double, defaults: UserDefaults = .standard) -> [SceneSkipRange] {
+        guard let data = defaults.data(forKey: key(videoID)), data.count < 32_000,
+              let stored = try? JSONDecoder().decode([SceneSkipRange].self, from: data) else { return [] }
+        return normalize(stored, duration: duration)
+    }
+
+    @discardableResult
+    static func save(_ ranges: [SceneSkipRange], videoID: String,
+                     duration: Double, defaults: UserDefaults = .standard) -> [SceneSkipRange] {
+        let safe = normalize(ranges, duration: duration)
+        if let data = try? JSONEncoder().encode(safe) {
+            defaults.set(data, forKey: key(videoID))
+        }
+        return safe
     }
 }

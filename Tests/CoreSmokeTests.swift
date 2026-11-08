@@ -54,6 +54,19 @@ struct CoreSmokeTests {
         precondition(timedScenes[0].start == 120 && timedScenes[0].end == 144)
         precondition(SceneSkipPlanner.active(timedScenes, at: 128, duration: 1200)?.end == 144)
         precondition(SceneSkipPlanner.active(timedScenes, at: 160, duration: 1200) == nil)
+        let localScene = SceneSkipRange(start: 65, end: 78, category: "personal")
+        let overlapping = SceneSkipRange(start: 75, end: 85, category: "personal")
+        let invalid = SceneSkipRange(start: 170, end: 160, category: "personal")
+        let normalizedLocal = PersonalSceneMarkers.normalize([localScene, overlapping, invalid], duration: 300)
+        precondition(normalizedLocal.count == 1 && normalizedLocal[0].end == 85)
+        precondition(PersonalSceneMarkers.normalize([localScene], duration: 75).isEmpty)
+        let privateDefaults = UserDefaults(suiteName: "CinemanaLocalSceneSmokeTests")!
+        let savedLocal = PersonalSceneMarkers.save([localScene], videoID: "smoke-episode", duration: 300,
+                                                  defaults: privateDefaults)
+        precondition(savedLocal.count == 1)
+        precondition(PersonalSceneMarkers.load(videoID: "smoke-episode", duration: 300,
+                                               defaults: privateDefaults).count == 1)
+        privateDefaults.removeObject(forKey: "cinemana-personal-scenes-v1-smoke-episode")
         precondition(SceneSkipPlanner.decode(["genres": ["Adult"], "ageRating": "18+"]).isEmpty)
         precondition(SceneSkipPlanner.introEnd(chapterJSON) == 105)
         let markedIntro = SceneSkipPlanner.introDestination(current: 30, duration: 1500, marker: 105)

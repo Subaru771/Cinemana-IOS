@@ -1,3 +1,10 @@
+## v2.1.1 — Player refinement (beta)
+- Added a 1-tap Undo Skip control for both intros and marked mature scenes, with an 18-second undo window.
+- Added on-device mature scene marking (start, end, remove last), persistent for the same video/episode ID.
+- Existing provider and external markers remain separate. No automatic explicit-scene detection.
+- Updated the stale static regression check so the real Xcode CI can execute.
+- Existing player, approved artwork, library, and downloads preserved.
+
 ## 2.1.0-beta.1 — shared timestamp sources
 - Optional SkipDB intro, recap, outro and preview markers with IntroDB fallback.
 - Per-episode IMDb ID + season/episode matching and conservative time windows; no guessed skips.

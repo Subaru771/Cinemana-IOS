@@ -10,8 +10,9 @@ assert 'CommunitySkipTimes.skipDestination' in player
 assert 'current + 90' not in plan and 'target.estimated' not in player
 assert 'Scene timings unavailable' not in player
 assert 'chapterMenu' not in player and 'Menu("Skip markers")' not in player
-assert 'SceneSkipPlanner.introDestination' in player and 'Button("Skip Intro")' in player
+assert 'SceneSkipPlanner.introDestination' in player and 'Skip Intro' in player
 assert 'SceneSkipPlanner.active(' in player and 'seek(to: scene.end)' in player
 assert 'static func visibleRows' in filtering and '{ rows }' in filtering
 assert 'matureScenes' in plan and 'introEnd' in plan
-print('PASS: no fake 90-second jump, verified intro markers, labeled scene-marker limitations')
+assert 'PersonalSceneMarkers.save' in player and 'Button("Undo Skip")' in player
+print('PASS: no fake 90-second jump, verifiable intro markers and accurately labeled scene-marker limitations')

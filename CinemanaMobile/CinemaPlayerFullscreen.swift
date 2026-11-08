@@ -180,6 +180,10 @@ struct CinemaPlayerScreen: View {
     @State private var sceneMarkersLoaded = false
     @State private var introSkipUsed = false
     @State private var alreadySkippedScenes = Set<String>()
+    @State private var personalSceneRanges: [SceneSkipRange] = []
+    @State private var draftMatureSceneStart: Double?
+    @State private var lastSkipReturnPosition: Double?
+    @State private var lastSkipExpiresAt: Date?
 
 
     private let playlist: [Video]
@@ -252,7 +256,13 @@ struct CinemaPlayerScreen: View {
         .onChange(of: playing) { _ in refreshNowPlaying() }
         .onChange(of: duration > 0) { ready in
             refreshNowPlaying()
-            if ready { Task { await loadCommunityIntroIfAllowed() } }
+            if ready {
+                // AVPlayer usually learns runtime AFTER the initial marker fetch.
+                // Load personal markers only when a real duration is known.
+                personalSceneRanges = PersonalSceneMarkers.load(videoID: current.id, duration: duration)
+                mergeMatureRanges()
+                Task { await loadCommunityIntroIfAllowed() }
+            }
         }
         .onChange(of: useCommunityIntro) { allowed in
             introLookupKey = nil
@@ -266,7 +276,7 @@ struct CinemaPlayerScreen: View {
         .onChange(of: skipMatureScenes) { enabled in
             introLookupKey = nil
             if enabled { Task { await loadCommunityIntroIfAllowed() } }
-            else { matureSceneRanges = providerMatureRanges }
+            else { mergeMatureRanges() }
         }
         .onChange(of: scenePhase) { phase in
             if phase != .active { session.save(library: library) }
@@ -461,13 +471,26 @@ struct CinemaPlayerScreen: View {
                 Spacer()
                 HStack(spacing: 12) {
                     Spacer()
+                    if let returnTo = lastSkipReturnPosition,
+                       let expiry = lastSkipExpiresAt, Date() < expiry {
+                        Button("Undo Skip") {
+                            lastSkipReturnPosition = nil
+                            lastSkipExpiresAt = nil
+                            seek(to: returnTo)
+                            flashMessage("Skip undone for this playback")
+                        }
+                        .buttonStyle(.bordered)
+                        .tint(.white)
+                        .accessibilityLabel("Undo last scene skip")
+                    }
                     if let destination = externalSceneButtonDestination() {
-                            Button(destination.label) {
-                                introSkipUsed = true
-                                seek(to: destination.time)
-                                flashMessage("Skipped \(destination.label.lowercased()) · \(destination.source)")
-                            }
-                            .buttonStyle(.borderedProminent).tint(cinemaAccent)
+                        Button(destination.label) {
+                            rememberUndoSkip(at: livePosition())
+                            introSkipUsed = true
+                            seek(to: destination.time)
+                            flashMessage("Skipped \(destination.label.lowercased()) · \(destination.source)")
+                        }
+                        .buttonStyle(.borderedProminent).tint(cinemaAccent)
                     }
                 }
                 .padding(.horizontal, 28)
@@ -495,6 +518,34 @@ struct CinemaPlayerScreen: View {
         return nil
     }
 
+    private func rememberUndoSkip(at position: Double) {
+        guard position.isFinite && position >= 0 else { return }
+        lastSkipReturnPosition = position
+        lastSkipExpiresAt = Date().addingTimeInterval(18)
+    }
+
+    private func mergeMatureRanges() {
+        matureSceneRanges = (providerMatureRanges + personalSceneRanges + externalMarkers
+            .filter { $0.kind == "mature" }
+            .map { SceneSkipRange(start: $0.start, end: $0.end, category: $0.category) })
+            .filter { $0.start.isFinite && $0.end.isFinite && $0.end < duration }
+            .sorted { $0.start < $1.start }
+    }
+
+    private func savePersonalScene(at end: Double) {
+        guard let start = draftMatureSceneStart else { return }
+        let proposed = SceneSkipRange(start: start, end: end, category: "personal")
+        guard end > start + 0.5, end - start <= 1200, end < duration - 0.5 else {
+            flashMessage("Scene must last 1 second–20 minutes")
+            return
+        }
+        personalSceneRanges = PersonalSceneMarkers.save(personalSceneRanges + [proposed],
+             videoID: current.id, duration: duration)
+        draftMatureSceneStart = nil
+        mergeMatureRanges()
+        flashMessage("Saved private scene marker")
+    }
+
     @MainActor
     private func loadSkipMarkers() async {
         matureSceneRanges = []
@@ -503,16 +554,16 @@ struct CinemaPlayerScreen: View {
         providerIntroEnd = nil
         metadataIMDbID = nil
         introSegment = nil
-        externalMarkers = []
-        providerMatureRanges = []
         introLookupKey = nil
         alreadySkippedScenes = []
         sceneMarkersLoaded = false
         let id = current.id
+        personalSceneRanges = PersonalSceneMarkers.load(videoID: id, duration: duration)
+        mergeMatureRanges()
         let marks = await CinemanaAPI.shared.playbackSkipMarkers(id)
         guard !Task.isCancelled && current.id == id else { return }
-        matureSceneRanges = marks.scenes
         providerMatureRanges = marks.scenes
+        mergeMatureRanges()
         providerIntroEnd = marks.introEnd
         metadataIMDbID = marks.imdbID
         sceneMarkersLoaded = true
@@ -542,10 +593,7 @@ struct CinemaPlayerScreen: View {
             includeCommunity: useCommunityIntro, includeMature: skipMatureScenes)
         guard videoID == current.id, introLookupKey == key else { return }
         externalMarkers = segments
-        let communityScenes = segments.filter { $0.kind == "mature" }.map {
-            SceneSkipRange(start: $0.start, end: $0.end, category: $0.category)
-        }
-        matureSceneRanges = providerMatureRanges + communityScenes
+        mergeMatureRanges()
         let count = segments.filter { $0.kind != "mature" }.count
         introLookupStatus = count > 0 ? "\(count) timed intro/recap/credits marks available" :
             "No precise community skip times for this version"
@@ -838,6 +886,31 @@ struct CinemaPlayerScreen: View {
                 }
                 Text("Provider timestamps and applicable MovieHavenDB movie data (CC BY 4.0) may be used. TV-series mature-scene coverage is currently limited. No automatic video scanning.")
             }
+            Section("My scene markers · \(personalSceneRanges.count)") {
+                if let start = draftMatureSceneStart {
+                    Text("Start marked at \(formatTime(start))")
+                    Button("Mark mature scene end at \(formatTime(livePosition()))") {
+                        savePersonalScene(at: livePosition())
+                    }
+                    Button("Cancel unfinished marker", role: .cancel) { draftMatureSceneStart = nil }
+                } else {
+                    Button("Mark mature scene start at \(formatTime(livePosition()))") {
+                        guard duration > 0, livePosition() < duration - 1 else { return }
+                        draftMatureSceneStart = livePosition()
+                        flashMessage("Start marked · mark the end after the scene")
+                    }
+                    .disabled(duration <= 0)
+                }
+                if let last = personalSceneRanges.last {
+                    Text("Last: \(formatTime(last.start))–\(formatTime(last.end))")
+                    Button("Delete last saved scene", role: .destructive) {
+                        personalSceneRanges = PersonalSceneMarkers.save(Array(personalSceneRanges.dropLast()),
+                            videoID: current.id, duration: duration)
+                        mergeMatureRanges()
+                    }
+                }
+                Text("Markers remain on this device and apply only to this episode/video ID. No video analysis is performed.")
+            }
             Section("Accurate intro skipping") {
                 Toggle("Use community intro timings", isOn: $useCommunityIntro)
                 Text(introLookupStatus)
@@ -1066,8 +1139,9 @@ struct CinemaPlayerScreen: View {
            let scene = SceneSkipPlanner.active(matureSceneRanges, at: currentTime, duration: duration),
            !alreadySkippedScenes.contains(scene.identifier) {
             alreadySkippedScenes.insert(scene.identifier)
+            rememberUndoSkip(at: max(0, scene.start - 0.5))
             seek(to: scene.end)
-            flashMessage("Skipped a marked mature scene")
+            flashMessage("Skipped a marked scene · Undo available")
         }
         if let lastRange = player.currentItem?.loadedTimeRanges.last?.timeRangeValue {
             let end = CMTimeGetSeconds(CMTimeRangeGetEnd(lastRange))
@@ -1156,6 +1230,10 @@ struct CinemaPlayerScreen: View {
         introLookupKey = nil
         sceneMarkersLoaded = false
         alreadySkippedScenes = []
+        personalSceneRanges = []
+        draftMatureSceneStart = nil
+        lastSkipReturnPosition = nil
+        lastSkipExpiresAt = nil
         introSkipUsed = false
         current = next
         showControls()
