@@ -74,7 +74,8 @@ jobs:
           cp -R "$APP" dist/Payload/
           (cd dist && zip -q -r Cinemana-iOS-v2.1.1-beta.1-Unsigned.ipa Payload)
           unzip -tq dist/Cinemana-iOS-v2.1.1-beta.1-Unsigned.ipa
-          shasum -a 256 dist/Cinemana-iOS-v2.1.1-beta.1-Unsigned.ipa > dist/SHA256SUMS.txt      - name: Publish private-repo beta IPA to GitHub Releases
+          shasum -a 256 dist/Cinemana-iOS-v2.1.1-beta.1-Unsigned.ipa > dist/SHA256SUMS.txt
+      - name: Publish private-repo beta IPA to GitHub Releases
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
