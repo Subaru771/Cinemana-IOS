@@ -42,7 +42,10 @@ jobs:
           set -euo pipefail
           python3 sidestore-ci/apply_patch.py sidestore-upstream
           python3 sidestore-ci/apply_full_v05.py sidestore-upstream
-          python3 sidestore-ci/apply_easy_v07.py sidestore-upstream
+          python3 sidestore-ci/apply_easy_v06.py sidestore-upstream
+          python3 sidestore-ci/apply_anisette_v07.py sidestore-upstream
+          grep -q 'CINEMANA_V07' sidestore-upstream/AltStore/Core/Extensions/UserDefaults+AltStore.swift
+          xcrun swiftc -frontend -parse sidestore-upstream/AltStore/Core/Extensions/UserDefaults+AltStore.swift
           xcrun swiftc -frontend -parse sidestore-upstream/AltStore/Settings/SettingsViewController.swift
           xcrun swiftc -frontend -parse sidestore-upstream/SideStore/Core/Pairing/PairingFileManager.swift
           grep -q 'CINEMANA_EASY_SETUP_V06' sidestore-upstream/AltStore/Settings/SettingsViewController.swift
