@@ -1,13 +1,13 @@
-name: Cinemana TV scene markers — Android test APK
+name: Cinemana TV v1.4.9 — refined test APK
 on:
   pull_request:
     branches: [main]
     paths:
-      - '.github/workflows/cinemana-tv-android.yml'
-      - 'ci-sources/CinemanaTV-v1.4.8-Scene-Markers-SOURCE.zip'
+      - ".github/workflows/cinemana-tv-android.yml"
+      - "ci-sources/CinemanaTV-v1.4.9-Refinement-Patch.txt"
   workflow_dispatch:
 permissions:
-  contents: read
+  contents: write
 jobs:
   android-tv:
     runs-on: ubuntu-latest
@@ -18,38 +18,60 @@ jobs:
         uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: '17'
-      - name: Use preinstalled GitHub runner Android SDK
+          java-version: "17"
+      - name: Configure Android SDK 35
         run: |
           echo "ANDROID_HOME=${ANDROID_HOME:-/usr/local/lib/android/sdk}" >> "$GITHUB_ENV"
           echo "ANDROID_SDK_ROOT=${ANDROID_HOME:-/usr/local/lib/android/sdk}" >> "$GITHUB_ENV"
-          ls "${ANDROID_HOME:-/usr/local/lib/android/sdk}/cmdline-tools"
-      - name: Install Android 35 SDK
+          "${ANDROID_HOME:-/usr/local/lib/android/sdk}/cmdline-tools/latest/bin/sdkmanager" "platforms;android-35" "build-tools;35.0.0" "platform-tools"
+      - name: Unpack verified v1.4.8 Android baseline
         run: |
-          SDKMANAGER="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
-          "$SDKMANAGER" "platforms;android-35" "build-tools;35.0.0" "platform-tools"
-      - name: Unpack TV sources
-        run: |
-          test -s ci-sources/CinemanaTV-v1.4.8-Scene-Markers-SOURCE.zip
           unzip -q ci-sources/CinemanaTV-v1.4.8-Scene-Markers-SOURCE.zip -d /tmp/cinemana-tv-source
           test -f /tmp/cinemana-tv-source/CinemanaTV-v1.4.8/app/build.gradle.kts
-      - name: Unit tests and installable debug APK
+      - name: Apply and verify v1.4.9 refinement source changes
+        run: |
+          python3 - <<'PY'
+          import base64, hashlib, pathlib, re
+          root=pathlib.Path('/tmp/cinemana-tv-source/CinemanaTV-v1.4.8')
+          raw=pathlib.Path('ci-sources/CinemanaTV-v1.4.9-Refinement-Patch.txt').read_text()
+          regex=r'(?m)^FILE ([^\n]+) (\d+) ([0-9a-f]{64})\n([A-Za-z0-9+/=\n]+?)\nEND(?=\n|$)'
+          records=list(re.finditer(regex, raw))
+          assert len(records)==7, f'Expected 7 patch entries, got {len(records)}'
+          for match in records:
+              name, length, sha256, data = match.groups()
+              blob=base64.b64decode(''.join(data.split()))
+              assert len(blob)==int(length) and hashlib.sha256(blob).hexdigest()==sha256, name
+              dest=(root/name).resolve()
+              assert dest.is_relative_to(root.resolve()), name
+              dest.parent.mkdir(parents=True, exist_ok=True)
+              dest.write_bytes(blob)
+          assert 'versionName = "1.4.9"' in (root/'app/build.gradle.kts').read_text()
+          print(f'Applied {len(records)} verified v1.4.9 source modifications')
+          PY
+      - name: Run Kotlin unit tests and build signed debug APK
         working-directory: /tmp/cinemana-tv-source/CinemanaTV-v1.4.8
         run: |
           chmod +x gradlew
           ./gradlew --no-daemon --stacktrace :app:testDebugUnitTest :app:assembleDebug
-      - name: Verify APK and checksum
+      - name: Verify APK and calculate SHA-256
         run: |
           set -eu
           mkdir -p dist
-          cp /tmp/cinemana-tv-source/CinemanaTV-v1.4.8/app/build/outputs/apk/debug/app-debug.apk dist/CinemanaTV-v1.4.8-Scene-Markers-DEBUG.apk
-          test -s dist/CinemanaTV-v1.4.8-Scene-Markers-DEBUG.apk
-          unzip -tq dist/CinemanaTV-v1.4.8-Scene-Markers-DEBUG.apk
-          sha256sum dist/CinemanaTV-v1.4.8-Scene-Markers-DEBUG.apk > dist/SHA256SUMS.txt
-      - name: Upload smoke-test APK
-        uses: actions/upload-artifact@v4
-        with:
-          name: CinemanaTV-v1.4.8-Scene-Markers-Debug-APK
-          path: dist/*
-          if-no-files-found: error
-          retention-days: 30
+          cp /tmp/cinemana-tv-source/CinemanaTV-v1.4.8/app/build/outputs/apk/debug/app-debug.apk dist/CinemanaTV-v1.4.9-Refined-DEBUG.apk
+          test -s dist/CinemanaTV-v1.4.9-Refined-DEBUG.apk
+          unzip -tq dist/CinemanaTV-v1.4.9-Refined-DEBUG.apk
+          (cd dist && sha256sum CinemanaTV-v1.4.9-Refined-DEBUG.apk > SHA256SUMS-TV.txt)
+      - name: Publish refined debug APK to GitHub prerelease
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          TAG="ci-cinemana-tv-v1.4.9-2039a04"
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" dist/CinemanaTV-v1.4.9-Refined-DEBUG.apk dist/SHA256SUMS-TV.txt --clobber
+          else
+            gh release create "$TAG" dist/CinemanaTV-v1.4.9-Refined-DEBUG.apk dist/SHA256SUMS-TV.txt \
+              --target "build/tv-v1.4.9-refined-apk" \
+              --title "Cinemana TV v1.4.9 refined — Android test APK" \
+              --prerelease --notes "Debug-signed QA build from source changes in PR #34. Device testing required. Not merged into main."
+          fi
