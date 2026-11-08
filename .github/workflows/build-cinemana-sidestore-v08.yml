@@ -1,0 +1,51 @@
+name: Build Cinemana SideStore (encrypted account handoff beta)
+on:
+  workflow_dispatch:
+  push:
+    branches: [build/cinemana-sidestore-v08]
+    paths:
+      - '.github/workflows/build-cinemana-sidestore-v08.yml'
+permissions:
+  contents: write
+jobs:
+  build:
+    runs-on: macos-15
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - name: Clone pinned SideStore source (AGPL-3.0)
+        shell: bash
+        run: |
+          set -euo pipefail
+          git clone https://github.com/SideStore/SideStore.git upstream-sidestore
+          git -C upstream-sidestore checkout cd260851ae99bf1fc946b123db24e89c8cd21dc6
+          git -C upstream-sidestore submodule update --init --recursive
+      - name: Apply existing fork and new handoff
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 sidestore-ci/apply_patch.py upstream-sidestore
+          python3 sidestore-ci/apply_full_v05.py upstream-sidestore
+          python3 sidestore-ci/apply_easy_v06.py upstream-sidestore
+          python3 sidestore-ci/apply_anisette_v07.py upstream-sidestore
+          python3 patches/apply_sidestore_v08.py upstream-sidestore
+          xcrun swiftc -frontend -parse upstream-sidestore/AltStore/Settings/SettingsViewController.swift
+          xcrun swiftc -frontend -parse upstream-sidestore/AltStore/Core/Extensions/UserDefaults+AltStore.swift
+      - name: Build test IPA
+        shell: bash
+        run: |
+          brew install ldid
+          cd upstream-sidestore
+          make build fakesign ipa
+      - name: Verify and save PRIVATE prerelease
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          test -f upstream-sidestore/SideStore.ipa
+          unzip -t upstream-sidestore/SideStore.ipa >/dev/null
+          unzip -Z1 upstream-sidestore/SideStore.ipa | grep -q '^Payload/SideStore.app/Info.plist$'
+          cp upstream-sidestore/SideStore.ipa Cinemana-SideStore-v0.8-TEST.ipa
+          shasum -a 256 Cinemana-SideStore-v0.8-TEST.ipa > SHA256.txt
+          gh release create "cinemana-sidestore-v08-${GITHUB_SHA:0:12}" Cinemana-SideStore-v0.8-TEST.ipa SHA256.txt --draft --prerelease --target "$GITHUB_SHA" --title 'Cinemana SideStore v0.8 secure handoff test' --notes 'AGPL-3.0 independent fork, fake signed IPA; Apple account transfer needs cross-device validation. Never publish as production without testing.'
