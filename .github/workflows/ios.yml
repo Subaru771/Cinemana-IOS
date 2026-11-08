@@ -6,7 +6,7 @@ on:
   pull_request:
     branches: [main]
 permissions:
-  contents: read
+  contents: write
 jobs:
   build:
     runs-on: macos-15
@@ -74,13 +74,17 @@ jobs:
           cp -R "$APP" dist/Payload/
           (cd dist && zip -q -r Cinemana-iOS-v2.1.1-beta.1-Unsigned.ipa Payload)
           unzip -tq dist/Cinemana-iOS-v2.1.1-beta.1-Unsigned.ipa
-          shasum -a 256 dist/Cinemana-iOS-v2.1.1-beta.1-Unsigned.ipa > dist/SHA256SUMS.txt
-      - name: Upload real IPA and checksum
-        uses: actions/upload-artifact@v4
-        with:
-          name: Cinemana-iOS-v2.1.1-beta.1-Unsigned
-          path: |
-            dist/Cinemana-iOS-v2.1.1-beta.1-Unsigned.ipa
-            dist/SHA256SUMS.txt
-          if-no-files-found: error
-          retention-days: 30
+          shasum -a 256 dist/Cinemana-iOS-v2.1.1-beta.1-Unsigned.ipa > dist/SHA256SUMS.txt      - name: Publish private-repo beta IPA to GitHub Releases
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          TAG="ci-cinemana-ios-v2.1.1-72acefc"
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" dist/Cinemana-iOS-v2.1.1-beta.1-Unsigned.ipa dist/SHA256SUMS.txt --clobber
+          else
+            gh release create "$TAG" dist/Cinemana-iOS-v2.1.1-beta.1-Unsigned.ipa dist/SHA256SUMS.txt \
+              --target "72acefc3365f818de1939452052df3a90514578d" \
+              --title "Cinemana iOS v2.1.1 beta — unsigned IPA" --prerelease \
+              --notes "Device-testing build; unsigned for SideStore or compatible sideload tooling. iOS 16+. Built from PR #33; not merged into main."
+          fi
