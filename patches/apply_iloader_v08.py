@@ -61,6 +61,12 @@ if marker not in s:
     s=s.replace(anchor,button+anchor,1)
     (root/p).write_text(s,encoding='utf-8')
 
+// Do not invoke an updater plugin we intentionally disabled in the fork.
+p=root/'src/App.tsx';s=p.read_text(encoding='utf-8')
+s=s.replace('import { checkForUpdates } from "./update";', '// Cinemana test fork: no upstream auto-updates')
+s=s.replace('    checkForUpdates();', '    // Upstream updater intentionally disabled in this independent fork.')
+p.write_text(s,encoding='utf-8')
+
 # Imported SideStore IPA should receive the pairing file automatically,
 # just like iLoader's stock Install SideStore flow. Do not change generic IPAs.
 p='src-tauri/src/sideload.rs'
