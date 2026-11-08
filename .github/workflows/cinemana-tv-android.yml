@@ -1,10 +1,10 @@
-name: Cinemana TV scene markers — Android test APK
+name: Cinemana TV v1.5.1 merged - Android test build
 on:
   pull_request:
     branches: [main]
     paths:
       - '.github/workflows/cinemana-tv-android.yml'
-      - 'ci-sources/CinemanaTV-v1.4.8-Scene-Markers-SOURCE.zip'
+      - 'ci-sources/CinemanaTV-v1.5.1-Merged-SOURCE.zip'
   workflow_dispatch:
 permissions:
   contents: read
@@ -14,42 +14,41 @@ jobs:
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
-      - name: Set up JDK 17
+      - name: Set up Java 17
         uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: '17'
-      - name: Use preinstalled GitHub runner Android SDK
+      - name: Configure Android SDK
         run: |
           echo "ANDROID_HOME=${ANDROID_HOME:-/usr/local/lib/android/sdk}" >> "$GITHUB_ENV"
           echo "ANDROID_SDK_ROOT=${ANDROID_HOME:-/usr/local/lib/android/sdk}" >> "$GITHUB_ENV"
-          ls "${ANDROID_HOME:-/usr/local/lib/android/sdk}/cmdline-tools"
-      - name: Install Android 35 SDK
+      - name: Install SDK 35
         run: |
-          SDKMANAGER="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
-          "$SDKMANAGER" "platforms;android-35" "build-tools;35.0.0" "platform-tools"
-      - name: Unpack TV sources
+          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses > /dev/null || true
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-35" "build-tools;35.0.0"
+      - name: Extract exact merged source
         run: |
-          test -s ci-sources/CinemanaTV-v1.4.8-Scene-Markers-SOURCE.zip
-          unzip -q ci-sources/CinemanaTV-v1.4.8-Scene-Markers-SOURCE.zip -d /tmp/cinemana-tv-source
-          test -f /tmp/cinemana-tv-source/CinemanaTV-v1.4.8/app/build.gradle.kts
-      - name: Unit tests and installable debug APK
-        working-directory: /tmp/cinemana-tv-source/CinemanaTV-v1.4.8
+          unzip -tq ci-sources/CinemanaTV-v1.5.1-Merged-SOURCE.zip
+          unzip -q ci-sources/CinemanaTV-v1.5.1-Merged-SOURCE.zip -d /tmp/cinemana-tv
+          test -f /tmp/cinemana-tv/CinemanaTV-v1.5.1/app/build.gradle.kts
+          grep -q 'versionCode = 46' /tmp/cinemana-tv/CinemanaTV-v1.5.1/app/build.gradle.kts
+      - name: Run Kotlin/Android tests and build optimized locally debug-signed APK
+        working-directory: /tmp/cinemana-tv/CinemanaTV-v1.5.1
         run: |
           chmod +x gradlew
-          ./gradlew --no-daemon --stacktrace :app:testDebugUnitTest :app:assembleDebug
-      - name: Verify APK and checksum
+          ./gradlew --no-daemon --stacktrace :app:testDebugUnitTest :app:assembleRelease
+      - name: Verify and checksum APK
         run: |
-          set -eu
           mkdir -p dist
-          cp /tmp/cinemana-tv-source/CinemanaTV-v1.4.8/app/build/outputs/apk/debug/app-debug.apk dist/CinemanaTV-v1.4.8-Scene-Markers-DEBUG.apk
-          test -s dist/CinemanaTV-v1.4.8-Scene-Markers-DEBUG.apk
-          unzip -tq dist/CinemanaTV-v1.4.8-Scene-Markers-DEBUG.apk
-          sha256sum dist/CinemanaTV-v1.4.8-Scene-Markers-DEBUG.apk > dist/SHA256SUMS.txt
-      - name: Upload smoke-test APK
+          cp /tmp/cinemana-tv/CinemanaTV-v1.5.1/app/build/outputs/apk/release/app-release.apk dist/CinemanaTV-v1.5.1-Merged-TEST.apk
+          test -s dist/CinemanaTV-v1.5.1-Merged-TEST.apk
+          unzip -tq dist/CinemanaTV-v1.5.1-Merged-TEST.apk
+          (cd dist && sha256sum CinemanaTV-v1.5.1-Merged-TEST.apk > SHA256SUMS.txt)
+      - name: Upload test APK and checksum
         uses: actions/upload-artifact@v4
         with:
-          name: CinemanaTV-v1.4.8-Scene-Markers-Debug-APK
+          name: CinemanaTV-v1.5.1-Merged-TEST-APK
           path: dist/*
           if-no-files-found: error
           retention-days: 30
