@@ -76,6 +76,7 @@ jobs:
           unzip -tq dist/Cinemana-iOS-v2.1.1-beta.1-Unsigned.ipa
           shasum -a 256 dist/Cinemana-iOS-v2.1.1-beta.1-Unsigned.ipa > dist/SHA256SUMS.txt
       - name: Publish private-repo beta IPA to GitHub Releases
+        continue-on-error: true
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -89,3 +90,8 @@ jobs:
               --title "Cinemana iOS v2.1.1 beta — unsigned IPA" --prerelease \
               --notes "Device-testing build; unsigned for SideStore or compatible sideload tooling. iOS 16+. Built from PR #33; not merged into main."
           fi
+      - name: Export unsigned IPA bytes for authenticated GitHub connector handoff
+        run: |
+          echo CINEMANA_IPA_B64_BEGIN
+          base64 -i dist/Cinemana-iOS-v2.1.1-beta.1-Unsigned.ipa | tr -d '\\n' | fold -w 2048
+          echo CINEMANA_IPA_B64_END
