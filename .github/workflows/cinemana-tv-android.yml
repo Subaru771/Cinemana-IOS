@@ -1,5 +1,7 @@
 name: Cinemana TV v1.5.1 merged - Android test build
 on:
+  push:
+    branches: [build/tv-v1.5.1-merged]
   pull_request:
     branches: [main]
     paths:
