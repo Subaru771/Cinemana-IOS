@@ -1,0 +1,7 @@
+# Add these under iLoader's [dependencies] in src-tauri/Cargo.toml
+x25519-dalek = { version = "2", features = ["static_secrets"] }
+aes-gcm = "0.10"
+hkdf = "0.12"
+sha2 = "0.10"
+base64 = "0.22"
+rand = "0.8"
