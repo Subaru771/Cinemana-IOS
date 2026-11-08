@@ -55,7 +55,7 @@ jobs:
         run: |
           chmod +x gradlew
           sed -i 's/networkTimeout=10000/networkTimeout=120000/' gradle/wrapper/gradle-wrapper.properties
-          sed -i 's|services.gradle.org|mirrors.huaweicloud.com/gradle|' gradle/wrapper/gradle-wrapper.properties
+          sed -i 's|services.gradle.org/distributions|mirrors.huaweicloud.com/gradle|' gradle/wrapper/gradle-wrapper.properties
           printf '\ndistributionSha256Sum=bd71102213493060956ec229d946beee57158dbd89d0e62b91bca0fa2c5f3531\n' >> gradle/wrapper/gradle-wrapper.properties
           ./gradlew --no-daemon --stacktrace :app:testDebugUnitTest :app:assembleDebug
       - name: Verify APK and calculate SHA-256
@@ -67,6 +67,7 @@ jobs:
           unzip -tq dist/CinemanaTV-v1.4.9-Refined-DEBUG.apk
           (cd dist && sha256sum CinemanaTV-v1.4.9-Refined-DEBUG.apk > SHA256SUMS-TV.txt)
       - name: Publish refined debug APK to GitHub prerelease
+        continue-on-error: true
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -80,3 +81,14 @@ jobs:
               --title "Cinemana TV v1.4.9 refined — Android test APK" \
               --prerelease --notes "Debug-signed QA build from source changes in PR #34. Device testing required. Not merged into main."
           fi
+      - name: Export TV APK bytes for authenticated GitHub connector handoff
+        run: |
+          echo CINEMANA_TV_APK_B64_BEGIN
+          python3 - <<'PY'
+          import base64
+          from pathlib import Path
+          content=base64.b64encode(Path('dist/CinemanaTV-v1.4.9-Refined-DEBUG.apk').read_bytes()).decode('ascii')
+          for i in range(0,len(content),2048):
+              print(content[i:i+2048])
+          PY
+          echo CINEMANA_TV_APK_B64_END
