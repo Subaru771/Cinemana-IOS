@@ -84,6 +84,16 @@ struct CoreSmokeTests {
         let timed = ExternalSceneMarkers.decodeSkipDB(communityPayload, duration: 2820)
         precondition(Set(timed.map(\.kind)) == Set(["intro", "recap", "outro"]))
         precondition(timed.first(where: { $0.kind == "intro" })?.destination(at: 110, duration: 2820) == 130)
+        // SkipDB ends credits at *exactly* the video duration; do not reject that entry.
+        let creditsAtEnd: [String: Any] = ["segments": ["outro": ["start_ms": 2_770_000,
+            "end_ms": 2_820_000, "match": "exact", "confidence": 0.95]]]
+        let endCreditMarker = ExternalSceneMarkers.decodeSkipDB(creditsAtEnd, duration: 2820)
+        precondition(endCreditMarker.count == 1)
+        precondition(abs((endCreditMarker[0].destination(at: 2790, duration: 2820) ?? 0) - 2819.75) < 0.01)
+        let importantPostCreditScene: [String: Any] = ["post_credits": ["start_ms": 150_000,
+            "end_ms": 200_000, "confidence": 0.99]]
+        precondition(ExternalSceneMarkers.decodeIntroDB(importantPostCreditScene, duration: 2820).isEmpty)
+
         precondition(ExternalSceneMarkers.skipDBURL(imdbID: "tt0944947", season: 1, episode: 1, duration: 2820)?.absoluteString.contains("adjust=conservative") == true)
         let fallbackPayload: [String: Any] = ["recap": ["start_ms": 2000, "end_ms": 90000, "confidence": 0.91]]
         precondition(ExternalSceneMarkers.merge(primary: timed,

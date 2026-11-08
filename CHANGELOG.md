@@ -1,3 +1,13 @@
+## v2.1.2 — Faster playback and accurate skip controls (beta)
+- Community intro/recap/outro/preview markers default to enabled on first install (can be disabled in player settings).
+- Video startup and provider marker loading are concurrent; metadata is no longer on the critical startup path.
+- SkipDB / IntroDB / verified movie-marker calls run concurrently; no per-service serial delays.
+- Accept end-credit markers finishing exactly at media duration and seek just before the true end.
+- Never skip post-credit scenes merely because IntroDB labels them `post_credits`.
+- Reduce foreground SwiftUI player progress refresh from four times to twice a second; no progress update while backgrounded.
+- Cache temporary no-data responses for 90 seconds; cache successful marker data for six hours.
+- No fabricated 90-second intro skip or video-frame AI detection. Mature-scene coverage remains limited.
+
 ## v2.1.1 — Player refinement (beta)
 - Added a 1-tap Undo Skip control for both intros and marked mature scenes, with an 18-second undo window.
 - Added on-device mature scene marking (start, end, remove last), persistent for the same video/episode ID.

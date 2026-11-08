@@ -14,10 +14,11 @@ struct ExternalSceneMarker: Hashable, Sendable {
     let category: String
 
     func destination(at seconds: Double, duration: Double) -> Double? {
+        let target = min(end, duration - 0.25)
         guard seconds.isFinite, duration.isFinite, duration > 0,
-              seconds >= max(0, start - 3), seconds < end - 0.5,
-              end < duration - 1 else { return nil }
-        return end
+              seconds >= max(0, start - 3), seconds < target - 0.5,
+              end <= duration + 1 else { return nil }
+        return target
     }
 }
 
@@ -36,7 +37,7 @@ enum ExternalSceneMarkers {
         guard duration.isFinite, duration >= 60,
               marker.start.isFinite, marker.end.isFinite,
               marker.start >= 0, marker.end > marker.start + 0.5,
-              marker.end < duration - 0.5 else { return false }
+              marker.end <= (marker.kind == "outro" ? duration + 1 : duration - 0.5) else { return false }
         let maximum = marker.kind == "mature" ? 20 * 60 : marker.kind == "intro" || marker.kind == "recap" ? 5 * 60 : 15 * 60
         return marker.end - marker.start <= Double(maximum)
     }
@@ -93,13 +94,13 @@ enum ExternalSceneMarkers {
     /// supply edition/duration match information, so these are button-only skips.
     static func decodeIntroDB(_ payload: Any, duration: Double) -> [ExternalSceneMarker] {
         guard let json = payload as? [String: Any] else { return [] }
-        return ["intro", "recap", "outro", "post_credits"].compactMap { key -> ExternalSceneMarker? in
+        // A post-credits scene may contain important story material: never label it as a preview.
+        return ["intro", "recap", "outro"].compactMap { key -> ExternalSceneMarker? in
             guard let row = json[key] as? [String: Any],
                   let start = number(row["start_ms"]), let end = number(row["end_ms"]),
                   let confidence = number(row["confidence"]), confidence >= 0.80 else { return nil }
-            let kind = key == "post_credits" ? "preview" : key
-            let marker = ExternalSceneMarker(kind: kind, start: start / 1000, end: end / 1000,
-                                             source: "IntroDB", confidence: confidence, category: kind)
+            let marker = ExternalSceneMarker(kind: key, start: start / 1000, end: end / 1000,
+                                             source: "IntroDB", confidence: confidence, category: key)
             return valid(marker, duration: duration) ? marker : nil
         }
     }
@@ -151,33 +152,40 @@ actor ExternalSceneService {
         } catch { return nil }
     }
 
-    /// Lightweight remote reads only. No video frame processing; requests carry
-    /// public IMDb ID, season/episode and duration, never the user's history.
+    private func skipDB(_ url: URL?, duration: Double) async -> [ExternalSceneMarker] {
+        guard let url, let response = await json(url) else { return [] }
+        return ExternalSceneMarkers.decodeSkipDB(response, duration: duration)
+    }
+
+    private func introDB(_ url: URL?, duration: Double) async -> [ExternalSceneMarker] {
+        guard let url, let response = await json(url) else { return [] }
+        return ExternalSceneMarkers.decodeIntroDB(response, duration: duration)
+    }
+
+    private func movieHaven(_ url: URL?, imdbID: String, duration: Double) async -> [ExternalSceneMarker] {
+        guard let url, let response = await json(url) else { return [] }
+        return ExternalSceneMarkers.decodeMovieHaven(response, imdbID: imdbID, duration: duration)
+    }
+
+    /// Independent community reads run concurrently, never delaying the media request.
+    /// A temporary network failure is cached briefly, not for an entire hour.
     func markers(imdbID: String, season: Int, episode: Int, duration: Double,
                  includeCommunity: Bool, includeMature: Bool) async -> [ExternalSceneMarker] {
         guard let id = CommunitySkipTimes.imdbID(in: imdbID), duration > 60 else { return [] }
         let isEpisode = season > 0 && episode > 0
         let key = "\(id)|\(isEpisode ? season : 0)|\(isEpisode ? episode : 0)|\(Int(duration))|\(includeCommunity)|\(includeMature)"
-        if let cached = cache[key], Date().timeIntervalSince(cached.at) < 3600 { return cached.markers }
-        var result: [ExternalSceneMarker] = []
-        if includeCommunity {
-            if let url = ExternalSceneMarkers.skipDBURL(imdbID: id, season: isEpisode ? season : 0,
-                                                       episode: isEpisode ? episode : 0, duration: duration),
-               let response = await json(url) {
-                result = ExternalSceneMarkers.decodeSkipDB(response, duration: duration)
-            }
-            if result.count < 4,
-               let url = ExternalSceneMarkers.introDBURL(imdbID: id, season: isEpisode ? season : 0, episode: isEpisode ? episode : 0),
-               let response = await json(url) {
-                result = ExternalSceneMarkers.merge(primary: result,
-                    fallback: ExternalSceneMarkers.decodeIntroDB(response, duration: duration))
-            }
+        if let cached = cache[key], Date().timeIntervalSince(cached.at) < (cached.markers.isEmpty ? 90 : 21_600) {
+            return cached.markers
         }
-        if includeMature && !isEpisode,
-           let url = ExternalSceneMarkers.movieHavenURL(imdbID: id),
-           let response = await json(url) {
-            result += ExternalSceneMarkers.decodeMovieHaven(response, imdbID: id, duration: duration)
-        }
+        let s = isEpisode ? season : 0, ep = isEpisode ? episode : 0
+        let first = includeCommunity ? ExternalSceneMarkers.skipDBURL(imdbID: id, season: s, episode: ep, duration: duration) : nil
+        let second = includeCommunity ? ExternalSceneMarkers.introDBURL(imdbID: id, season: s, episode: ep) : nil
+        let third = includeMature && !isEpisode ? ExternalSceneMarkers.movieHavenURL(imdbID: id) : nil
+        async let skips: [ExternalSceneMarker] = skipDB(first, duration: duration)
+        async let intros: [ExternalSceneMarker] = introDB(second, duration: duration)
+        async let mature: [ExternalSceneMarker] = movieHaven(third, imdbID: id, duration: duration)
+        let (primary, fallback, matureRanges) = await (skips, intros, mature)
+        let result = ExternalSceneMarkers.merge(primary: primary, fallback: fallback) + matureRanges
         cache[key] = CacheEntry(at: Date(), markers: result)
         if cache.count > 30 { cache.removeValue(forKey: cache.keys.first!) }
         return result

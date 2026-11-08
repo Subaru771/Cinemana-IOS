@@ -4,7 +4,7 @@ app=(p/'CinemanaMobile/CinemanaMobileApp.swift').read_text()
 player=(p/'CinemanaMobile/CinemaPlayerFullscreen.swift').read_text()
 plan=(p/'CinemanaMobile/SceneSkipPlanner.swift').read_text()
 filtering=(p/'CinemanaMobile/MatureContentFilter.swift').read_text()
-assert 'Toggle("Skip timed mature scenes"' in app and 'Toggle("Skip timed mature scenes"' in player
+assert 'Toggle("Skip timed mature scenes"' in app and 'Toggle("Skip verified mature scenes"' in player
 assert 'Use community intro timings' in player
 assert 'CommunitySkipTimes.skipDestination' in player
 assert 'current + 90' not in plan and 'target.estimated' not in player

@@ -129,7 +129,7 @@ struct CinemaPlayerScreen: View {
     @AppStorage("cinemana-sub-scale") private var subtitleScale = 1.0
     @AppStorage("cinemana-sub-background") private var captionBackdrop = true
     @AppStorage(MatureContentFilter.preferenceKey) private var skipMatureScenes = false
-    @AppStorage("cinemana-lookup-community-intro") private var useCommunityIntro = false
+    @AppStorage("cinemana-lookup-community-intro") private var useCommunityIntro = true
 
     private var isPad: Bool { UIDevice.current.userInterfaceIdiom == .pad }
     private var blockedByFilter: Bool { false } // Never block a title; scene skipping is time-coded.
@@ -242,13 +242,12 @@ struct CinemaPlayerScreen: View {
         .persistentSystemOverlays(isPad ? .automatic : .hidden)
         .defersSystemGestures(on: isPad ? [] : .all)
         .preferredColorScheme(.dark)
-        .task(id: current.id) {
-            await startPlayback()
-            await loadSkipMarkers()
-        }
+        // Metadata is independent of video startup: don't serialize two network requests.
+        .task(id: current.id) { await startPlayback() }
+        .task(id: "scene-markers-\(current.id)") { await loadSkipMarkers() }
         .onAppear { prepareScreen() }
-        .onReceive(Timer.publish(every: 0.25, on: .main, in: .common).autoconnect()) { _ in
-            updateProgress()
+        .onReceive(Timer.publish(every: 0.5, on: .main, in: .common).autoconnect()) { _ in
+            if scenePhase == .active { updateProgress() }
         }
         .onChange(of: session.selected?.id) { _ in
             Task { await loadTracks() }
@@ -586,7 +585,7 @@ struct CinemaPlayerScreen: View {
         let key = "\(videoID)|\(imdbID)|\(Int(selectedDuration.rounded()))|\(useCommunityIntro)|\(skipMatureScenes)"
         guard introLookupKey != key else { return }
         introLookupKey = key
-        introLookupStatus = "Checking scene timestamps…"
+        introLookupStatus = "Checking timestamps in the background…"
         let segments = await ExternalSceneService.shared.markers(
             imdbID: imdbID, season: current.episode > 0 ? current.season : 0,
             episode: current.episode, duration: selectedDuration,
@@ -876,7 +875,7 @@ struct CinemaPlayerScreen: View {
     private var optionsMenu: some View {
         Menu {
             Section("Scene filtering") {
-                Toggle("Skip timed mature scenes", isOn: $skipMatureScenes)
+                Toggle("Skip verified mature scenes", isOn: $skipMatureScenes)
                 if sceneMarkersLoaded && matureSceneRanges.isEmpty {
                     Label("Unavailable: this video has no mature-scene timestamps", systemImage: "exclamationmark.triangle")
                 } else if sceneMarkersLoaded {
@@ -884,7 +883,7 @@ struct CinemaPlayerScreen: View {
                 } else {
                     Text("Checking available scene timestamps…")
                 }
-                Text("Provider timestamps and applicable MovieHavenDB movie data (CC BY 4.0) may be used. TV-series mature-scene coverage is currently limited. No automatic video scanning.")
+                Text("Only videos with exact scene markers can be filtered. Most series have no mature-scene database coverage; unmarked scenes are not filtered.")
             }
             Section("My scene markers · \(personalSceneRanges.count)") {
                 if let start = draftMatureSceneStart {
