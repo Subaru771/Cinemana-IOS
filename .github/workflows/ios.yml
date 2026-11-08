@@ -2,7 +2,7 @@ name: Cinemana iOS — unsigned build
 on:
   workflow_dispatch:
   push:
-    branches: [main]
+    branches: [main, build/ios-v2.1.1-refined-ipa]
   pull_request:
     branches: [main]
 permissions:
