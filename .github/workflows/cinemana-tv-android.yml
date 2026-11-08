@@ -6,6 +6,8 @@ on:
       - ".github/workflows/cinemana-tv-android.yml"
       - "ci-sources/CinemanaTV-v1.4.9-Refinement-Patch.txt"
   workflow_dispatch:
+  push:
+    branches: [build/tv-v1.4.9-refined-apk]
 permissions:
   contents: write
 jobs:
@@ -53,6 +55,7 @@ jobs:
         run: |
           chmod +x gradlew
           sed -i 's/networkTimeout=10000/networkTimeout=120000/' gradle/wrapper/gradle-wrapper.properties
+          sed -i 's|services.gradle.org|downloads.gradle.org|' gradle/wrapper/gradle-wrapper.properties
           ./gradlew --no-daemon --stacktrace :app:testDebugUnitTest :app:assembleDebug
       - name: Verify APK and calculate SHA-256
         run: |
