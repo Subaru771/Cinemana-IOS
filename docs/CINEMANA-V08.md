@@ -5,7 +5,7 @@ This package **updates the existing v0.7.2 Windows setup application** rather th
 ## What is usable today
 
 - The Windows executable is compiled (Go, Windows x64). Original tool downloads, official iTunes via WinGet, iPhone detection, iLoader launch, IPA checksum verification, error analysis and bilingual guide remain.
-- Popup wizard now has five steps: prepare tools, sign into iLoader, import SideStore, **optional secure account handoff**, finish on iPhone.
+- Popup wizard remains a compact **four steps**: prepare tools, sign into iLoader, import SideStore, finish on iPhone. The experimental account handoff is described inside the final step, **without adding a compulsory step**.
 - The existing **v0.6 iPhone IPA** is still the verified default downloaded by the Windows helper. **It does not support account transfer.**
 
 ## New iLoader / SideStore source modifications (not compiled or iPhone-tested)
