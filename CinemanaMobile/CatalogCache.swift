@@ -10,15 +10,17 @@ actor CatalogCache {
 
     private func url(for kind: Int?) -> URL? {
         guard let dir = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first else { return nil }
-        return dir.appendingPathComponent("catalog-ios-\(kind.map(String.init) ?? "all").json")
+        return dir.appendingPathComponent("catalog-ios2-\(kind.map(String.init) ?? "all").json")
     }
 
-    func read(kind: Int?) -> [CatalogRow]? {
+    func readEntry(kind: Int?) -> (rows: [CatalogRow], savedAt: Date)? {
         guard let file = url(for: kind), let data = try? Data(contentsOf: file),
               let snapshot = try? JSONDecoder().decode(Snapshot.self, from: data),
               Date().timeIntervalSince(snapshot.savedAt) < 7 * 86_400 else { return nil }
-        return snapshot.rows
+        return (snapshot.rows, snapshot.savedAt)
     }
+
+    func read(kind: Int?) -> [CatalogRow]? { readEntry(kind: kind)?.rows }
 
     func clear() {
         for kind in [nil, 1, 2] as [Int?] {

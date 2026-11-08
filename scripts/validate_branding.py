@@ -43,7 +43,7 @@ for removed in ["Best available", "Use preferred quality", "Wi-Fi only", "wifiOn
 print("Full-resolution icon and four-option download menu validated.")
 
 # The approved v1.6.13 iOS icon is RGB, opaque and exactly 1024px.
-assert "CFBundleShortVersionString: '2.0.2'" in project
+assert "CFBundleShortVersionString: '2.1.1'" in project
 assert splash.stat().st_size > 500_000, "Full-resolution approved startup asset missing"
 assert icon.stat().st_size > 500_000, "Full-resolution approved Home Screen icon missing"
 manifest = root / "Branding/v1.6.13-assets-manifest.json"
