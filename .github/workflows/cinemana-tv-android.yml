@@ -1,10 +1,10 @@
-name: Cinemana TV scene markers — Android test APK
+name: Cinemana TV v1.4.10 — fast player APK
 on:
   pull_request:
     branches: [main]
     paths:
       - '.github/workflows/cinemana-tv-android.yml'
-      - 'ci-sources/CinemanaTV-v1.4.8-Scene-Markers-SOURCE.zip'
+      - 'ci-sources/CinemanaTV-v1.4.10-Scene-Markers-SOURCE.zip'
   workflow_dispatch:
 permissions:
   contents: read
@@ -30,11 +30,11 @@ jobs:
           "$SDKMANAGER" "platforms;android-35" "build-tools;35.0.0" "platform-tools"
       - name: Unpack TV sources
         run: |
-          test -s ci-sources/CinemanaTV-v1.4.8-Scene-Markers-SOURCE.zip
-          unzip -q ci-sources/CinemanaTV-v1.4.8-Scene-Markers-SOURCE.zip -d /tmp/cinemana-tv-source
-          test -f /tmp/cinemana-tv-source/CinemanaTV-v1.4.8/app/build.gradle.kts
+          test -s ci-sources/CinemanaTV-v1.4.10-Scene-Markers-SOURCE.zip
+          unzip -q ci-sources/CinemanaTV-v1.4.10-Scene-Markers-SOURCE.zip -d /tmp/cinemana-tv-source
+          test -f /tmp/cinemana-tv-source/CinemanaTV-v1.4.10/app/build.gradle.kts
       - name: Unit tests and installable debug APK
-        working-directory: /tmp/cinemana-tv-source/CinemanaTV-v1.4.8
+        working-directory: /tmp/cinemana-tv-source/CinemanaTV-v1.4.10
         run: |
           chmod +x gradlew
           ./gradlew --no-daemon --stacktrace :app:testDebugUnitTest :app:assembleDebug
@@ -42,14 +42,14 @@ jobs:
         run: |
           set -eu
           mkdir -p dist
-          cp /tmp/cinemana-tv-source/CinemanaTV-v1.4.8/app/build/outputs/apk/debug/app-debug.apk dist/CinemanaTV-v1.4.8-Scene-Markers-DEBUG.apk
-          test -s dist/CinemanaTV-v1.4.8-Scene-Markers-DEBUG.apk
-          unzip -tq dist/CinemanaTV-v1.4.8-Scene-Markers-DEBUG.apk
-          sha256sum dist/CinemanaTV-v1.4.8-Scene-Markers-DEBUG.apk > dist/SHA256SUMS.txt
+          cp /tmp/cinemana-tv-source/CinemanaTV-v1.4.10/app/build/outputs/apk/debug/app-debug.apk dist/CinemanaTV-v1.4.10-Scene-Markers-DEBUG.apk
+          test -s dist/CinemanaTV-v1.4.10-Scene-Markers-DEBUG.apk
+          unzip -tq dist/CinemanaTV-v1.4.10-Scene-Markers-DEBUG.apk
+          sha256sum dist/CinemanaTV-v1.4.10-Scene-Markers-DEBUG.apk > dist/SHA256SUMS.txt
       - name: Upload smoke-test APK
         uses: actions/upload-artifact@v4
         with:
-          name: CinemanaTV-v1.4.8-Scene-Markers-Debug-APK
+          name: CinemanaTV-v1.4.10-Scene-Markers-Debug-APK
           path: dist/*
           if-no-files-found: error
           retention-days: 30
