@@ -52,6 +52,7 @@ jobs:
         working-directory: /tmp/cinemana-tv-source/CinemanaTV-v1.4.8
         run: |
           chmod +x gradlew
+          sed -i 's/networkTimeout=10000/networkTimeout=120000/' gradle/wrapper/gradle-wrapper.properties
           ./gradlew --no-daemon --stacktrace :app:testDebugUnitTest :app:assembleDebug
       - name: Verify APK and calculate SHA-256
         run: |
