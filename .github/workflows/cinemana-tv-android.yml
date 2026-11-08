@@ -55,7 +55,8 @@ jobs:
         run: |
           chmod +x gradlew
           sed -i 's/networkTimeout=10000/networkTimeout=120000/' gradle/wrapper/gradle-wrapper.properties
-          sed -i 's|services.gradle.org|downloads.gradle.org|' gradle/wrapper/gradle-wrapper.properties
+          sed -i 's|services.gradle.org|mirrors.huaweicloud.com/gradle|' gradle/wrapper/gradle-wrapper.properties
+          printf '\ndistributionSha256Sum=bd71102213493060956ec229d946beee57158dbd89d0e62b91bca0fa2c5f3531\n' >> gradle/wrapper/gradle-wrapper.properties
           ./gradlew --no-daemon --stacktrace :app:testDebugUnitTest :app:assembleDebug
       - name: Verify APK and calculate SHA-256
         run: |
