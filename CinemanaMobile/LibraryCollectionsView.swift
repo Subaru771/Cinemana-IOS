@@ -8,7 +8,7 @@ struct CollectionsView: View {
 
     var body: some View {
         List {
-            Section("Create collection") {
+            Section {
                 HStack(spacing: 12) {
                     TextField("Collection name", text: $name)
                         .textInputAutocapitalization(.words)
@@ -23,8 +23,6 @@ struct CollectionsView: View {
                     VStack(spacing: 10) {
                         Image(systemName: "folder").font(.largeTitle).foregroundStyle(.secondary)
                         Text("No collections yet").font(.headline)
-                        Text("Organize saved titles. Everything stays on this device.")
-                            .font(.footnote).foregroundStyle(.secondary)
                     }
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 20)
@@ -34,7 +32,7 @@ struct CollectionsView: View {
                 Section {
                     let matching = library.snapshot.favorites.filter { collection.videoIDs.contains($0.id) && MatureContentFilter.allows($0, hideMature: hideMatureContent) }
                     if matching.isEmpty {
-                        Text("Use the Collections menu on a movie's details page to add titles.")
+                        Text("Empty")
                             .font(.footnote).foregroundStyle(.secondary)
                     } else {
                         ForEach(matching) { video in
@@ -61,7 +59,7 @@ struct CollectionsView: View {
                     HStack {
                         Text(collection.name)
                         Spacer()
-                        Text("\(library.snapshot.favorites.filter { collection.videoIDs.contains($0.id) && MatureContentFilter.allows($0, hideMature: hideMatureContent) }.count) shown")
+                        Text("\(library.snapshot.favorites.filter { collection.videoIDs.contains($0.id) && MatureContentFilter.allows($0, hideMature: hideMatureContent) }.count)")
                     }
                 } footer: {
                     Button(role: .destructive) { library.deleteCollection(collection.id) } label: {
@@ -122,7 +120,7 @@ struct EpisodeBatchDownloadView: View {
                         }.buttonStyle(.plain)
                     }
                 } header: { Text("Choose episodes (\(selected.count))") }
-                Section("Maximum download resolution") {
+                Section("Quality") {
                     Picker("Quality", selection: $quality) {
                         ForEach([480, 720, 1080, 2160], id: \.self) { value in
                             Text("Up to \(value)p").tag(value)
@@ -132,8 +130,6 @@ struct EpisodeBatchDownloadView: View {
                         Label("\(ByteFormat.string(free)) available on this device", systemImage: "internaldrive")
                             .font(.footnote).foregroundStyle(.secondary)
                     }
-                    Text("Actual quality and size depend on the media provider. Unavailable resolutions will fail visibly instead of exceeding your limit.")
-                        .font(.footnote).foregroundStyle(.secondary)
                 }
             }
             .navigationTitle("Download episodes")
