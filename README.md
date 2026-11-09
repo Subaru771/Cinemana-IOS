@@ -31,7 +31,7 @@ The `.github/workflows/ios.yml` macOS workflow checks out and compiles the **rea
 3. Download the `Cinemana-iOS-v2.0.0-beta.1-Unsigned` artifact after the macOS job succeeds.
 4. Extract the `.ipa`, sign it through SideStore or another supported signer, then verify on an actual device.
 
-CI uses XcodeGen, macOS 15 and `xcodebuild -sdk iphoneos CODE_SIGNING_ALLOWED=NO`. Bundle version in `project.yml` is `2.0.0`, build `21`. A passing test does not prove a particular content-provider video is accessible.
+CI uses XcodeGen, macOS 15 and `xcodebuild -sdk iphoneos CODE_SIGNING_ALLOWED=NO`. The workflow's packaged IPA is unsigned; a passing build does not prove device installation, playback or content-provider access.
 
 ## Quick local core tests (Linux or macOS with Swift)
 
