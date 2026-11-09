@@ -1,0 +1,53 @@
+name: Cinemana TV 1.5.7 - IMDb diagnostics APK
+on:
+  push:
+    branches:
+      - build/tv-v1.5.7-imdb-diagnostics
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    timeout-minutes: 50
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v3
+      - name: Install Android SDK 35
+        run: |
+          sdkmanager --install 'platforms;android-35' 'build-tools;35.0.0' 'platform-tools'
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Extract pinned v1.5.7 source
+        run: |
+          unzip -tq ci-sources/CinemanaTV-v1.5.7-IMDb-Diagnostics-SOURCE.zip
+          mkdir -p /tmp/cinemanatv-v157
+          unzip -q ci-sources/CinemanaTV-v1.5.7-IMDb-Diagnostics-SOURCE.zip -d /tmp/cinemanatv-v157
+          grep -q 'versionCode = 52' /tmp/cinemanatv-v157/app/build.gradle.kts
+          grep -q 'versionName = "1.5.7"' /tmp/cinemanatv-v157/app/build.gradle.kts
+          grep -q 'imdbReference' /tmp/cinemanatv-v157/app/src/main/java/app/cinemanatv/data/Payloads.kt
+      - name: Test and compile APK
+        working-directory: /tmp/cinemanatv-v157
+        env:
+          CINEMANA_CLIENTID: ${{ secrets.CINEMANA_CLIENTID }}
+          CINEMANA_SCOPE: ${{ secrets.CINEMANA_SCOPE }}
+        run: |
+          chmod +x gradlew
+          ./gradlew --no-daemon --stacktrace :app:testDebugUnitTest :app:assembleRelease
+      - name: Validate APK, sign and checksum
+        run: |
+          mkdir -p dist
+          cp /tmp/cinemanatv-v157/app/build/outputs/apk/release/app-release.apk dist/CinemanaTV-v1.5.7-TEST.apk
+          test -s dist/CinemanaTV-v1.5.7-TEST.apk
+          unzip -tq dist/CinemanaTV-v1.5.7-TEST.apk
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose dist/CinemanaTV-v1.5.7-TEST.apk
+          (cd dist && sha256sum CinemanaTV-v1.5.7-TEST.apk > SHA256SUMS.txt)
+      - uses: actions/upload-artifact@v4
+        with:
+          name: CinemanaTV-v1.5.7-IMDb-Diagnostics-APK
+          path: dist/*
+          if-no-files-found: error
+          retention-days: 30
