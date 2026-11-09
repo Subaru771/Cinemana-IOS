@@ -409,7 +409,7 @@
 +                            .focusProperties {
 +                                right = firstRightFocus
 +                                up = if (i > 0) categoryFocus[i - 1] else FocusRequester.Default
-+                                down = if (i < sections.lastIndex) categoryFocus[i + 1] else FocusRequester.Cancel
++                                down = if (i < sections.lastIndex) categoryFocus[i + 1] else FocusRequester.Default
 +                            }
 +                            // Explicit Right navigation avoids Compose's geometric search picking
 +                            // an unrelated button, or a target in a disappearing settings pane.
