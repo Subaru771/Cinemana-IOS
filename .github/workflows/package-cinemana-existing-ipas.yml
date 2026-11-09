@@ -1,0 +1,46 @@
+name: Verify and package existing Cinemana IPAs
+on:
+  push:
+    branches: [build/cinemana-sidestore-v09-full]
+    paths:
+      - '.github/workflows/package-cinemana-existing-ipas.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  fetch:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Fetch exact GitHub release assets
+        shell: bash
+        env:
+          GH_TOKEN: \${{ github.token }}
+        run: |
+          set -euo pipefail
+          mkdir -p verified-ipas
+          cd verified-ipas
+          gh release download cinemana-sidestore-v06-4e279a1bf092 \
+            --repo "\${GITHUB_REPOSITORY}" --pattern 'Cinemana-SideStore-V0.6-TEST.ipa'
+          gh release download ci-cinemana-ios-v2.1.1-refined \
+            --repo "\${GITHUB_REPOSITORY}" --pattern 'Cinemana-iOS-v2.1.1-beta.1-Unsigned.ipa'
+          echo '1c602987f0a90d26b6bd4598d0036f4da127ad8e178222e1c798930a77ff7d77  Cinemana-SideStore-V0.6-TEST.ipa' > SHA256SUMS
+          echo '42348c3d7571a4b202a73993106327440abfc457741e530fab3cba32926f6a00  Cinemana-iOS-v2.1.1-beta.1-Unsigned.ipa' >> SHA256SUMS
+          sha256sum --check SHA256SUMS
+          python3 - <<'PY'
+          from zipfile import ZipFile
+          for filename,app in [('Cinemana-SideStore-V0.6-TEST.ipa','SideStore'),('Cinemana-iOS-v2.1.1-beta.1-Unsigned.ipa',None)]:
+              with ZipFile(filename) as z:
+                  assert z.testzip() is None
+                  files=z.namelist()
+                  assert any(p.startswith('Payload/') and p.endswith('/Info.plist') for p in files)
+                  if app: assert 'Payload/SideStore.app/Info.plist' in files
+              print('Valid IPA archive:',filename)
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: cinemana-verified-ipas
+          path: verified-ipas/
+          retention-days: 3
+          if-no-files-found: error
