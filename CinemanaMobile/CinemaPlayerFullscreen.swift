@@ -750,7 +750,7 @@ struct CinemaPlayerScreen: View {
         Menu {
             Section("Content filter") {
                 Toggle("Hide Mature Content", isOn: $hideMatureContent)
-                Text("Uses provider tags; cannot skip individual scenes")
+                Text("Tagged titles only; no scene skipping")
             }
             Section("Playback") {
                 speedMenu
@@ -760,7 +760,7 @@ struct CinemaPlayerScreen: View {
                     cropVideo.toggle()
                 }
             }
-            Section("Captions & chapters") {
+            Section("Subtitles & skip") {
                 subtitleMenu
                 chapterMenu
             }
@@ -785,7 +785,7 @@ struct CinemaPlayerScreen: View {
                 .foregroundStyle(.white)
                 .frame(width: 44, height: 44)
         }
-        .accessibilityLabel("Player settings, including maturity filter")
+        .accessibilityLabel("Player settings")
     }
 
     private var speedMenu: some View {
@@ -836,7 +836,7 @@ struct CinemaPlayerScreen: View {
                 }
             }
             Button { importingSubtitles = true } label: {
-                Label("Import SRT / VTT from Files", systemImage: "doc.badge.plus")
+                Label("Import subtitles", systemImage: "doc.badge.plus")
             }
             if !subtitles.available.isEmpty {
                 Menu("Provider subtitles") {
@@ -893,8 +893,7 @@ struct CinemaPlayerScreen: View {
 
     private var chapterMenu: some View {
         Menu("Skip markers") {
-            Text("Personal timing markers (saved only on this device)")
-            Button("Intro ends at \(formatTime(livePosition()))") {
+                        Button("Intro ends at \(formatTime(livePosition()))") {
                 var value = markers; value.introEndsAt = livePosition()
                 library.setMarkers(value, for: current.id)
             }
