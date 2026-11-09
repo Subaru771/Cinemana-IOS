@@ -1,4 +1,4 @@
-name: Verify and package existing Cinemana IPAs
+name: Verify and package Cinemana v2.1.1 IPA
 on:
   push:
     branches: [build/cinemana-sidestore-v09-full]
@@ -21,24 +21,13 @@ jobs:
           set -euo pipefail
           mkdir -p verified-ipas
           cd verified-ipas
-          curl --fail --location --retry 3 --silent --show-error \
-            --header "Authorization: Bearer ${GH_TOKEN}" \
-            --header "Accept: application/octet-stream" \
-            --header "X-GitHub-Api-Version: 2022-11-28" \
-            "https://api.github.com/repos/${GITHUB_REPOSITORY}/releases/assets/722127262" \
-            -o Cinemana-SideStore-V0.6-TEST.ipa
-          curl --fail --location --retry 3 --silent --show-error \
-            --header "Authorization: Bearer ${GH_TOKEN}" \
-            --header "Accept: application/octet-stream" \
-            --header "X-GitHub-Api-Version: 2022-11-28" \
-            "https://api.github.com/repos/${GITHUB_REPOSITORY}/releases/assets/723496807" \
-            -o Cinemana-iOS-v2.1.1-beta.1-Unsigned.ipa
-          echo '1c602987f0a90d26b6bd4598d0036f4da127ad8e178222e1c798930a77ff7d77  Cinemana-SideStore-V0.6-TEST.ipa' > SHA256SUMS
-          echo '42348c3d7571a4b202a73993106327440abfc457741e530fab3cba32926f6a00  Cinemana-iOS-v2.1.1-beta.1-Unsigned.ipa' >> SHA256SUMS
+          gh release download ci-cinemana-ios-v2.1.1-refined \
+            --repo "${GITHUB_REPOSITORY}" --pattern 'Cinemana-iOS-v2.1.1-beta.1-Unsigned.ipa'
+          echo '42348c3d7571a4b202a73993106327440abfc457741e530fab3cba32926f6a00  Cinemana-iOS-v2.1.1-beta.1-Unsigned.ipa' > SHA256SUMS
           sha256sum --check SHA256SUMS
           python3 - <<'PY'
           from zipfile import ZipFile
-          for filename,app in [('Cinemana-SideStore-V0.6-TEST.ipa','SideStore'),('Cinemana-iOS-v2.1.1-beta.1-Unsigned.ipa',None)]:
+          for filename,app in [('Cinemana-iOS-v2.1.1-beta.1-Unsigned.ipa',None)]:
               with ZipFile(filename) as z:
                   assert z.testzip() is None
                   files=z.namelist()
@@ -48,7 +37,7 @@ jobs:
           PY
       - uses: actions/upload-artifact@v4
         with:
-          name: cinemana-verified-ipas
+          name: cinemana-ios-v2.1.1-verified
           path: verified-ipas/
           retention-days: 3
           if-no-files-found: error
