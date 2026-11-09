@@ -23,7 +23,7 @@ def main():
     if package.get("version") != "2.4.1":
         raise RuntimeError("Only validated against iLoader v2.4.1")
     expected = {
-        "Cinemana-SideStore-V0.10-TEST.ipa": "b0e6d58f93d034362af87053a0f359ae0ba1d043477ff6929674a559641c3f59",
+        "Cinemana-SideStore-V0.11-TEST.ipa": "2495334a4e754ca9d2973ce798ae7716ef57a36a29b2758ae2864723b7c735df",
         "Cinemana-iOS-v2.1.1-beta.1-Unsigned.ipa": "42348c3d7571a4b202a73993106327440abfc457741e530fab3cba32926f6a00",
     }
     for name, expected_hash in expected.items():
