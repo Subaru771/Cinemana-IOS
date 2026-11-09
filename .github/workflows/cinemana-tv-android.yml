@@ -35,6 +35,8 @@ jobs:
           unzip -q ci-sources/CinemanaTV-v1.5.2-Focus-Refined-SOURCE.zip -d /tmp/cinemana-tv
           test -f /tmp/cinemana-tv/CinemanaTV-v1.5.2/app/build.gradle.kts
           grep -q 'versionCode = 47' /tmp/cinemana-tv/CinemanaTV-v1.5.2/app/build.gradle.kts
+      - name: Apply multi-range scene fallback regression fix
+        run: python3 ci-sources/v1.5.2-hotfix.py /tmp/cinemana-tv/CinemanaTV-v1.5.2
       - name: Run Kotlin/Android tests and build optimized locally debug-signed APK
         working-directory: /tmp/cinemana-tv/CinemanaTV-v1.5.2
         run: |
