@@ -1,0 +1,62 @@
+name: Cinemana Loader 1.2.0 Windows EXE
+on:
+  workflow_dispatch:
+  push:
+    branches: [build/cinemana-loader-v12-idevicepair]
+    paths:
+      - 'loader-v111/**'
+      - '.github/workflows/cinemana-loader-v12-windows.yml'
+permissions:
+  contents: read
+jobs:
+  windows:
+    runs-on: windows-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Retrieve SideStore v0.10 from successful macOS build
+        uses: actions/download-artifact@v4
+        with:
+          run-id: 42568439393
+          name: cinemana-sidestore-v10-built-ipa
+          github-token: ${{ github.token }}
+          path: loader-v111/assets
+      - name: Download verified Cinemana IPA and validate both assets
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          New-Item -ItemType Directory -Force loader-v111/assets | Out-Null
+          gh release download ci-cinemana-ios-v2.1.1-refined --repo "${{ github.repository }}" --pattern "Cinemana-iOS-v2.1.1-beta.1-Unsigned.ipa" --dir loader-v111/assets
+          python -c "from pathlib import Path;import hashlib; exp={'Cinemana-SideStore-V0.10-TEST.ipa':'b0e6d58f93d034362af87053a0f359ae0ba1d043477ff6929674a559641c3f59','Cinemana-iOS-v2.1.1-beta.1-Unsigned.ipa':'42348c3d7571a4b202a73993106327440abfc457741e530fab3cba32926f6a00'};[(print(k,hashlib.sha256(Path('loader-v111/assets',k).read_bytes()).hexdigest()),hashlib.sha256(Path('loader-v111/assets',k).read_bytes()).hexdigest()==v or exit(1)) for k,v in exp.items()]"
+      - name: Clone pinned upstream iLoader v2.4.1
+        shell: pwsh
+        run: |
+          git clone --depth 1 --branch v2.4.1 https://github.com/nab138/iloader.git upstream
+      - name: Patch upstream with Cinemana installer workflow
+        shell: pwsh
+        run: |
+          python loader-v111/patch.py upstream
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: upstream/src-tauri -> target
+      - name: Build NSIS Windows executable
+        shell: pwsh
+        working-directory: upstream
+        run: |
+          npm install --no-audit --no-fund
+          npm run tauri build -- --bundles nsis
+      - name: Upload EXE
+        uses: actions/upload-artifact@v4
+        with:
+          name: Cinemana-Loader-v1.2.0-Windows-Installer
+          path: upstream/src-tauri/target/release/bundle/nsis/*.exe
+          if-no-files-found: error
+          retention-days: 14
