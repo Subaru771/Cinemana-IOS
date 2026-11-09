@@ -61,7 +61,23 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          make build 2>&1 | tee ../sidestore-v10-build.log
+          # GitHub release-hosted SwiftPM binary targets sometimes return HTTP 504.
+          # Retry only transient download failures, not compiler/test failures.
+          for attempt in 1 2 3 4; do
+            if make build 2>&1 | tee ../sidestore-v10-build.log; then
+              break
+            fi
+            if [ "$attempt" -eq 4 ]; then
+              echo "Build failed after four attempts"
+              exit 1
+            fi
+            if ! grep -Eq 'badResponseStatusCode\(5[0-9][0-9]\)|failed downloading.*(50[234]|5[0-9][0-9])|HTTP (50[234]|5[0-9][0-9])' ../sidestore-v10-build.log; then
+              echo "Non-network failure; not retrying"
+              exit 1
+            fi
+            echo "Retrying transient SwiftPM asset download failure: attempt $((attempt+1))/4"
+            sleep $((attempt * 15))
+          done
           gh release download ci-cinemana-ios-v2.1.1-refined \
             --repo "${GITHUB_REPOSITORY}" --pattern 'Cinemana-iOS-v2.1.1-beta.1-Unsigned.ipa'
           echo '42348c3d7571a4b202a73993106327440abfc457741e530fab3cba32926f6a00  Cinemana-iOS-v2.1.1-beta.1-Unsigned.ipa' | sha256sum --check -
