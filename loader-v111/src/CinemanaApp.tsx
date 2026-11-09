@@ -178,7 +178,7 @@ export default function App() {
       {(stage === "install" || stage === "error") && <section className="cinemana-panel">
         <h2>{stage === "error" ? ui.progress.needsAttention : ui.progress.installingOn(deviceName ?? ui.progress.fallbackName)}</h2>
         <div className="cinemana-progress">
-          {stepOrder.map((step) => <div key={step} className={\`cinemana-progress-row \${completedSteps.includes(step) ? "complete" : currentStep === step ? "current" : ""}\`}>
+          {stepOrder.map((step) => <div key={step} className={`cinemana-progress-row ${completedSteps.includes(step) ? "complete" : currentStep === step ? "current" : ""}`}>
             <span className="cinemana-progress-mark">{completedSteps.includes(step) ? "✓" : currentStep === step && stage === "install" ? "◌" : "·"}</span>
             <span>{ui.steps[step]}</span>
           </div>)}
