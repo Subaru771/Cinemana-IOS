@@ -19,11 +19,11 @@ export const ui = {
   },
   trusting: {
     title: 'جاري توثيق الجهاز',
-    body: (name: string) => \`وافق على رسالة الوثوق أو أدخل الرمز السري على \${name}.\`,
+    body: (name: string) => `وافق على رسالة الوثوق أو أدخل الرمز السري على ${name}.`,
     fallbackName: 'الآيفون',
   },
   progress: {
-    installingOn: (name: string) => \`جاري التثبيت على \${name}\`,
+    installingOn: (name: string) => `جاري التثبيت على ${name}`,
     fallbackName: 'جهازك',
     needsAttention: 'التثبيت يحتاج انتباهك',
     keepUnlocked: 'خلّي الجهاز مفتوح ومتصل. ممكن Apple تطلب منك تأكيد صلاحيات.',
