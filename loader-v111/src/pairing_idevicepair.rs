@@ -14,10 +14,11 @@ use idevice::{
     lockdown::LockdownClient,
     remote_pairing::{RemotePairingLockdownService, RpPairingFile},
 };
-use tauri::AppHandle;
+use tauri::{AppHandle, Manager};
 use uuid::Uuid;
 use crate::{
-    device::{DeviceInfo, get_provider, get_usbmuxd},
+    device::{DeviceInfo, DeviceInfoMutex, DeviceInfoWithPairing, PairingCancelToken, get_provider, get_usbmuxd, set_selected_device},
+    pairing::delete_stored_rppairing,
     error::AppError,
 };
 
@@ -111,4 +112,31 @@ pub async fn generate_and_place(
     // parses the typed file and clears its internal "pairing reset" flag.
     write_and_check(&mut afc,MARKER,mode.as_bytes()).await?;
     Ok(mode.into())
+}
+
+
+// The original iLoader may reuse a cached RPPairing record when a user
+// clicks a device. Clear that cache and force a new trust/pairing handshake.
+#[tauri::command]
+pub async fn cinemana_select_device(
+    handle: AppHandle, device: DeviceInfo
+) -> Result<(), AppError> {
+    {
+        let state=handle.state::<DeviceInfoMutex>();
+        *state.lock().unwrap()=Some(DeviceInfoWithPairing {
+            info: device.clone(), pairing: Vec::new()
+        });
+    }
+    // Rotate cached host label and discard stale RPPairing keys.
+    delete_stored_rppairing(handle.state::<DeviceInfoMutex>(), handle.clone()).await?;
+    let result=set_selected_device(
+        handle.clone(),
+        handle.state::<DeviceInfoMutex>(),
+        handle.state::<PairingCancelToken>(),
+        Some(device),
+    ).await;
+    if result.is_err() {
+        *handle.state::<DeviceInfoMutex>().lock().unwrap()=None;
+    }
+    result
 }
