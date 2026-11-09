@@ -6,14 +6,12 @@ use idevice::{IdeviceService, installation_proxy::InstallationProxyClient};
 use tauri::{AppHandle, Manager, Window};
 use uuid::Uuid;
 use crate::{
-    device::{DeviceInfo, DeviceInfoMutex, get_provider, get_provider_from_connection, get_usbmuxd},
+    device::{DeviceInfo, DeviceInfoMutex, get_provider},
     error::AppError,
     operation::Operation,
-    pairing::place_file,
+    pairing_idevicepair::generate_and_place,
     sideload::{SideloaderMutex, sideload},
 };
-const SIDESTORE_PAIRING_PATHS: &str =
-    "ALTPairingFile.mobiledevicepairing;PairingFile_RemoteRP.plist;PairingFile_Lockdown.plist";
 const SIDESTORE_IPA: &[u8] = include_bytes!("../cinemana-assets/Cinemana-SideStore-V0.10-TEST.ipa");
 const CINEMANA_IPA: &[u8] = include_bytes!("../cinemana-assets/Cinemana-iOS-v2.1.1-beta.1-Unsigned.ipa");
 const CINEMANA_DISPLAY_NAME: &str = "Cinemana iOS";
@@ -105,11 +103,11 @@ pub async fn cinemana_install_operation(handle: AppHandle, window: Window) -> Re
     op.move_on("sidestore", "pairing")?;
     let sidestore_bundle_id = op.fail_if_err(
         "pairing", find_cinemana_sidestore(&device.info).await)?;
-    let mut usbmuxd = op.fail_if_err("pairing", get_usbmuxd().await)?;
-    let provider = op.fail_if_err("pairing",
-        get_provider_from_connection(&device.info, &mut usbmuxd).await)?;
-    op.fail_if_err("pairing", place_file(device.pairing, &provider,
-        sidestore_bundle_id, SIDESTORE_PAIRING_PATHS.to_string()).await)?;
+    // iDevicePair-style: independently generate and validate fresh lockdown
+    // and remote records; write the correct format to each path and verify the
+    // bytes by AFC read-back. Never reuse the old combined plist for all paths.
+    op.fail_if_err("pairing", generate_and_place(
+        &handle, &device.info, &sidestore_bundle_id).await)?;
     op.move_on("pairing", "cinemana")?;
     op.fail_if_err("cinemana", sideload(
         handle.state(), handle.state(), app_path.to_string_lossy().to_string()).await)?;
