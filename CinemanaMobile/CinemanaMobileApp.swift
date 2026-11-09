@@ -20,9 +20,6 @@ struct CinemanaMobileApp: App {
     @StateObject private var library = LibraryStore()
     @StateObject private var startup = CinemanaStartupState()
     @State private var showBrandSplash = true
-    @State private var showHubWelcome = false
-    @AppStorage("cinemana-hub-promo-hidden") private var hideHubWelcome = false
-    @AppStorage("cinemana-hub-promo-seen") private var hasSeenHubWelcome = false
     @AppStorage("cinemana-app-language") private var appLanguage = "system"
 
     init() {
@@ -75,18 +72,6 @@ struct CinemanaMobileApp: App {
                 try? await Task.sleep(for: .milliseconds(560))
                 guard !Task.isCancelled else { return }
                 withAnimation(.easeOut(duration: 0.18)) { showBrandSplash = false }
-                // Let the short transition complete before presenting Cinema Hub.
-                try? await Task.sleep(for: .milliseconds(200))
-                guard !Task.isCancelled else { return }
-                if !hideHubWelcome && !hasSeenHubWelcome {
-                    hasSeenHubWelcome = true
-                    showHubWelcome = true
-                }
-            }
-            .sheet(isPresented: $showHubWelcome) {
-                CinemaHubWelcomeView()
-                    .presentationDetents([.large])
-                    .presentationDragIndicator(.visible)
             }
             .tint(mint)
             .preferredColorScheme(.dark)
@@ -159,8 +144,6 @@ struct CatalogView: View {
                                 Image(systemName: "sparkles").foregroundStyle(mint)
                                 Text("For You").font(.title3.weight(.bold))
                                 Spacer()
-                                Text("Private, on-device suggestions")
-                                    .font(.caption2).foregroundStyle(.secondary)
                             }.padding(.horizontal, 16)
                             ScrollView(.horizontal, showsIndicators: false) {
                                 LazyHStack(alignment: .top, spacing: 12) {
@@ -722,18 +705,12 @@ struct SearchCatalogView: View {
                 }
                 if loading { ProgressView("Searching…").tint(mint).padding(.horizontal, 16) }
                 if let error { ErrorMessage(text: error) { Task { await search(query) } } }
-                if !results.isEmpty {
-                    Text("\(filtered.count) of \(results.count) matches")
-                        .font(.footnote).foregroundStyle(.secondary)
-                        .padding(.horizontal, 16)
-                }
                 ScrollView {
                     if query.trimmingCharacters(in: .whitespacesAndNewlines).count < 2 {
-                        EmptyStateView(symbol: "magnifyingglass", title: "Find something to watch",
-                                       message: "Search by movie or series title.")
+                        EmptyStateView(symbol: "magnifyingglass", title: "Search titles", message: "")
                     } else if !loading && error == nil && filtered.isEmpty {
-                        EmptyStateView(symbol: "line.3.horizontal.decrease.circle", title: "No matching titles",
-                                       message: results.isEmpty ? "Try another title." : "Try clearing your filters.")
+                        EmptyStateView(symbol: "line.3.horizontal.decrease.circle", title: "No results",
+                                       message: results.isEmpty ? "Try another title." : "Clear filters to see more.")
                         if !results.isEmpty {
                             Button("Reset filters") { options = SearchOptions() }
                                 .buttonStyle(.bordered).tint(mint)
@@ -1087,19 +1064,19 @@ struct LibraryView: View {
                     }
                     .pickerStyle(.segmented)
 
-                    NavigationLink { CollectionsView() } label: {
-                        Label("Collections", systemImage: "folder.fill")
-                            .font(.headline)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .padding(16)
-                            .background(.gray.opacity(0.16), in: RoundedRectangle(cornerRadius: 12))
-                    }
-                    .buttonStyle(.plain)
-                    NavigationLink { DownloadsView() } label: {                        Label("Downloads", systemImage: "arrow.down.to.line.compact")
-                            .font(.headline)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .padding(16)
-                            .background(.gray.opacity(0.16), in: RoundedRectangle(cornerRadius: 12))
+                    HStack(spacing: 10) {
+                        NavigationLink { CollectionsView() } label: {
+                            Label("Collections", systemImage: "folder.fill")
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 12)
+                                .background(.gray.opacity(0.16), in: RoundedRectangle(cornerRadius: 12))
+                        }
+                        NavigationLink { DownloadsView() } label: {
+                            Label("Downloads", systemImage: "arrow.down.to.line.compact")
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 12)
+                                .background(.gray.opacity(0.16), in: RoundedRectangle(cornerRadius: 12))
+                        }
                     }
                     .buttonStyle(.plain)
 
@@ -1120,8 +1097,7 @@ struct LibraryView: View {
     @ViewBuilder
     private var continueWatching: some View {
         if visibleRecent.isEmpty {
-            emptyState(symbol: "play.circle", title: "Nothing to continue yet",
-                       message: "Titles you start watching will appear here so you can pick up where you left off.")
+            emptyState(symbol: "play.circle", title: "No recent videos")
         } else {
             ForEach(visibleRecent) { item in
                 HStack(spacing: 12) {
@@ -1133,7 +1109,7 @@ struct LibraryView: View {
                             VStack(alignment: .leading, spacing: 8) {
                                 Text(item.video.title).font(.subheadline.weight(.semibold)).lineLimit(2)
                                 ProgressBar(fraction: item.fraction).frame(height: 4)
-                                Text("\(Int(item.fraction * 100))% watched")
+                                Text("\(Int(item.fraction * 100))%")
                                     .font(.caption).foregroundStyle(.secondary)
                             }
                         }
@@ -1149,8 +1125,7 @@ struct LibraryView: View {
     @ViewBuilder
     private var favorites: some View {
         if visibleFavorites.isEmpty {
-            emptyState(symbol: "bookmark.circle", title: "Your list is empty",
-                       message: "Save a movie or series to find it here later.")
+            emptyState(symbol: "bookmark.circle", title: "Your list is empty")
         } else {
             LazyVGrid(columns: [GridItem(.adaptive(minimum: 125), spacing: 12)], spacing: 20) {
                 ForEach(visibleFavorites) { item in
@@ -1160,11 +1135,10 @@ struct LibraryView: View {
         }
     }
 
-    private func emptyState(symbol: String, title: LocalizedStringKey, message: LocalizedStringKey) -> some View {
+    private func emptyState(symbol: String, title: LocalizedStringKey) -> some View {
         VStack(spacing: 12) {
             Image(systemName: symbol).font(.system(size: 48)).foregroundStyle(mint)
             Text(title).font(.title3.weight(.semibold))
-            Text(message).foregroundStyle(.secondary).multilineTextAlignment(.center)
         }
         .frame(maxWidth: .infinity)
         .padding(.top, 60)
@@ -1176,8 +1150,6 @@ struct AboutView: View {
     @AppStorage(MatureContentFilter.preferenceKey) private var hideMatureContent = false
     @AppStorage("cinemana-auto-landscape") private var autoLandscape = true
     @AppStorage("cinemana-app-language") private var appLanguage = "system"
-    @AppStorage("cinemana-hub-promo-hidden") private var hideHubWelcome = false
-    @AppStorage("cinemana-hub-promo-seen") private var hasSeenHubWelcome = false
     @State private var confirmHistory = false
     @State private var confirmWatchlist = false
     @State private var cacheCleared = false
@@ -1195,52 +1167,24 @@ struct AboutView: View {
                     Text("Follow iPhone Language").tag("system")
                     Text("English").tag("en")
                     Text("العربية").tag("ar")
-                }
-                .pickerStyle(.menu)
-                Text("Choose a language for Cinemana. Changes apply immediately.")
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
-            }
-            Section("Cinemana iOS") {
-                LabeledContent("Version", value: Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "—")
-                LabeledContent("Player", value: "AVPlayer · Cinema controls · PiP")
-                LabeledContent("Offline videos", value: "\(DownloadCenter.shared.items.filter { $0.status == .ready }.count)")
-                LabeledContent("Saved titles", value: "\(library.snapshot.favorites.count)")
-                LabeledContent("Continue Watching", value: "\(library.snapshot.recent.count)")
+                }.pickerStyle(.menu)
             }
             Section("Home screen") {
                 Toggle("Featured title", isOn: $showFeatured)
                 Toggle("For You recommendations", isOn: $showForYou)
                 Toggle("Trending sections", isOn: $showTrending)
                 Toggle("Recently added sections", isOn: $showNew)
-                Text("Recommendations use on-device favorites and viewing history only.")
-                    .font(.footnote).foregroundStyle(.secondary)
             }
-            Section("Content filter") {
+            Section("Player") {
+                Toggle("Rotate to landscape when playing", isOn: $autoLandscape)
                 Toggle("Hide Mature Content", isOn: $hideMatureContent)
-                Text("Hide titles tagged adult, explicit or 18+ from browsing, the library and compatible playback. The setting is also available in the video player. This cannot remove mature scenes from unclassified videos.")
-                    .font(.footnote).foregroundStyle(.secondary)
+                Text("Filters tagged titles; does not skip scenes.")
+                    .font(.caption).foregroundStyle(.secondary)
             }
-            Section("Privacy and data") {
-                Toggle("Remember viewing history", isOn: Binding(
-                    get: { library.extras.saveHistory },
-                    set: { library.setSaveHistory($0) }))
-                Text("Your watch history, skip markers, and collections are saved on this device, not sent to the app developer.")
-                    .font(.footnote).foregroundStyle(.secondary)
-                Button("Prepare personal data export") {
-                    if let data = library.exportData() {
-                        let url = FileManager.default.temporaryDirectory
-                            .appendingPathComponent("cinemana-personal-export.json")
-                        do { try data.write(to: url, options: .atomic); exportURL = url }
-                        catch { exportURL = nil }
-                    }
+            Section("Offline downloads") {
+                NavigationLink { DownloadsView() } label: {
+                    Label("Manage downloads", systemImage: "arrow.down.to.line.compact")
                 }
-                if let exportURL {
-                    ShareLink(item: exportURL) { Label("Share personal data export", systemImage: "square.and.arrow.up") }
-                }
-                Button("Erase all personal viewing data", role: .destructive) { eraseAll = true }
-                Text("Erasing viewing data does not delete downloaded movie files.")
-                    .font(.footnote).foregroundStyle(.secondary)
             }
             Section("Local storage") {
                 Button("Clear cached catalog") {
@@ -1250,47 +1194,41 @@ struct AboutView: View {
                     }
                 }
                 if cacheCleared {
-                    Text("Catalog cache cleared. It will refresh the next time you open a catalog.")
-                        .font(.footnote).foregroundStyle(.secondary)
+                    Label("Cache cleared", systemImage: "checkmark.circle")
+                        .font(.caption).foregroundStyle(.secondary)
                 }
                 Button("Clear Continue Watching", role: .destructive) { confirmHistory = true }
                 Button("Clear My List", role: .destructive) { confirmWatchlist = true }
-                Text("Your list and playback progress stay on this device.")
-                    .font(.footnote).foregroundStyle(.secondary)
             }
-            Section("Offline downloads") {
-                NavigationLink { DownloadsView() } label: {
-                    Label("Manage downloads", systemImage: "arrow.down.to.line.compact")
+            Section("Privacy and data") {
+                Toggle("Remember viewing history", isOn: Binding(
+                    get: { library.extras.saveHistory },
+                    set: { library.setSaveHistory($0) }))
+                Button("Export data") {
+                    if let data = library.exportData() {
+                        let url = FileManager.default.temporaryDirectory
+                            .appendingPathComponent("cinemana-personal-export.json")
+                        do { try data.write(to: url, options: .atomic); exportURL = url }
+                        catch { exportURL = nil }
+                    }
                 }
-                Text("Downloads require provider-authorized MP4 or HLS media. Some streams cannot be saved.")
-                    .font(.footnote).foregroundStyle(.secondary)
-            }
-            Section("Player") {
-                Toggle("Rotate to landscape when playing", isOn: $autoLandscape)
-                Text("Double-tap the left or right side to skip 10 seconds. Swipe up or down on the left side for brightness and on the right side for volume.")
-                    .font(.footnote).foregroundStyle(.secondary)
+                if let exportURL {
+                    ShareLink(item: exportURL) {
+                        Label("Share export", systemImage: "square.and.arrow.up")
+                    }
+                }
+                Button("Erase viewing data", role: .destructive) { eraseAll = true }
             }
             Section("Connection and playback") {
                 NavigationLink { ConnectionDiagnosticsView() } label: {
                     Label("Network diagnostics", systemImage: "network")
                 }
-                Text("The content provider may restrict access by ISP or require authorization. Cinemana iOS does not bypass restrictions.")
-                Text("Playback supports compatible HLS and progressive files, plus imported or provider SRT/VTT subtitles. MPEG-DASH and MKV are not supported by this native player build.")
             }
-            Section("Cinema Hub") {
+            Section("Cinemana iOS") {
+                LabeledContent("Version", value: Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "—")
                 Link(destination: URL(string: "https://t.me/CinemanaHub")!) {
-                    Label("Cinema Hub on Telegram", systemImage: "paperplane.fill")
+                    Label("Cinema Hub", systemImage: "paperplane.fill")
                 }
-                Button("Show welcome popup next launch") {
-                    hideHubWelcome = false
-                    hasSeenHubWelcome = false
-                }
-                Text("Telegram is optional. You can dismiss the welcome message or choose not to show it again.")
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
-            }
-            Section("Distribution") {
-                Text("Installing on an iPhone requires valid Apple signing. Public distribution requires appropriate content rights.")
             }
         }
         .navigationTitle("Settings")
@@ -1318,8 +1256,10 @@ struct EmptyStateView: View {
             Image(systemName: symbol)
                 .font(.system(size: 40, weight: .ultraLight)).foregroundStyle(mint)
             Text(LocalizedStringKey(title)).font(.headline)
-            Text(message).font(.subheadline).foregroundStyle(.secondary)
-                .multilineTextAlignment(.center)
+            if !message.isEmpty {
+                Text(message).font(.subheadline).foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
+            }
         }
         .frame(maxWidth: .infinity)
         .padding(.horizontal, 24).padding(.vertical, 65)
