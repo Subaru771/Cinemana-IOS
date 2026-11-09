@@ -1,0 +1,58 @@
+name: Cinemana TV v1.5.2 merged - Android test build
+on:
+  push:
+    branches: [build/tv-v1.5.2-focus-scene]
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/cinemana-tv-android.yml'
+      - 'ci-sources/CinemanaTV-v1.5.2-Focus-Refined-SOURCE.zip'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  android-tv:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Configure Android SDK
+        run: |
+          echo "ANDROID_HOME=${ANDROID_HOME:-/usr/local/lib/android/sdk}" >> "$GITHUB_ENV"
+          echo "ANDROID_SDK_ROOT=${ANDROID_HOME:-/usr/local/lib/android/sdk}" >> "$GITHUB_ENV"
+      - name: Install SDK 35
+        run: |
+          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses > /dev/null || true
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-35" "build-tools;35.0.0"
+      - name: Extract exact merged source
+        run: |
+          unzip -tq ci-sources/CinemanaTV-v1.5.2-Focus-Refined-SOURCE.zip
+          unzip -q ci-sources/CinemanaTV-v1.5.2-Focus-Refined-SOURCE.zip -d /tmp/cinemana-tv
+          test -f /tmp/cinemana-tv/CinemanaTV-v1.5.2/app/build.gradle.kts
+          grep -q 'versionCode = 47' /tmp/cinemana-tv/CinemanaTV-v1.5.2/app/build.gradle.kts
+      - name: Apply multi-range scene fallback regression fix
+        run: python3 ci-sources/v1.5.2-hotfix.py /tmp/cinemana-tv/CinemanaTV-v1.5.2
+      - name: Run Kotlin/Android tests and build optimized locally debug-signed APK
+        working-directory: /tmp/cinemana-tv/CinemanaTV-v1.5.2
+        run: |
+          chmod +x gradlew
+          ./gradlew --no-daemon --stacktrace :app:testDebugUnitTest :app:assembleRelease
+      - name: Verify and checksum APK
+        run: |
+          mkdir -p dist
+          cp /tmp/cinemana-tv/CinemanaTV-v1.5.2/app/build/outputs/apk/release/app-release.apk dist/CinemanaTV-v1.5.2-Focus-TEST.apk
+          test -s dist/CinemanaTV-v1.5.2-Focus-TEST.apk
+          unzip -tq dist/CinemanaTV-v1.5.2-Focus-TEST.apk
+          (cd dist && sha256sum CinemanaTV-v1.5.2-Focus-TEST.apk > SHA256SUMS.txt)
+      - name: Upload test APK and checksum
+        uses: actions/upload-artifact@v4
+        with:
+          name: CinemanaTV-v1.5.2-Focus-TEST-APK
+          path: dist/*
+          if-no-files-found: error
+          retention-days: 30
