@@ -1,48 +1,136 @@
 <!doctype html>
 <html lang="en" dir="ltr">
-<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"><meta name="theme-color" content="#070e0c"><meta name="description" content="A simpler phone-first Cinemana iOS beta installation flow using official SideInstaller and SideStore."><title>Install Cinemana on iPhone — Phone-first setup</title>
-<link rel="alternate" hreflang="en" href="install.html"><link rel="alternate" hreflang="ar" href="install-ar.html">
-<style>
-:root{color-scheme:dark;--bg:#070e0c;--surface:#121d18;--surface2:#19251e;--mint:#9aefb5;--text:#f4f9f4;--muted:#b5c6bb;--line:#34463b}
-*{box-sizing:border-box}html{scroll-behavior:smooth}body{background:radial-gradient(ellipse at 68% 0,#203f2b 0,transparent 49%),var(--bg);color:var(--text);font:16px/1.55 -apple-system,BlinkMacSystemFont,"Segoe UI",Tahoma,sans-serif;margin:0}a{color:inherit}button{font:inherit;cursor:pointer}a:focus-visible,button:focus-visible{outline:3px solid var(--mint);outline-offset:3px}
-.wrap{max-width:800px;margin:auto;padding:24px 20px 75px}.nav{display:flex;align-items:center;justify-content:space-between;gap:12px}.nav a{text-decoration:none}.brand{letter-spacing:2px;font-weight:900;font-size:16px}.lang{border:1px solid var(--line);padding:8px 13px;border-radius:12px;font-size:14px}.eyebrow{color:var(--mint);font-size:11px;font-weight:850;letter-spacing:2px;margin:55px 0 10px}h1{font-size:clamp(38px,7vw,66px);line-height:1.06;letter-spacing:-.055em;margin:0 0 13px}h1 span{color:var(--mint)}.lead{max-width:610px;color:var(--muted);font-size:17px;margin:0 0 28px}
-.status{display:flex;gap:9px;align-items:flex-start;background:#172d20;border:1px solid #3e624c;padding:13px 16px;border-radius:14px;color:#d5f0dd;font-size:13px}.status strong{color:var(--mint)}
-h2{font-size:23px;letter-spacing:-.025em;margin:33px 0 14px}.selector{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:9px}.selector button{border:1px solid var(--line);background:var(--surface);border-radius:13px;padding:13px 9px;color:var(--muted);font-size:13px;font-weight:750;min-height:54px}.selector button[aria-pressed="true"]{background:#274a34;color:var(--mint);border-color:#6baf7b}section[hidden]{display:none!important}
-.flowHead{display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;margin-top:29px}.flowHead h2{margin:0}.chip{color:var(--mint);font-size:11px;font-weight:800;letter-spacing:.4px}
-.steps{display:grid;gap:11px;margin-top:16px}.step{display:grid;grid-template-columns:34px minmax(0,1fr);gap:11px;background:var(--surface);border:1px solid var(--line);border-radius:17px;padding:18px}.no{background:#224b31;color:var(--mint);height:30px;width:30px;display:grid;place-items:center;font-weight:900;border-radius:9px}.step h3{margin:0 0 4px;font-size:16px}.step p{margin:0 0 12px;color:var(--muted);font-size:14px}.button{display:inline-flex;align-items:center;justify-content:center;min-height:43px;border-radius:11px;background:#24382b;border:1px solid #456650;text-decoration:none;font-size:13px;padding:10px 14px;font-weight:750}.button:hover{filter:brightness(1.13)}.button.primary{color:#092113;background:var(--mint);border-color:var(--mint)}.button.alt{background:transparent;color:var(--muted)}
-.release{border:1px solid #42634d;background:linear-gradient(135deg,#182b1d,#132019);padding:20px;border-radius:19px;margin:26px 0 0}.release h2{margin:0 0 9px;font-size:20px}.release p{color:var(--muted);font-size:13px;margin:0 0 16px}.actions{display:flex;flex-wrap:wrap;gap:9px}.warning{font-size:13px;color:#e5d4b2;background:#2b2519;border:1px solid #594b2d;border-radius:14px;padding:14px;margin-top:15px}.faq details{background:var(--surface);border:1px solid var(--line);padding:15px 18px;border-radius:13px;margin:9px 0}.faq summary{cursor:pointer;font-size:14px;font-weight:800}.faq p{font-size:14px;color:var(--muted)}footer{font-size:12px;color:var(--muted);line-height:1.7;margin-top:37px;border-top:1px solid var(--line);padding-top:20px}footer a{color:var(--mint)}[dir="rtl"] .brand,[dir="rtl"] .no{direction:ltr}code{word-break:break-word}
-@media(max-width:480px){.wrap{padding:20px 14px 55px}.eyebrow{margin-top:39px}.selector button{font-size:12px;padding:11px 5px}.step{padding:14px}.flowHead{align-items:start}.release{padding:16px}}
-@media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}}
-</style></head>
-<body><main class="wrap"><nav class="nav" aria-label="Navigation"><a class="brand" href="index.html">CINEMANA</a><a href="install-ar.html" class="lang" lang="ar">العربية</a><span aria-current="page" lang="en" style="position:absolute;width:1px;height:1px;overflow:hidden">English</span></nav>
-<div class="eyebrow">PHONE-FIRST SETUP</div><h1>Cinemana on iPhone.<br><span>Less setup. More watching.</span></h1><p class="lead">On iOS 27+, install Cinemana directly with AltLoad — without adding SideStore, LiveContainer or iLoader. SideInstaller + SideStore remains available as a fallback.</p>
-<div class="status"><strong>✓</strong><span>No PC is needed for initial setup on iOS 27+ when SideInstaller's certificate method works.</span></div>
-<p style="margin:18px 0 0"><a class="button primary" href="#without-sidestore">Recommended: install Cinemana directly with AltLoad · iOS 27+ ↓</a></p>
-<h2>Choose your setup</h2><div class="selector" role="group" aria-label="Choose your setup"><button type="button" data-target="ios27" aria-pressed="true">iOS 27 or newer</button><button type="button" data-target="legacy" aria-pressed="false">iOS 17–26</button><button type="button" data-target="ready" aria-pressed="false">SideStore already installed</button></div>
-<section id="ios27" class="path"  aria-label="NO COMPUTER ON iOS 27+"><div class="flowHead"><h2>Your next steps</h2><span class="chip">NO COMPUTER ON iOS 27+</span></div><div class="steps"><div class="step"><span class="no">1</span><div><h3>Install LocalDevVPN</h3><p>Get the free VPN helper from the App Store, open it, and tap Connect.</p><a class="button" href="https://apps.apple.com/app/localdevvpn/id6755608044" target="_blank" rel="noopener noreferrer">Get LocalDevVPN ↗</a></div></div><div class="step"><span class="no">2</span><div><h3>Install SideInstaller</h3><p>Open the developer's official site in Safari. Complete its DNS-profile and certificate steps, then trust the installed developer profile in Settings. Certificate availability can change.</p><a class="button" href="https://sideinstaller.net/" target="_blank" rel="noopener noreferrer">Official SideInstaller website ↗</a></div></div><div class="step"><span class="no">3</span><div><h3>Set up SideStore</h3><p>Open SideInstaller, use your own Apple Account inside that app, and choose Install SideStore (not LiveContainer). Follow its prompts. In SideStore, sign in and complete its first refresh with LocalDevVPN connected.</p><a class="button" href="https://docs.sidestore.io/docs/installation/install" target="_blank" rel="noopener noreferrer">SideStore official help ↗</a></div></div><div class="step"><span class="no">4</span><div><h3>Install Cinemana</h3><p>Keep LocalDevVPN connected. Tap the button below to open SideStore with the existing Cinemana beta IPA. SideStore will sign and install it with your Apple Account.</p><a class="button primary" href="sidestore://install?url=https%3A%2F%2Fgithub.com%2FSubaru771%2FCinemana-IOS%2Freleases%2Fdownload%2Fci-cinemana-ios-v2.1.1-refined%2FCinemana-iOS-v2.1.1-beta.1-Unsigned.ipa" >Install Cinemana in SideStore ↗</a></div></div></div></section><section id="legacy" class="path" hidden aria-label="ONE-TIME PAIRING NEEDED"><div class="flowHead"><h2>Your next steps</h2><span class="chip">ONE-TIME PAIRING NEEDED</span></div><div class="steps"><div class="step"><span class="no">1</span><div><h3>You cannot skip initial pairing on this version</h3><p>For iOS 17.4–26.3, SideInstaller needs a pairing file created with a computer. iOS 26.4–26.x needs a remote pairing (RPPairing) file. A website cannot securely create those on an unpaired phone.</p><a class="button" href="https://github.com/FrizzleM/SideInstaller#compatibility" target="_blank" rel="noopener noreferrer">Official compatibility details ↗</a></div></div><div class="step"><span class="no">2</span><div><h3>Set up SideStore once</h3><p>Use official iloader with a computer to install SideStore and place its pairing file. After the first installation, install and refresh apps on the iPhone itself.</p><a class="button" href="https://docs.sidestore.io/docs/installation/install" target="_blank" rel="noopener noreferrer">Official SideStore installation ↗</a></div></div><div class="step"><span class="no">3</span><div><h3>Then install Cinemana on your phone</h3><p>Open LocalDevVPN, connect, and use the install button below. If SideStore is already on the device and working, skip straight to the final step.</p><a class="button primary" href="sidestore://install?url=https%3A%2F%2Fgithub.com%2FSubaru771%2FCinemana-IOS%2Freleases%2Fdownload%2Fci-cinemana-ios-v2.1.1-refined%2FCinemana-iOS-v2.1.1-beta.1-Unsigned.ipa" >Install Cinemana in SideStore ↗</a></div></div></div></section><section id="ready" class="path" hidden aria-label="SKIP THE SETUP"><div class="flowHead"><h2>Your next steps</h2><span class="chip">SKIP THE SETUP</span></div><div class="steps"><div class="step"><span class="no">1</span><div><h3>Connect LocalDevVPN</h3><p>SideStore needs its local VPN for installing, updating and refreshing apps.</p><a class="button" href="https://apps.apple.com/app/localdevvpn/id6755608044" target="_blank" rel="noopener noreferrer">Get LocalDevVPN ↗</a></div></div><div class="step"><span class="no">2</span><div><h3>Install Cinemana</h3><p>Tap Install Cinemana in SideStore to hand the beta IPA URL to SideStore directly. No Files app import is needed.</p><a class="button primary" href="sidestore://install?url=https%3A%2F%2Fgithub.com%2FSubaru771%2FCinemana-IOS%2Freleases%2Fdownload%2Fci-cinemana-ios-v2.1.1-refined%2FCinemana-iOS-v2.1.1-beta.1-Unsigned.ipa" >Install Cinemana in SideStore ↗</a></div></div></div></section>
-<div class="release"><h2>Cinemana iOS beta · unsigned IPA</h2><p>This links to the public v2.1.1 beta IPA already in your project's GitHub Releases. It is an unsigned development build; real-device installation, playback and downloads have not been verified. SideStore provides the device-specific signature.</p><div class="actions"><a class="button primary" href="sidestore://install?url=https%3A%2F%2Fgithub.com%2FSubaru771%2FCinemana-IOS%2Freleases%2Fdownload%2Fci-cinemana-ios-v2.1.1-refined%2FCinemana-iOS-v2.1.1-beta.1-Unsigned.ipa">Install via SideStore ↗</a><a class="button" href="https://sideinstaller.net/open.html?url=https%3A%2F%2Fgithub.com%2FSubaru771%2FCinemana-IOS%2Freleases%2Fdownload%2Fci-cinemana-ios-v2.1.1-refined%2FCinemana-iOS-v2.1.1-beta.1-Unsigned.ipa" target="_blank" rel="noopener noreferrer">Already using SideInstaller? Open Cinemana there ↗</a><a class="button alt" href="https://github.com/Subaru771/Cinemana-IOS/releases/tag/ci-cinemana-ios-v2.1.1-refined" target="_blank" rel="noopener noreferrer">View original GitHub release ↗</a></div></div>
-<div class="warning">⚠ If SideInstaller's install certificates are revoked or unavailable, even iOS 27 installation may fail. No genuine browser page can guarantee installing an unsigned IPA without a working signing method.</div>
-
-<section class="release" id="without-sidestore">
-<div class="eyebrow" style="margin:0 0 9px">SIMPLER ALTERNATIVE · iOS 27+</div>
-<h2>Install Cinemana without SideStore</h2>
-<p>AltLoad signs and installs IPAs directly on the iPhone. You do not need SideStore, LiveContainer or iLoader for this method, provided the initial AltLoad install works.</p>
-<div class="steps">
-<div class="step"><span class="no">1</span><div><h3>Get AltLoad from its official website</h3><p>In Safari, accept its terms, install the DNS profile, choose an available signed installation, then trust the developer profile in Settings → General → VPN &amp; Device Management. These public signing certificates may be revoked.</p><a class="button" href="https://mirazbakis.github.io/AltLoad/" target="_blank" rel="noopener noreferrer">Official AltLoad installation ↗</a></div></div>
-<div class="step"><span class="no">2</span><div><h3>Pair on the iPhone</h3><p>In AltLoad open Tools → Pair. Go to Settings → Privacy &amp; Security → Developer Mode → Pair with AltLoad and enter the displayed code. Connect LocalDevVPN and sign in inside AltLoad to your Apple Account.</p><a class="button" href="https://apps.apple.com/app/localdevvpn/id6755608044" target="_blank" rel="noopener noreferrer">Get LocalDevVPN ↗</a></div></div>
-<div class="step"><span class="no">3</span><div><h3>Download and sign Cinemana</h3><p>Save the unsigned Cinemana beta IPA to Files in Safari. In AltLoad open Install → … → Install IPA from Files, choose the IPA, then sign and install it. It is an unverified development beta, not a tested public release.</p><a class="button primary" href="https://github.com/Subaru771/Cinemana-IOS/releases/download/ci-cinemana-ios-v2.1.1-refined/Cinemana-iOS-v2.1.1-beta.1-Unsigned.ipa" target="_blank" rel="noopener noreferrer">Download Cinemana beta IPA ↗</a></div></div>
-</div>
-<p style="margin-top:13px">On iOS 18–26, AltLoad still needs a pairing file from a computer once. If you already possess a valid personal signing certificate, you can instead use <a href="https://github.com/cloudmantou/Feather" target="_blank" rel="noopener noreferrer">Feather</a>. Neither option is an Apple signing bypass.</p>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#070e0c">
+<title>Install Cinemana on iPhone</title>
+<meta name="description" content="Cinemana iPhone beta: honest phone-only setup, latest verified IPA download and signing help." >
+<link rel="alternate" hreflang="en" href="install.html">
+<link rel="alternate" hreflang="ar" href="install-ar.html">
+<link rel="stylesheet" href="install.css">
+<script src="install.js" defer>
+</script>
+</head>
+<body>
+<main class="wrap">
+<nav class="nav" aria-label="Navigation">
+<a class="brand" href="index.html">CINEMANA</a>
+<span aria-current="page">English</span>
+<a class="lang" href="install-ar.html" lang="ar">العربية</a>
+</nav>
+<div class="eyebrow">IPHONE · DEVELOPMENT BETA</div>
+<h1>Cinemana. On your iPhone.<br>
+<span>A clearer way to install.</span>
+</h1>
+<p class="lead">Start here to find the shortest setup for your phone. Apple requires a valid signature before any app can open.</p>
+<div class="status">Real iPhone installation has not been verified. Phone-only setup is conditional; public certificates can stop working at any time.</div>
+<p>
+<a class="button primary" href="#setup">Install Cinemana ↓</a>
+</p>
+ <section id="setup">
+<h2>Choose your iPhone setup</h2>
+<label for="method">iOS version or existing installer</label>
+<select id="method">
+<option value="unknown">Choose your version…</option>
+<option value="modern">iOS 27+</option>
+<option value="legacy">iOS 18–26</option>
+<option value="older">iOS 16–17</option>
+<option value="ready">I already have an installer</option>
+</select>
+<p id="device-hint" class="lead">
+</p>
+<p>Find your version in Settings → General → About. Browser detection is only a hint; you can always change this choice.</p>
+ <section data-path="unknown">
+<div class="warning">Choose a version above. There is no universal free one-tap website installation for an unsigned iOS app.</div>
 </section>
-<section class="release" id="future-distribution"><h2>Want true one-tap installation for everyone?</h2><p>We can build a Cinemana-branded installation portal using Apple-approved distribution. With a paid Apple Developer account, the realistic routes are a reviewed TestFlight invite (for authorized distribution) or signed Ad Hoc builds restricted to registered test devices. A website cannot independently sign and install an unrestricted unsigned IPA on an ordinary iPhone.</p><div class="actions"><a class="button alt" target="_blank" rel="noopener noreferrer" href="https://developer.apple.com/testflight/">About TestFlight ↗</a><a class="button alt" target="_blank" rel="noopener noreferrer" href="https://developer.apple.com/help/account/provisioning-profiles/create-an-ad-hoc-provisioning-profile">Ad Hoc signing requirements ↗</a></div></section>
-<div class="faq"><h2>Need help?</h2><details><summary>Does this require a computer?</summary><p>On iOS 27+, the official SideInstaller offers an on-device setup; it still depends on working initial installation certificates. Earlier iOS versions normally require a computer once unless SideStore or pairing is already prepared.</p></details><details><summary>Will Cinemana stop working after seven days?</summary><p>With a free Apple Account, SideStore-installed apps usually need refreshing within seven days. Keep Wi-Fi and LocalDevVPN available, then refresh in SideStore → My Apps.</p></details><details><summary>What if I get an invalid pairing file?</summary><p>On older iOS, update iloader and replace the pairing file using Manage Pairing File → Place. On iOS 26.4+, use a remote pairing file. See the official pairing instructions.</p></details><details><summary>Is SideInstaller affiliated with Cinemana?</summary><p>No. We only link to the official third-party project. Never enter your Apple ID, password or pairing files into this Cinemana page. Do not use sideinstaller.com, which the author identifies as an imitation.</p></details><a class="button alt" href="https://docs.sidestore.io/docs/advanced/pairing-file" target="_blank" rel="noopener noreferrer">Official pairing troubleshooting ↗</a></div>
-<footer>Independent Cinemana iOS beta setup. SideInstaller, SideStore and LocalDevVPN belong to their respective developers. Use only software and media you are authorized to access.<p><a href="index.html">Back to Cinemana</a> · <a href="privacy.html">Privacy</a></p></footer></main>
-<script>
-document.querySelectorAll('.selector button').forEach(function(button){
- button.addEventListener('click',function(){
-  var id=button.getAttribute('data-target');
-  document.querySelectorAll('.selector button').forEach(function(b){b.setAttribute('aria-pressed',String(b===button));});
-  document.querySelectorAll('section.path').forEach(function(s){s.hidden=s.id!==id;});
- });
-});
-</script></body></html>
+ <section data-path="modern">
+<h2>Try AltLoad · no computer if setup succeeds</h2>
+<div class="steps">
+<div class="step">
+<span class="no">1</span>
+<div>
+<h3>Get the official AltLoad app</h3>
+<p>Open the official site in Safari. Its signed install may require a DNS profile and trusting a developer in Settings → General → VPN &amp; Device Management. Review the profile and its provider first: DNS changes affect your connections. If certificates are unavailable or revoked, stop and use the fallback below.</p>
+<a class="button" href="https://mirazbakis.github.io/AltLoad/">Open official AltLoad site</a>
+</div>
+</div>
+<div class="step">
+<span class="no">2</span>
+<div>
+<h3>Pair on your iPhone</h3>
+<p>Follow AltLoad’s current instructions. Enable Developer Mode (a restart may be required). In Tools → Pair, follow Settings → Privacy &amp; Security → Developer Mode → Pair with AltLoad and enter its code. Connect LocalDevVPN. Sign in only inside the official installer using your own Apple Account.</p>
+<a class="button" href="https://apps.apple.com/app/id6755608044">Get LocalDevVPN</a>
+</div>
+</div>
+<div class="step">
+<span class="no">3</span>
+<div>
+<h3>Download, sign and install Cinemana</h3>
+<p>Download the IPA below to Files. In AltLoad use Install → … → Install IPA from Files, choose Cinemana and follow the signing prompts. No SideStore or LiveContainer is needed for this route. Open Cinemana from the Home Screen after installation.</p>
+</div>
+</div>
+</div>
+<p>Fallback: <a href="https://sideinstaller.net/">SideInstaller</a> also supports on-device pairing on iOS 27+ and a direct IPA install link below. Its initial certificate has the same availability risk. SideStore is optional for ongoing refresh/update management.</p>
+</section>
+<section data-path="legacy">
+<h2>iOS 18–26: one-time computer setup</h2>
+<p>AltLoad requires a remote pairing file created on a computer. SideInstaller requires a computer-created pairing file on iOS 17.4–26.3, and a remote pairing file on iOS 26.4–26.x. We cannot offer a verified free phone-only first installation here.</p>
+<a class="button" href="https://docs.sidestore.io/docs/installation/install">Official SideStore setup with a computer</a>
+</section>
+<section data-path="older">
+<h2>iOS 16–17: check exact compatibility</h2>
+<p>Cinemana’s current IPA requires iOS 16+. AltLoad does not support iOS 17 or earlier. SideInstaller starts at 17.4 with a computer-created pairing file. Use the official SideStore compatibility guide for other versions. TrollStore supports only specific older versions and devices; it does not support 17.0.1+ or normal 16.7 releases. Do not downgrade or assume your device is supported.</p>
+<a class="button" href="https://docs.sidestore.io/docs/installation/install">SideStore</a> <a class="button" href="https://github.com/opa334/TrollStore">TrollStore</a>
+</section>
+<section data-path="ready">
+<h2>Use your existing installer</h2>
+<p>Connect the local VPN and make sure pairing and signing still work. Download the IPA below and import it in your installer, or use the SideInstaller link. Feather needs your own valid developer certificate and a provisioning profile covering this device; it does not provide free signing or solve its own initial installation.</p>
+<a class="button" href="https://github.com/claration/Feather">Feather</a>
+</section>
+</section>
+<section class="release" id="download">
+<h2>Latest published Cinemana IPA</h2>
+<p id="release-status" role="status" aria-live="polite">Loading validated release details…</p>
+<p>Unsigned development beta — downloading alone does not install it. No signed public Cinemana release or TestFlight invitation is configured here.</p>
+<div class="actions">
+<a id="ipa" class="button primary" hidden>Download Cinemana IPA</a>
+<a id="sideinstaller" class="button" hidden>Open in installed SideInstaller</a>
+<a class="button alt" href="https://github.com/Subaru771/Cinemana-IOS/releases">Browse GitHub releases</a>
+</div>
+<p class="hash" id="checksum">
+</p>
+<p>
+<a href="source.json">Cinemana source for compatible AltStore / SideStore clients</a>
+</p>
+<p>Add this source URL manually in your existing installer to discover updates. Source compatibility and automatic updates are not device-verified. AltLoad users can download each newer IPA here and install over the existing app with the same Apple Account.</p>
+<noscript>
+<p>JavaScript is off. Open GitHub releases, choose the newest published Cinemana-iOS unsigned IPA (not a SideStore build), and sign it in your installer.</p>
+</noscript>
+</section>
+<section class="faq">
+<h2>Updates & help</h2>
+<details>
+<summary>Keep the app working</summary>
+<p>With a free Apple Account, signatures normally expire after 7 days. Before expiry, reconnect LocalDevVPN and re-sign/reinstall Cinemana in your installer. Enable available expiry reminders; do not assume background refresh succeeds. Refresh the installer itself if it uses your free account. Keep the same account and bundle ID to preserve data; back up first. If expired, you may need to reinstall the installer before recovering Cinemana.</p>
+</details>
+<details>
+<summary>Unable to verify or install?</summary>
+<p>A revoked public certificate cannot be fixed by this page. Do not keep adding unknown profiles or disable Apple security checks. Check the official installer’s status or use a computer once. For pairing errors, confirm Developer Mode, local VPN and the pairing type required by your iOS version. Free accounts also have app and App ID limits; extensions consume additional IDs.</p>
+</details>
+<details>
+<summary>Can I install without a signing tool?</summary>
+<p>The simplest supported future route is a reviewed TestFlight invitation: free for testers, paid Developer Program for the publisher, and builds expire after 90 days. Registered-device Ad Hoc distribution also requires paid membership and device registration, with limited device slots and expiring profiles. Neither route is currently available here. Public distribution requires appropriate content rights and Apple review compliance.</p>
+</details>
+<details>
+<summary>Protect your account</summary>
+<p>This website never asks for Apple credentials, certificates or pairing files. Only use official installer builds and review their terms. Installers contact Apple and may use third-party authentication helpers; upstream privacy claims are not an independent security audit. Remove unneeded DNS profiles in Settings after reviewing the provider’s instructions.</p>
+</details>
+</section>
+<footer>Independent beta. Use only media you are authorized to access. Documentation checked 9 November 2026; device testing pending.<p>
+<a href="index.html">Back to Cinemana</a> · <a href="https://developer.apple.com/testflight/">TestFlight</a>
+</p>
+</footer>
+</main>
+</body>
+</html>

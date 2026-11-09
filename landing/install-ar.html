@@ -1,48 +1,136 @@
 <!doctype html>
 <html lang="ar" dir="rtl">
-<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"><meta name="theme-color" content="#070e0c"><meta name="description" content="خطوات مبسطة لتثبيت النسخة التجريبية من سينمانا على الآيفون باستخدام SideInstaller وSideStore الرسميين."><title>تثبيت سينمانا على الآيفون — من الهاتف</title>
-<link rel="alternate" hreflang="en" href="install.html"><link rel="alternate" hreflang="ar" href="install-ar.html">
-<style>
-:root{color-scheme:dark;--bg:#070e0c;--surface:#121d18;--surface2:#19251e;--mint:#9aefb5;--text:#f4f9f4;--muted:#b5c6bb;--line:#34463b}
-*{box-sizing:border-box}html{scroll-behavior:smooth}body{background:radial-gradient(ellipse at 68% 0,#203f2b 0,transparent 49%),var(--bg);color:var(--text);font:16px/1.55 -apple-system,BlinkMacSystemFont,"Segoe UI",Tahoma,sans-serif;margin:0}a{color:inherit}button{font:inherit;cursor:pointer}a:focus-visible,button:focus-visible{outline:3px solid var(--mint);outline-offset:3px}
-.wrap{max-width:800px;margin:auto;padding:24px 20px 75px}.nav{display:flex;align-items:center;justify-content:space-between;gap:12px}.nav a{text-decoration:none}.brand{letter-spacing:2px;font-weight:900;font-size:16px}.lang{border:1px solid var(--line);padding:8px 13px;border-radius:12px;font-size:14px}.eyebrow{color:var(--mint);font-size:11px;font-weight:850;letter-spacing:2px;margin:55px 0 10px}h1{font-size:clamp(38px,7vw,66px);line-height:1.06;letter-spacing:-.055em;margin:0 0 13px}h1 span{color:var(--mint)}.lead{max-width:610px;color:var(--muted);font-size:17px;margin:0 0 28px}
-.status{display:flex;gap:9px;align-items:flex-start;background:#172d20;border:1px solid #3e624c;padding:13px 16px;border-radius:14px;color:#d5f0dd;font-size:13px}.status strong{color:var(--mint)}
-h2{font-size:23px;letter-spacing:-.025em;margin:33px 0 14px}.selector{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:9px}.selector button{border:1px solid var(--line);background:var(--surface);border-radius:13px;padding:13px 9px;color:var(--muted);font-size:13px;font-weight:750;min-height:54px}.selector button[aria-pressed="true"]{background:#274a34;color:var(--mint);border-color:#6baf7b}section[hidden]{display:none!important}
-.flowHead{display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;margin-top:29px}.flowHead h2{margin:0}.chip{color:var(--mint);font-size:11px;font-weight:800;letter-spacing:.4px}
-.steps{display:grid;gap:11px;margin-top:16px}.step{display:grid;grid-template-columns:34px minmax(0,1fr);gap:11px;background:var(--surface);border:1px solid var(--line);border-radius:17px;padding:18px}.no{background:#224b31;color:var(--mint);height:30px;width:30px;display:grid;place-items:center;font-weight:900;border-radius:9px}.step h3{margin:0 0 4px;font-size:16px}.step p{margin:0 0 12px;color:var(--muted);font-size:14px}.button{display:inline-flex;align-items:center;justify-content:center;min-height:43px;border-radius:11px;background:#24382b;border:1px solid #456650;text-decoration:none;font-size:13px;padding:10px 14px;font-weight:750}.button:hover{filter:brightness(1.13)}.button.primary{color:#092113;background:var(--mint);border-color:var(--mint)}.button.alt{background:transparent;color:var(--muted)}
-.release{border:1px solid #42634d;background:linear-gradient(135deg,#182b1d,#132019);padding:20px;border-radius:19px;margin:26px 0 0}.release h2{margin:0 0 9px;font-size:20px}.release p{color:var(--muted);font-size:13px;margin:0 0 16px}.actions{display:flex;flex-wrap:wrap;gap:9px}.warning{font-size:13px;color:#e5d4b2;background:#2b2519;border:1px solid #594b2d;border-radius:14px;padding:14px;margin-top:15px}.faq details{background:var(--surface);border:1px solid var(--line);padding:15px 18px;border-radius:13px;margin:9px 0}.faq summary{cursor:pointer;font-size:14px;font-weight:800}.faq p{font-size:14px;color:var(--muted)}footer{font-size:12px;color:var(--muted);line-height:1.7;margin-top:37px;border-top:1px solid var(--line);padding-top:20px}footer a{color:var(--mint)}[dir="rtl"] .brand,[dir="rtl"] .no{direction:ltr}code{word-break:break-word}
-@media(max-width:480px){.wrap{padding:20px 14px 55px}.eyebrow{margin-top:39px}.selector button{font-size:12px;padding:11px 5px}.step{padding:14px}.flowHead{align-items:start}.release{padding:16px}}
-@media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}}
-</style></head>
-<body><main class="wrap"><nav class="nav" aria-label="Navigation"><a class="brand" href="index-ar.html">CINEMANA</a><a href="install.html" class="lang" lang="en">English</a><span aria-current="page" lang="ar" style="position:absolute;width:1px;height:1px;overflow:hidden">العربية</span></nav>
-<div class="eyebrow">التثبيت من الهاتف</div><h1>سينمانا على الآيفون.<br><span>خطوات أقل. مشاهدة أكثر.</span></h1><p class="lead">على iOS 27 وأحدث، يمكنك تثبيت سينمانا مباشرةً باستخدام AltLoad دون SideStore أو LiveContainer أو iLoader. تبقى طريقة SideInstaller مع SideStore خياراً بديلاً.</p>
-<div class="status"><strong>✓</strong><span>لا تحتاج إلى كمبيوتر في الإعداد الأول على iOS 27 وأحدث عند توفر شهادة تثبيت صالحة في SideInstaller.</span></div>
-<p style="margin:18px 0 0"><a class="button primary" href="#without-sidestore">الخيار الأسهل: تثبيت سينمانا مباشرةً باستخدام AltLoad · iOS 27+ ↓</a></p>
-<h2>اختر طريقة التثبيت</h2><div class="selector" role="group" aria-label="اختر طريقة التثبيت"><button type="button" data-target="ios27" aria-pressed="true">iOS 27 أو أحدث</button><button type="button" data-target="legacy" aria-pressed="false">iOS 17–26</button><button type="button" data-target="ready" aria-pressed="false">SideStore مثبت مسبقاً</button></div>
-<section id="ios27" class="path"  aria-label="بدون كمبيوتر على iOS 27 وأحدث"><div class="flowHead"><h2>الخطوات المطلوبة</h2><span class="chip">بدون كمبيوتر على iOS 27 وأحدث</span></div><div class="steps"><div class="step"><span class="no">1</span><div><h3>ثبّت LocalDevVPN</h3><p>نزّل أداة VPN المجانية من App Store، وافتحها واضغط Connect.</p><a class="button" href="https://apps.apple.com/app/localdevvpn/id6755608044" target="_blank" rel="noopener noreferrer">تنزيل LocalDevVPN ↗</a></div></div><div class="step"><span class="no">2</span><div><h3>ثبّت SideInstaller</h3><p>افتح الموقع الرسمي للمطوّر في Safari. أكمل إعداد DNS والشهادة، ثم وافق على الوثوق بملف المطوّر من الإعدادات. قد تتغير صلاحية الشهادات المتاحة.</p><a class="button" href="https://sideinstaller.net/" target="_blank" rel="noopener noreferrer">موقع SideInstaller الرسمي ↗</a></div></div><div class="step"><span class="no">3</span><div><h3>جهّز SideStore</h3><p>افتح SideInstaller وسجّل دخول حساب Apple داخل التطبيق الرسمي فقط، ثم اختر Install SideStore بدون LiveContainer. اتبع التعليمات، وسجّل الدخول إلى SideStore وأكمل أول تجديد مع تشغيل LocalDevVPN.</p><a class="button" href="https://docs.sidestore.io/docs/installation/install" target="_blank" rel="noopener noreferrer">تعليمات SideStore الرسمية ↗</a></div></div><div class="step"><span class="no">4</span><div><h3>ثبّت سينمانا</h3><p>اترك LocalDevVPN متصلاً، ثم اضغط الزر بالأسفل لفتح رابط النسخة التجريبية داخل SideStore الذي سيتولى توقيعها وتثبيتها.</p><a class="button primary" href="sidestore://install?url=https%3A%2F%2Fgithub.com%2FSubaru771%2FCinemana-IOS%2Freleases%2Fdownload%2Fci-cinemana-ios-v2.1.1-refined%2FCinemana-iOS-v2.1.1-beta.1-Unsigned.ipa" >تثبيت سينمانا عبر SideStore ↗</a></div></div></div></section><section id="legacy" class="path" hidden aria-label="يحتاج ربط الجهاز مرة واحدة"><div class="flowHead"><h2>الخطوات المطلوبة</h2><span class="chip">يحتاج ربط الجهاز مرة واحدة</span></div><div class="steps"><div class="step"><span class="no">1</span><div><h3>لا يمكن تجاوز الربط الأول على هذه الإصدارات</h3><p>على iOS 17.4–26.3 يحتاج SideInstaller ملف ربط يُنشأ بواسطة كمبيوتر، وعلى iOS 26.4–26.x يحتاج ملف ربط عن بُعد (RPPairing). لا يستطيع موقع ويب إنشاء هذه الملفات على جهاز غير مربوط.</p><a class="button" href="https://github.com/FrizzleM/SideInstaller#compatibility" target="_blank" rel="noopener noreferrer">تفاصيل التوافق الرسمية ↗</a></div></div><div class="step"><span class="no">2</span><div><h3>جهّز SideStore مرة واحدة</h3><p>استخدم iloader الرسمي على الكمبيوتر لتثبيت SideStore ووضع ملف الربط. بعدها تستطيع تثبيت التطبيقات وتجديدها من الهاتف.</p><a class="button" href="https://docs.sidestore.io/docs/installation/install" target="_blank" rel="noopener noreferrer">دليل تثبيت SideStore الرسمي ↗</a></div></div><div class="step"><span class="no">3</span><div><h3>ثم ثبّت سينمانا من الهاتف</h3><p>افتح LocalDevVPN واتصل به، ثم استخدم زر التثبيت أدناه. إن كان SideStore يعمل على جهازك بالفعل، فتجاوز خطوات الإعداد.</p><a class="button primary" href="sidestore://install?url=https%3A%2F%2Fgithub.com%2FSubaru771%2FCinemana-IOS%2Freleases%2Fdownload%2Fci-cinemana-ios-v2.1.1-refined%2FCinemana-iOS-v2.1.1-beta.1-Unsigned.ipa" >تثبيت سينمانا عبر SideStore ↗</a></div></div></div></section><section id="ready" class="path" hidden aria-label="انتقل مباشرة للتثبيت"><div class="flowHead"><h2>الخطوات المطلوبة</h2><span class="chip">انتقل مباشرة للتثبيت</span></div><div class="steps"><div class="step"><span class="no">1</span><div><h3>شغّل LocalDevVPN</h3><p>يحتاج SideStore إلى الاتصال المحلي لتثبيت التطبيقات وتحديثها وتجديدها.</p><a class="button" href="https://apps.apple.com/app/localdevvpn/id6755608044" target="_blank" rel="noopener noreferrer">تنزيل LocalDevVPN ↗</a></div></div><div class="step"><span class="no">2</span><div><h3>ثبّت سينمانا</h3><p>اضغط تثبيت سينمانا لفتح ملف IPA التجريبي داخل SideStore مباشرة، دون الحاجة إلى حفظ الملف في تطبيق الملفات.</p><a class="button primary" href="sidestore://install?url=https%3A%2F%2Fgithub.com%2FSubaru771%2FCinemana-IOS%2Freleases%2Fdownload%2Fci-cinemana-ios-v2.1.1-refined%2FCinemana-iOS-v2.1.1-beta.1-Unsigned.ipa" >تثبيت سينمانا عبر SideStore ↗</a></div></div></div></section>
-<div class="release"><h2>سينمانا iOS تجريبي · IPA غير موقّع</h2><p>الرابط يشير إلى نسخة v2.1.1 التجريبية المنشورة مسبقاً في إصدارات GitHub الخاصة بالمشروع. لم يتم التحقق من التثبيت والتشغيل والتنزيل على جهاز فعلي. يتولى SideStore توقيع النسخة لحسابك.</p><div class="actions"><a class="button primary" href="sidestore://install?url=https%3A%2F%2Fgithub.com%2FSubaru771%2FCinemana-IOS%2Freleases%2Fdownload%2Fci-cinemana-ios-v2.1.1-refined%2FCinemana-iOS-v2.1.1-beta.1-Unsigned.ipa">التثبيت عبر SideStore ↗</a><a class="button" href="https://sideinstaller.net/open.html?url=https%3A%2F%2Fgithub.com%2FSubaru771%2FCinemana-IOS%2Freleases%2Fdownload%2Fci-cinemana-ios-v2.1.1-refined%2FCinemana-iOS-v2.1.1-beta.1-Unsigned.ipa" target="_blank" rel="noopener noreferrer">هل تستخدم SideInstaller؟ افتح سينمانا فيه ↗</a><a class="button alt" href="https://github.com/Subaru771/Cinemana-IOS/releases/tag/ci-cinemana-ios-v2.1.1-refined" target="_blank" rel="noopener noreferrer">عرض إصدار GitHub الأصلي ↗</a></div></div>
-<div class="warning">⚠ إذا كانت شهادات تثبيت SideInstaller غير متاحة أو أُلغيت صلاحيتها، فقد يفشل التثبيت حتى على iOS 27. لا يمكن لموقع ويب ضمان تثبيت IPA غير موقّع دون آلية توقيع صالحة.</div>
-
-<section class="release" id="without-sidestore" dir="rtl">
-<div class="eyebrow" style="margin:0 0 9px">طريقة أبسط · iOS 27 وأحدث</div>
-<h2>ثبّت سينمانا بدون SideStore</h2>
-<p>يستطيع AltLoad توقيع ملفات IPA وتثبيتها من الآيفون مباشرة. بهذه الطريقة لا تحتاج إلى SideStore أو LiveContainer أو iLoader إذا نجح تثبيت AltLoad أولاً.</p>
-<div class="steps">
-<div class="step"><span class="no">1</span><div><h3>ثبّت AltLoad من موقعه الرسمي</h3><p>افتح الرابط في Safari، وافق على الشروط وثبّت ملف DNS، ثم اختر شهادة تثبيت متاحة، وبعدها فعّل الوثوق بملف المطوّر من الإعدادات ← عام ← VPN وإدارة الجهاز. قد تُلغى صلاحية الشهادات العامة.</p><a class="button" href="https://mirazbakis.github.io/AltLoad/" target="_blank" rel="noopener noreferrer">تثبيت AltLoad الرسمي ↗</a></div></div>
-<div class="step"><span class="no">2</span><div><h3>اربط الآيفون بنفسه</h3><p>افتح AltLoad ثم Tools ← Pair. انتقل إلى الإعدادات ← الخصوصية والأمان ← وضع المطوّر ← Pair with AltLoad وأدخل الرمز الظاهر. بعدها اتصل بـ LocalDevVPN وسجّل الدخول إلى حساب Apple من داخل AltLoad الرسمي.</p><a class="button" href="https://apps.apple.com/app/localdevvpn/id6755608044" target="_blank" rel="noopener noreferrer">تنزيل LocalDevVPN ↗</a></div></div>
-<div class="step"><span class="no">3</span><div><h3>نزّل سينمانا وثبّته</h3><p>احفظ ملف Cinemana IPA التجريبي في تطبيق الملفات عبر Safari. افتح AltLoad ثم Install ← … ← Install IPA from Files، واختر الملف ووقّعه وثبّته. هذه نسخة تطوير لم نتحقق بعد من عملها على جهاز فعلي.</p><a class="button primary" href="https://github.com/Subaru771/Cinemana-IOS/releases/download/ci-cinemana-ios-v2.1.1-refined/Cinemana-iOS-v2.1.1-beta.1-Unsigned.ipa" target="_blank" rel="noopener noreferrer">تنزيل ملف Cinemana IPA ↗</a></div></div>
-</div>
-<p style="margin-top:13px">على iOS 18–26 يحتاج AltLoad إلى ملف ربط يُنشأ عبر كمبيوتر مرة واحدة. إذا كانت عندك شهادة توقيع خاصة صالحة، يمكنك أيضاً استخدام <a href="https://github.com/cloudmantou/Feather" target="_blank" rel="noopener noreferrer">Feather</a>. هذه الطرق لا تتجاوز متطلبات التوقيع الخاصة بـ Apple.</p>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#070e0c">
+<title>تثبيت سينمانا على آيفون</title>
+<meta name="description" content="نسخة سينمانا التجريبية للآيفون: خطوات واضحة وتحميل موثوق وشرح متطلبات التثبيت." >
+<link rel="alternate" hreflang="en" href="install.html">
+<link rel="alternate" hreflang="ar" href="install-ar.html">
+<link rel="stylesheet" href="install.css">
+<script src="install.js" defer>
+</script>
+</head>
+<body>
+<main class="wrap">
+<nav class="nav" aria-label="التنقل">
+<a class="brand" href="index-ar.html">CINEMANA</a>
+<span aria-current="page">العربية</span>
+<a class="lang" href="install.html" lang="en">English</a>
+</nav>
+<div class="eyebrow">آيفون · نسخة تجريبية</div>
+<h1>سينمانا على آيفون.<br>
+<span>خطوات أوضح للتثبيت.</span>
+</h1>
+<p class="lead">ابدأ من هنا لاختيار أقصر طريقة تناسب جهازك. تشترط Apple توقيعًا صالحًا قبل تشغيل أي تطبيق.</p>
+<div class="status">لم يتم التحقق من التثبيت على آيفون حقيقي. التثبيت دون كمبيوتر مشروط، وقد تتوقف شهادات التثبيت العامة في أي وقت.</div>
+<p>
+<a class="button primary" href="#setup">تثبيت سينمانا ↓</a>
+</p>
+ <section id="setup">
+<h2>اختر إعداد جهازك</h2>
+<label for="method">إصدار iOS أو أداة التثبيت الموجودة</label>
+<select id="method">
+<option value="unknown">اختر إصدار جهازك…</option>
+<option value="modern">iOS 27+</option>
+<option value="legacy">iOS 18–26</option>
+<option value="older">iOS 16–17</option>
+<option value="ready">لدي أداة تثبيت جاهزة</option>
+</select>
+<p id="device-hint" class="lead">
+</p>
+<p>ستجد الإصدار في الإعدادات ← عام ← حول. اكتشاف المتصفح تقريبي ويمكنك تغيير الاختيار دائمًا.</p>
+ <section data-path="unknown">
+<div class="warning">اختر إصدارًا أعلاه. لا توجد طريقة مجانية عامة لتثبيت تطبيق iOS غير موقّع بضغطة واحدة من موقع ويب.</div>
 </section>
-<section class="release" id="future-distribution" dir="rtl"><h2>تريد تثبيتاً بنقرة واحدة للجميع؟</h2><p>يمكننا تطوير بوابة تثبيت خاصة بسينمانا باستخدام الطرق المعتمدة من Apple. بوجود حساب مطور مدفوع، يمكن استخدام دعوات TestFlight بعد الموافقة وامتلاك حقوق النشر، أو نسخ Ad Hoc الموقّعة لأجهزة مسجّلة محدودة. لا يستطيع موقع ويب توقيع ملف IPA غير موقّع وتثبيته على أي آيفون بلا قيود.</p><div class="actions"><a class="button alt" target="_blank" rel="noopener noreferrer" href="https://developer.apple.com/testflight/">معلومات TestFlight ↗</a><a class="button alt" target="_blank" rel="noopener noreferrer" href="https://developer.apple.com/help/account/provisioning-profiles/create-an-ad-hoc-provisioning-profile">متطلبات Ad Hoc ↗</a></div></section>
-<div class="faq"><h2>مساعدة وأسئلة</h2><details><summary>هل أحتاج إلى كمبيوتر؟</summary><p>على iOS 27 وأحدث يوفر SideInstaller الرسمي طريقة مباشرة من الهاتف، لكنها تعتمد على توفر شهادة تثبيت صالحة. أما الإصدارات السابقة فتحتاج عادةً إلى كمبيوتر مرة واحدة، إلا إذا كان SideStore مجهزاً مسبقاً.</p></details><details><summary>هل سيتوقف سينمانا بعد سبعة أيام؟</summary><p>مع حساب Apple المجاني، تحتاج التطبيقات المثبتة بواسطة SideStore إلى تجديد التوقيع غالباً خلال سبعة أيام. شغّل Wi-Fi وLocalDevVPN وجدّد التطبيقات من My Apps داخل SideStore.</p></details><details><summary>ماذا أفعل عند ظهور خطأ في ملف الربط؟</summary><p>على الإصدارات الأقدم، حدّث iloader واستبدل ملف الربط من Manage Pairing File ثم Place. ابتداءً من iOS 26.4 يلزم ملف ربط عن بُعد. راجع تعليمات الربط الرسمية.</p></details><details><summary>هل SideInstaller تابع لسينمانا؟</summary><p>لا، إنه مشروع مستقل ونستخدم رابطه الرسمي فقط. لا تدخل كلمة مرور Apple أو ملف الربط في صفحة سينمانا. ويحذر المطوّر من موقع sideinstaller.com المقلّد.</p></details><a class="button alt" href="https://docs.sidestore.io/docs/advanced/pairing-file" target="_blank" rel="noopener noreferrer">حل مشاكل الربط من المصدر الرسمي ↗</a></div>
-<footer>دليل مستقل لنسخة سينمانا iOS التجريبية. تتبع أدوات SideInstaller وSideStore وLocalDevVPN لمطوريها. استخدم التطبيقات والمحتوى المسموح لك الوصول إليهما.<p><a href="index-ar.html">العودة إلى سينمانا</a> · <a href="privacy-ar.html">الخصوصية</a></p></footer></main>
-<script>
-document.querySelectorAll('.selector button').forEach(function(button){
- button.addEventListener('click',function(){
-  var id=button.getAttribute('data-target');
-  document.querySelectorAll('.selector button').forEach(function(b){b.setAttribute('aria-pressed',String(b===button));});
-  document.querySelectorAll('section.path').forEach(function(s){s.hidden=s.id!==id;});
- });
-});
-</script></body></html>
+ <section data-path="modern">
+<h2>جرّب AltLoad · دون كمبيوتر إذا نجح الإعداد</h2>
+<div class="steps">
+<div class="step">
+<span class="no">1</span>
+<div>
+<h3>ثبّت تطبيق AltLoad الرسمي</h3>
+<p>افتح الموقع الرسمي في Safari. قد تحتاج طريقة التثبيت الموقّعة إلى ملف DNS والوثوق بالمطوّر من الإعدادات ← عام ← VPN وإدارة الجهاز. راجع الملف ومزوّده أولًا لأن تغيير DNS يؤثر على اتصالاتك. إذا كانت الشهادات ملغاة أو غير متاحة، استخدم البديل أدناه.</p>
+<a class="button" href="https://mirazbakis.github.io/AltLoad/">فتح موقع AltLoad الرسمي</a>
+</div>
+</div>
+<div class="step">
+<span class="no">2</span>
+<div>
+<h3>أكمل الاقتران على آيفون</h3>
+<p>اتبع تعليمات AltLoad الحالية. فعّل نمط المطوّر (قد يلزم إعادة التشغيل). من Tools ← Pair اتبع الإعدادات ← الخصوصية والأمان ← نمط المطوّر ← Pair with AltLoad وأدخل الرمز. اتصل عبر LocalDevVPN. سجّل الدخول بحساب Apple الخاص بك داخل أداة التثبيت الرسمية فقط.</p>
+<a class="button" href="https://apps.apple.com/app/id6755608044">تنزيل LocalDevVPN</a>
+</div>
+</div>
+<div class="step">
+<span class="no">3</span>
+<div>
+<h3>حمّل سينمانا ووقّعه وثبّته</h3>
+<p>حمّل ملف IPA أدناه إلى تطبيق الملفات. في AltLoad اختر Install ← … ← Install IPA from Files ثم اختر سينمانا واتبع خطوات التوقيع. لا تحتاج هذه الطريقة إلى SideStore أو LiveContainer. افتح سينمانا من الشاشة الرئيسية بعد التثبيت.</p>
+</div>
+</div>
+</div>
+<p>البديل: <a href="https://sideinstaller.net/">SideInstaller</a> يدعم أيضًا الاقتران على iOS 27+ ورابط تثبيت IPA المباشر أدناه. شهادة تثبيته الأولية معرضة للمشكلة نفسها. يمكن استخدام SideStore اختياريًا لإدارة التحديث والتجديد.</p>
+</section>
+<section data-path="legacy">
+<h2>iOS 18–26: إعداد أولي بكمبيوتر</h2>
+<p>يتطلب AltLoad ملف اقتران عن بُعد يُنشأ على كمبيوتر. يتطلب SideInstaller ملف اقتران من كمبيوتر على iOS 17.4–26.3، وملف اقتران عن بُعد على iOS 26.4–26.x. لا تتوفر لدينا طريقة مجانية مؤكدة للإعداد الأولي بالهاتف فقط.</p>
+<a class="button" href="https://docs.sidestore.io/docs/installation/install">إعداد SideStore الرسمي باستخدام كمبيوتر</a>
+</section>
+<section data-path="older">
+<h2>iOS 16–17: تحقق من التوافق الدقيق</h2>
+<p>يتطلب ملف سينمانا الحالي iOS 16 أو أحدث. لا يدعم AltLoad إصدار 17 أو أقدم. يبدأ دعم SideInstaller من 17.4 مع ملف اقتران من كمبيوتر. راجع توافق SideStore للإصدارات الأخرى. يدعم TrollStore إصدارات وأجهزة قديمة محددة فقط، ولا يدعم 17.0.1 أو أحدث ولا إصدارات 16.7 العادية. لا تفترض توافق جهازك.</p>
+<a class="button" href="https://docs.sidestore.io/docs/installation/install">SideStore</a> <a class="button" href="https://github.com/opa334/TrollStore">TrollStore</a>
+</section>
+<section data-path="ready">
+<h2>استخدم أداة التثبيت الموجودة</h2>
+<p>اتصل بالشبكة المحلية الافتراضية وتأكد من صلاحية الاقتران والتوقيع. حمّل IPA أدناه واستورده في أداتك أو استخدم رابط SideInstaller. يتطلب Feather شهادة مطوّر صالحة وملف تجهيز يشمل جهازك؛ لا يوفّر توقيعًا مجانيًا ولا يحل مشكلة تثبيته الأولية.</p>
+<a class="button" href="https://github.com/claration/Feather">Feather</a>
+</section>
+</section>
+<section class="release" id="download">
+<h2>أحدث ملف سينمانا المنشور</h2>
+<p id="release-status" role="status" aria-live="polite">جارٍ تحميل تفاصيل الإصدار المتحقق منه…</p>
+<p>نسخة تطوير تجريبية غير موقّعة — التحميل وحده لا يثبّتها. لا يتوفر هنا إصدار عام موقّع أو دعوة TestFlight.</p>
+<div class="actions">
+<a id="ipa" class="button primary" hidden>تحميل ملف سينمانا IPA</a>
+<a id="sideinstaller" class="button" hidden>فتح في SideInstaller المثبّت</a>
+<a class="button alt" href="https://github.com/Subaru771/Cinemana-IOS/releases">عرض إصدارات GitHub</a>
+</div>
+<p class="hash" id="checksum">
+</p>
+<p>
+<a href="source.json">مصدر سينمانا لعملاء AltStore / SideStore المتوافقة</a>
+</p>
+<p>أضف رابط المصدر يدويًا في أداتك لاكتشاف التحديثات. لم يُختبر توافق المصدر والتحديث التلقائي على جهاز حقيقي. يمكن لمستخدمي AltLoad تحميل الإصدار الأحدث هنا وتثبيته فوق التطبيق بالحساب نفسه.</p>
+<noscript>
+<p>JavaScript معطّل. افتح إصدارات GitHub واختر أحدث ملف Cinemana-iOS غير الموقّع (وليس إصدار SideStore) ثم وقّعه بأداتك.</p>
+</noscript>
+</section>
+<section class="faq">
+<h2>التحديثات والمساعدة</h2>
+<details>
+<summary>لإبقاء التطبيق يعمل</summary>
+<p>تنتهي صلاحية التوقيع بالحساب المجاني عادةً بعد 7 أيام. قبل الانتهاء اتصل بـ LocalDevVPN وجدّد توقيع سينمانا وأعد تثبيته بأداتك. فعّل تذكيرات الانتهاء إن توفرت ولا تعتمد على نجاح التجديد في الخلفية. جدّد الأداة أيضًا إذا كانت موقّعة بحسابك المجاني. حافظ على الحساب ومعرّف التطبيق لحفظ البيانات وخذ نسخة احتياطية أولًا. إذا انتهت الصلاحية قد يلزم تثبيت الأداة مجددًا.</p>
+</details>
+<details>
+<summary>تعذّر التحقق أو التثبيت؟</summary>
+<p>لا يمكن لهذه الصفحة إصلاح شهادة عامة ملغاة. لا تضف ملفات تعريف مجهولة باستمرار ولا تعطّل فحوص Apple الأمنية. راجع حالة الأداة الرسمية أو استخدم كمبيوتر مرة واحدة. لأخطاء الاقتران تحقق من نمط المطوّر والشبكة المحلية ونوع الاقتران المناسب لإصدارك. للحساب المجاني حدود للتطبيقات ومعرّفاتها وتستهلك الإضافات معرّفات أخرى.</p>
+</details>
+<details>
+<summary>هل يمكن التثبيت دون أداة توقيع؟</summary>
+<p>أفضل مسار مستقبلي مدعوم هو دعوة TestFlight بعد المراجعة: مجاني للمختبِر وعضوية مطوّر مدفوعة للناشر، وتنتهي النسخ بعد 90 يومًا. يتطلب توزيع Ad Hoc عضوية مدفوعة وتسجيل الأجهزة مع حدود عددية وملفات تجهيز تنتهي صلاحيتها. لا يتوفر أي من المسارين هنا حاليًا. يتطلب التوزيع العام حقوق المحتوى والامتثال لمراجعة Apple.</p>
+</details>
+<details>
+<summary>احمِ حسابك</summary>
+<p>لا يطلب هذا الموقع بيانات Apple أو الشهادات أو ملفات الاقتران. استخدم الأدوات الرسمية وراجع شروطها. تتصل الأدوات بـ Apple وقد تستخدم خدمات مساعدة للمصادقة؛ ادعاءات الخصوصية ليست تدقيقًا أمنيًا مستقلًا. أزل ملفات DNS غير اللازمة من الإعدادات بعد مراجعة تعليمات مزوّدها.</p>
+</details>
+</section>
+<footer>نسخة تجريبية مستقلة. استخدم المحتوى المصرّح لك به فقط. روجعت الوثائق في 9 نوفمبر 2026؛ اختبار الأجهزة لم يُنجز بعد.<p>
+<a href="index-ar.html">العودة إلى سينمانا</a> · <a href="https://developer.apple.com/testflight/">TestFlight</a>
+</p>
+</footer>
+</main>
+</body>
+</html>

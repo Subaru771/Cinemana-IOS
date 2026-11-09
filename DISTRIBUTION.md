@@ -48,7 +48,7 @@ Replace the path with your own certificate, provisioning profile, or `.p8`. **Do
 
 ## Public-facing website
 
-The `landing/` folder is a static landing page ready for Cloudflare Pages. Its bilingual `install.html` / `install-ar.html` pages describe SideInstaller and SideStore, and link to an **existing public, unsigned Cinemana iOS v2.1.1 beta IPA** in this repository's Releases. Those links hand the IPA URL to a separately installed and trusted sideloader; the website does not sign apps, bypass iOS security, collect Apple credentials, or promise working installation. Compatibility and real-device playback remain unverified. Only offer distribution with appropriate rights.
+The `landing/` folder contains bilingual, mobile-first installation pages with a conditional AltLoad route, version selection and fallbacks. `release.json` supplies validated unsigned IPA metadata; `source.json` supports compatible installer update discovery. The scheduled release validator refreshes both files after checking the downloaded IPA and published checksum. Deploy the complete directory. No website signing or credential collection is provided, and real-device installation remains unverified. See [installation research, operations and device checklist](docs/IOS-INSTALLATION.md).
 
 Once TestFlight is approved, update the TestFlight placeholder in `landing/index.html` to the *actual* invitation URL. Until then, it must not display a functional "Install" claim. Keep the exact public Privacy Policy URL updated.
 
