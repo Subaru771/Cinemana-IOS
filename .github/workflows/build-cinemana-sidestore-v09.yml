@@ -1,0 +1,86 @@
+name: Build Cinemana SideStore v0.9 guided setup
+
+on:
+  push:
+    branches: [build/cinemana-sidestore-v09]
+    paths:
+      - 'sidestore-ci/**'
+      - '.github/workflows/build-cinemana-sidestore-v09.yml'
+      - '.github/workflows/build-cinemana-sidestore-v09.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: cinemana-sidestore-v09
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: macos-26
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Select Xcode
+        uses: maxim-lobanov/setup-xcode@v1.6.0
+        with:
+          xcode-version: '26.4.1'
+
+      - name: Clone pinned SideStore source
+        shell: bash
+        run: |
+          set -euo pipefail
+          git clone https://github.com/SideStore/SideStore.git sidestore-upstream
+          git -C sidestore-upstream checkout cd260851ae99bf1fc946b123db24e89c8cd21dc6
+          git -C sidestore-upstream submodule update --init --recursive
+          test "$(git -C sidestore-upstream rev-parse HEAD)" = cd260851ae99bf1fc946b123db24e89c8cd21dc6
+
+      - name: Apply full SideStore v0.5 and guided v0.9 improvements
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 sidestore-ci/apply_patch.py sidestore-upstream
+          python3 sidestore-ci/apply_full_v05.py sidestore-upstream
+          python3 sidestore-ci/apply_easy_v06.py sidestore-upstream
+          python3 sidestore-ci/apply_v09_integration.py sidestore-upstream
+          xcrun swiftc -frontend -parse sidestore-upstream/AltStore/Core/Extensions/UserDefaults+AltStore.swift
+          xcrun swiftc -frontend -parse sidestore-upstream/AltStore/Settings/SettingsViewController.swift
+          xcrun swiftc -frontend -parse sidestore-upstream/SideStore/Core/Pairing/PairingFileManager.swift
+          grep -q 'CINEMANA_EASY_SETUP_V06' sidestore-upstream/AltStore/Settings/SettingsViewController.swift
+
+      - name: Prepare signing helper
+        run: brew install ldid
+
+      - name: Build fake-signed test IPA
+        working-directory: sidestore-upstream
+        shell: bash
+        run: |
+          set -o pipefail
+          make build fakesign ipa 2>&1 | tee ../sidestore-v09-build.log
+
+      - name: Validate archive and SHA-256
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f sidestore-upstream/SideStore.ipa
+          unzip -t sidestore-upstream/SideStore.ipa >/dev/null
+          unzip -Z1 sidestore-upstream/SideStore.ipa | grep '^Payload/SideStore.app/Info.plist$' >/dev/null
+          mkdir -p output-v09
+          cp sidestore-upstream/SideStore.ipa output-v09/Cinemana-SideStore-V0.9-TEST.ipa
+          (cd output-v09 && shasum -a 256 Cinemana-SideStore-V0.9-TEST.ipa > SHA256.txt)
+
+      - name: Upload private draft release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          TAG="cinemana-sidestore-v09-${GITHUB_SHA:0:12}"
+          gh release create "$TAG" \
+            output-v09/Cinemana-SideStore-V0.9-TEST.ipa \
+            output-v09/SHA256.txt \
+            --target "$GITHUB_SHA" --draft --prerelease \
+            --title "Cinemana SideStore v0.9 Guided Setup TEST" \
+            --notes "Independently modified AGPLv3 SideStore test IPA. Guided setup, pairing protocol checks, safer LocalDevVPN requests and Anisette defaults. Requires personal Apple signing in iLoader, trust and a real iPhone validation. Cinemana v2.1.1 install action is built into native setup UI; on-device confirmation remains required. Full patches available in this isolated branch."
