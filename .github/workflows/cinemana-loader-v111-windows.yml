@@ -21,13 +21,19 @@ jobs:
         with:
           node-version: '24'
       - uses: dtolnay/rust-toolchain@stable
-      - name: Download verified IPA assets from own draft releases
+      - name: Retrieve SideStore v0.10 from successful macOS build
+        uses: actions/download-artifact@v4
+        with:
+          run-id: 42568439393
+          name: cinemana-sidestore-v10-built-ipa
+          github-token: ${{ github.token }}
+          path: loader-v111/assets
+      - name: Download verified Cinemana IPA and validate both assets
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           New-Item -ItemType Directory -Force loader-v111/assets | Out-Null
-          gh release download cinemana-sidestore-v10-cb443ba16b03 --repo "${{ github.repository }}" --pattern "Cinemana-SideStore-V0.10-TEST.ipa" --dir loader-v111/assets
           gh release download ci-cinemana-ios-v2.1.1-refined --repo "${{ github.repository }}" --pattern "Cinemana-iOS-v2.1.1-beta.1-Unsigned.ipa" --dir loader-v111/assets
           python -c "from pathlib import Path;import hashlib; exp={'Cinemana-SideStore-V0.10-TEST.ipa':'b0e6d58f93d034362af87053a0f359ae0ba1d043477ff6929674a559641c3f59','Cinemana-iOS-v2.1.1-beta.1-Unsigned.ipa':'42348c3d7571a4b202a73993106327440abfc457741e530fab3cba32926f6a00'};[(print(k,hashlib.sha256(Path('loader-v111/assets',k).read_bytes()).hexdigest()),hashlib.sha256(Path('loader-v111/assets',k).read_bytes()).hexdigest()==v or exit(1)) for k,v in exp.items()]"
       - name: Clone pinned upstream iLoader v2.4.1
