@@ -1,0 +1,121 @@
+name: Build Cinemana SideStore v0.11 verified pairing, no guide
+
+on:
+  push:
+    branches: [build/cinemana-sidestore-v11-pairing-no-guide]
+    paths:
+      - 'sidestore-ci/**'
+      - '.github/workflows/build-cinemana-sidestore-v11.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: cinemana-sidestore-v11
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: macos-26
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Select Xcode
+        uses: maxim-lobanov/setup-xcode@v1.6.0
+        with:
+          xcode-version: '26.4.1'
+
+      - name: Clone pinned SideStore source
+        shell: bash
+        run: |
+          set -euo pipefail
+          git clone https://github.com/SideStore/SideStore.git sidestore-upstream
+          git -C sidestore-upstream checkout cd260851ae99bf1fc946b123db24e89c8cd21dc6
+          git -C sidestore-upstream submodule update --init --recursive
+          test "$(git -C sidestore-upstream rev-parse HEAD)" = cd260851ae99bf1fc946b123db24e89c8cd21dc6
+
+      - name: Apply SideStore integration and v0.10 Anisette migration
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 sidestore-ci/apply_patch.py sidestore-upstream
+          python3 sidestore-ci/apply_full_v05.py sidestore-upstream
+          python3 sidestore-ci/apply_easy_v06.py sidestore-upstream
+          python3 sidestore-ci/apply_v09_integration.py sidestore-upstream
+          python3 sidestore-ci/apply_v10_anisette.py sidestore-upstream
+          python3 sidestore-ci/apply_v11_pairing_no_guide.py sidestore-upstream
+          xcrun swiftc -frontend -parse sidestore-upstream/AltStore/Core/Extensions/UserDefaults+AltStore.swift
+          xcrun swiftc -frontend -parse sidestore-upstream/AltStore/Settings/SettingsViewController.swift
+          xcrun swiftc -frontend -parse sidestore-upstream/SideStore/Core/Pairing/PairingFileManager.swift
+          xcrun swiftc -frontend -parse sidestore-upstream/AltStore/AppDelegate.swift
+          grep -q 'CINEMANA_PAIRING_IMPORT_V11' sidestore-upstream/AltStore/AppDelegate.swift
+          ! grep -q 'openCinemanaAssistant()' sidestore-upstream/AltStore/Settings/SettingsViewController.swift
+          grep -q 'CINEMANA_ANISETTE_V10' sidestore-upstream/AltStore/Settings/SettingsViewController.swift
+
+      - name: Prepare signing helper
+        run: brew install ldid
+
+      - name: Build IPA with Cinemana bundled before signing
+        working-directory: sidestore-upstream
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          # GitHub release-hosted SwiftPM binary targets sometimes return HTTP 504.
+          # Retry only transient download failures, not compiler/test failures.
+          for attempt in 1 2 3 4; do
+            if make build 2>&1 | tee ../sidestore-v11-build.log; then
+              break
+            fi
+            if [ "$attempt" -eq 4 ]; then
+              echo "Build failed after four attempts"
+              exit 1
+            fi
+            if ! grep -Eq 'badResponseStatusCode\(5[0-9][0-9]\)|failed downloading.*(50[234]|5[0-9][0-9])|HTTP (50[234]|5[0-9][0-9])' ../sidestore-v11-build.log; then
+              echo "Non-network failure; not retrying"
+              exit 1
+            fi
+            echo "Retrying transient SwiftPM asset download failure: attempt $((attempt+1))/4"
+            sleep $((attempt * 15))
+          done
+          gh release download ci-cinemana-ios-v2.1.1-refined \
+            --repo "${GITHUB_REPOSITORY}" --pattern 'Cinemana-iOS-v2.1.1-beta.1-Unsigned.ipa'
+          echo '42348c3d7571a4b202a73993106327440abfc457741e530fab3cba32926f6a00  Cinemana-iOS-v2.1.1-beta.1-Unsigned.ipa' | sha256sum --check -
+          cp Cinemana-iOS-v2.1.1-beta.1-Unsigned.ipa SideStore.xcarchive/Products/Applications/SideStore.app/Cinemana.ipa
+          make fakesign ipa
+          unzip -p SideStore.ipa Payload/SideStore.app/Cinemana.ipa | sha256sum | grep -q '^42348c3d7571a4b202a73993106327440abfc457741e530fab3cba32926f6a00 '
+
+      - name: Validate archive and SHA-256
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f sidestore-upstream/SideStore.ipa
+          unzip -t sidestore-upstream/SideStore.ipa >/dev/null
+          unzip -Z1 sidestore-upstream/SideStore.ipa | grep '^Payload/SideStore.app/Info.plist$' >/dev/null
+          unzip -Z1 sidestore-upstream/SideStore.ipa | grep '^Payload/SideStore.app/Cinemana.ipa$' >/dev/null
+          mkdir -p output-v11
+          cp sidestore-upstream/SideStore.ipa output-v11/Cinemana-SideStore-V0.11-TEST.ipa
+          (cd output-v11 && shasum -a 256 Cinemana-SideStore-V0.11-TEST.ipa > SHA256.txt)
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: cinemana-sidestore-v11-built-ipa
+          path: output-v11/
+          retention-days: 3
+          if-no-files-found: error
+      - name: Upload private draft release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          TAG="cinemana-sidestore-v11-${GITHUB_SHA:0:12}"
+          gh release create "$TAG" \
+            output-v11/Cinemana-SideStore-V0.11-TEST.ipa \
+            output-v11/SHA256.txt \
+            --target "$GITHUB_SHA" --draft --prerelease \
+            --title "Cinemana SideStore v0.11 Pairing & No Guide TEST" \
+            --notes "Independently modified AGPLv3 SideStore test IPA. Guided setup, pairing protocol checks, LocalDevVPN, fresh Anisette defaults, one-time adi.pb reset and remote client config sync. Requires personal Apple signing in iLoader, trust and a real iPhone validation. Verified Cinemana IPA bundled inside SideStore; user still must approve device signing. Full patches available in this isolated branch."
