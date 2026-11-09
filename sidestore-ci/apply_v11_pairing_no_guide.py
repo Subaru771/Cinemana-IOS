@@ -106,7 +106,8 @@ a=once(a,'        UserDefaults.registerDefaults()\n','''        UserDefaults.reg
         PairingFileManager.shared.cinemanaAdoptExternalPairingIfNeeded()
 ''',"App launch")
 # app may be installed while running: read marker again when foregrounded.
-a=once(a,'    func applicationDidBecomeActive(_ application: UIApplication) {','''    func applicationDidBecomeActive(_ application: UIApplication) {
+a=once(a,'    func applicationDidBecomeActive(_ application: UIApplication)\n    {','''    func applicationDidBecomeActive(_ application: UIApplication)
+    {
         PairingFileManager.shared.cinemanaAdoptExternalPairingIfNeeded()
 ''',"App foreground")
 app.write_text(a,encoding="utf-8")
