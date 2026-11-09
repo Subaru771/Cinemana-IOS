@@ -47,3 +47,23 @@ if "CINEMANA_PAIR_AFTER_IMPORT_V09" in s:
 if s.count(old)!=1:raise RuntimeError("Pinned iLoader import operation changed")
 path.write_text(s.replace(old,new,1),encoding="utf-8")
 print("Imported SideStore will receive the connected device's pairing files.")
+
+# The independent fork cannot use upstream's private updater signing key.
+# Disable upstream automatic updates to prevent replacing our custom pairing logic.
+import json
+config_file=root/"src-tauri/tauri.conf.json"
+config=json.loads(config_file.read_text(encoding="utf-8"))
+config["bundle"]["createUpdaterArtifacts"]=False
+config.get("plugins",{}).pop("updater",None)
+config_file.write_text(json.dumps(config,indent=2)+"\n",encoding="utf-8")
+app=root/"src/App.tsx"
+if app.is_file():
+    t=app.read_text(encoding="utf-8")
+    t=t.replace('import { checkForUpdates } from "./update";', '// Independent pairing fork; auto-updates disabled')
+    t=t.replace('    checkForUpdates();', '    // No upstream auto-update in pairing fork')
+    app.write_text(t,encoding="utf-8")
+lib=root/"src-tauri/src/lib.rs"
+t=lib.read_text(encoding="utf-8")
+t=t.replace('        .plugin(tauri_plugin_updater::Builder::new().build())',
+            '        // Upstream updater disabled in independent pairing fork.')
+lib.write_text(t,encoding="utf-8")
