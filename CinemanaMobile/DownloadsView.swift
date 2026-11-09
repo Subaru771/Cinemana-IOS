@@ -39,13 +39,7 @@ struct DownloadsView: View {
             Image(systemName: "arrow.down.to.line.compact")
                 .font(.system(size: 54))
                 .foregroundStyle(.mint)
-            Text(hideMatureContent && !center.items.isEmpty ? "Downloads hidden by content filter" : "Your downloads").font(.title2.bold())
-            Text("Choose Download from a movie or episode. Supported videos will appear here for offline playback.")
-                .foregroundStyle(.secondary)
-                .multilineTextAlignment(.center)
-            Text("Availability depends on the video provider.")
-                .font(.caption)
-                .foregroundStyle(.secondary)
+            Text(hideMatureContent && !center.items.isEmpty ? "Downloads hidden by content filter" : "No downloads").font(.title2.bold())
         }
         .padding(24)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -100,7 +94,7 @@ struct DownloadsView: View {
                              total: Double(free) + Double(max(0, center.usedBytes)))
                     .tint(.mint)
                 if free < 1_073_741_824 {
-                    Label("Storage nearly full — remove old videos before downloading.",
+                    Label("Low storage",
                           systemImage: "exclamationmark.triangle")
                         .font(.caption).foregroundStyle(.orange)
                 }
@@ -117,7 +111,7 @@ struct DownloadsView: View {
                 Button { center.resumeAll() } label: { Label("Resume all", systemImage: "play.fill") }
                 Divider()
                 Button(role: .destructive) { confirmClearFinished = true } label: {
-                    Label("Remove completed only", systemImage: "checkmark.circle")
+                    Label("Remove completed", systemImage: "checkmark.circle")
                 }
                 .disabled(finished.isEmpty)
                 Button(role: .destructive) { confirmDeleteAll = true } label: {
