@@ -7,7 +7,7 @@ import UIKit
 /// or send user/device information to any new service.
 struct ConnectionDiagnosticsView: View {
     @State private var checking = false
-    @State private var result = "Run the connection test to check catalog access."
+    @State private var result = ""
     @State private var lastChecked: Date?
     @State private var succeeded: Bool?
 
@@ -21,7 +21,9 @@ struct ConnectionDiagnosticsView: View {
                 Label(succeeded == nil ? "Not checked" : (succeeded == true ? "Reachable" : "Unavailable"),
                       systemImage: succeeded == nil ? "questionmark.circle" : (succeeded == true ? "checkmark.circle" : "exclamationmark.triangle"))
                     .foregroundStyle(succeeded == false ? Color.orange : Color.primary)
-                Text(result).font(.footnote).textSelection(.enabled)
+                if lastChecked != nil {
+                    Text(result).font(.footnote).textSelection(.enabled)
+                }
                 if let lastChecked {
                     Text(lastChecked.formatted(date: .abbreviated, time: .shortened))
                         .font(.caption).foregroundStyle(.secondary)
@@ -42,13 +44,9 @@ struct ConnectionDiagnosticsView: View {
                 Button("Copy result") { UIPasteboard.general.string = result }
                     .disabled(lastChecked == nil)
             }
-            Section("Media streaming") {
-                Text("Media streams may use different servers. A successful catalog test does not guarantee playback.")
-                Text("For a video-specific report, open the video player, then Player settings → Playback diagnostics.")
-            }
             Section {
-                Text("This check tests the catalog only, not video playback or ISP authorization for every media server.")
-                    .font(.footnote).foregroundStyle(.secondary)
+                Text("Checks the catalog, not individual videos.")
+                    .font(.caption).foregroundStyle(.secondary)
             }
         }
         .navigationTitle("Network diagnostics")
