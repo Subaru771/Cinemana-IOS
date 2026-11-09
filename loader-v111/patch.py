@@ -35,13 +35,14 @@ def main():
     for name in expected:
         shutil.copyfile(ROOT/"assets"/name, dest/name)
     shutil.copyfile(ROOT/"src"/"cinemana_install.rs",UPSTREAM/"src-tauri"/"src"/"cinemana_install.rs")
+    shutil.copyfile(ROOT/"src"/"pairing_idevicepair.rs",UPSTREAM/"src-tauri"/"src"/"pairing_idevicepair.rs")
     shutil.copyfile(ROOT/"src"/"CinemanaApp.tsx",UPSTREAM/"src"/"App.tsx")
     shutil.copyfile(ROOT/"src"/"cinemana.css",UPSTREAM/"src"/"cinemana.css")
     (UPSTREAM/"src"/"cinemana").mkdir(exist_ok=True)
     for f in (ROOT/"src"/"cinemana").glob("*.ts"):
         shutil.copyfile(f,UPSTREAM/"src"/"cinemana"/f.name)
 
-    replace_once("src-tauri/src/lib.rs", "mod operation;", "mod operation;\nmod cinemana_install;")
+    replace_once("src-tauri/src/lib.rs", "mod operation;", "mod operation;\nmod cinemana_install;\nmod pairing_idevicepair;")
     replace_once("src-tauri/src/lib.rs", "use tauri::Manager;", "use crate::cinemana_install::cinemana_install_operation;\nuse tauri::Manager;")
     replace_once("src-tauri/src/lib.rs", "            has_stored_rppairing,", "            has_stored_rppairing,\n            cinemana_install_operation,")
     replace_once("src-tauri/src/lib.rs", "        .plugin(tauri_plugin_updater::Builder::new().build())", "        // Do not use updater signed by upstream iLoader.")
@@ -50,7 +51,7 @@ def main():
     confpath=UPSTREAM/"src-tauri/tauri.conf.json"
     conf=json.loads(confpath.read_text())
     conf["productName"]="Cinemana Loader"
-    conf["version"]="1.1.1"
+    conf["version"]="1.2.0"
     conf["identifier"]="app.cinemana.loader"
     conf["build"]["beforeDevCommand"]="npm run dev"
     conf["build"]["beforeBuildCommand"]="npm run build"
@@ -62,7 +63,7 @@ def main():
     conf["bundle"].setdefault("windows",{})["webviewInstallMode"]={"type":"downloadBootstrapper","silent":True}
     confpath.write_text(json.dumps(conf,indent=2)+"\n")
     package["name"]="cinemana-loader"
-    package["version"]="1.1.1"
+    package["version"]="1.2.0"
     # Prevent npm from resolving newer incompatible plugin minor versions.
     exact = {
         "@tauri-apps/api": "2.11.1",
