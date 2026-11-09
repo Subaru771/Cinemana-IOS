@@ -47,7 +47,12 @@ block='''    // CINEMANA_ONE_TAP_APP_V09: use SideStore's existing install deep 
                 u.scheme = "sidestore"
                 u.host = "install"
                 u.queryItems = [URLQueryItem(name: "url", value: ipa)]
-                if let deepLink = u.url { UIApplication.shared.open(deepLink) }
+                if let bundled = Bundle.main.url(forResource: "Cinemana", withExtension: "ipa") {
+                    _ = FileImportHandler.shared.handle(fileURL: bundled)
+                } else if let deepLink = u.url {
+                    // Fallback only for developer builds without the packaged IPA.
+                    UIApplication.shared.open(deepLink)
+                }
             } label: {
                 Label(tr("Install Cinemana", "ثبّت Cinemana"), systemImage: "square.and.arrow.down")
                     .frame(maxWidth: .infinity)
