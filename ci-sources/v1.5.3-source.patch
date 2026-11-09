@@ -1,0 +1,556 @@
+--- a/BUILD-APK.cmd
++++ b/BUILD-APK.cmd
+@@ -1,10 +1,10 @@
+ ﻿@echo off
+ setlocal EnableExtensions
+ cd /d "%~dp0"
+-title CinemanaTV v1.5.2 - Optimized Test APK Builder
++title CinemanaTV v1.5.3 - Optimized Test APK Builder
+ 
+ echo =============================================================
+-echo       CinemanaTV v1.5.2 - OPTIMIZED TEST APK
++echo       CinemanaTV v1.5.3 - OPTIMIZED TEST APK
+ echo =============================================================
+ where java >nul 2>&1
+ if errorlevel 1 (
+@@ -36,14 +36,14 @@
+   exit /b 1
+ )
+ if not exist "output" mkdir "output"
+-copy /y "app\build\outputs\apk\release\app-release.apk" "output\CinemanaTV-Cinema-v1.5.2.apk" >nul
++copy /y "app\build\outputs\apk\release\app-release.apk" "output\CinemanaTV-Cinema-v1.5.3.apk" >nul
+ if errorlevel 1 (
+   echo ERROR: Could not copy the APK.
+   pause
+   exit /b 1
+ )
+ echo.
+-echo SUCCESS: output\CinemanaTV-Cinema-v1.5.2.apk
++echo SUCCESS: output\CinemanaTV-Cinema-v1.5.3.apk
+ echo This is TEST-SIGNED using the local debug key; do not publish as a release.
+ echo It only updates existing apps signed with the exact same key.
+ echo.
+--- a/README.md
++++ b/README.md
+@@ -1,12 +1,12 @@
+-# Cinemana TV v1.5.2 — merged playback and performance build
++# Cinemana TV v1.5.3 — merged playback and performance build
+ 
+ This release combines the strongest parts of **v1.5.0** (faster home, remote-first player, exact seek and skip/undo UI) and **v1.4.10** (conservative treatment of post-credits story scenes and lower-overhead marker polling).
+ 
+ ## Build and installation
+ 
+ - On Windows with JDK 17+, Android SDK 35 and internet access for Gradle, run `RUN-FULL-TEST.cmd` to run regression tests and build a test-signed release APK. Use `BUILD-APK.cmd` to build without unit tests, or `BUILD-DEBUG-APK.cmd` for a debugging build.
+-- Output from `RUN-FULL-TEST.cmd`: `output/CinemanaTV-v1.5.2-test.apk`.
+-- `versionName = 1.5.1`, `versionCode = 46`; the app ID, storage, history, downloads and settings are unchanged.
++- Output from `RUN-FULL-TEST.cmd`: `output/CinemanaTV-v1.5.3-test.apk`.
++- `versionName = 1.5.3`, `versionCode = 48`; the app ID, storage, history, downloads and settings are unchanged.
+ - The APK signing key may not match an older install. Back up app data before removing older versions.
+ - Automatic mature scene skipping is only available with accurate saved or externally supplied ranges; no real-time video AI is used.
+ 
+@@ -23,7 +23,7 @@
+ - Settings controls and search remain remote accessible and retain the v1.4.6 two-pane design.
+ - Mature content options: **Off**, **Skip marked scenes**, or **Hide mature titles**.
+ - External player handoff is disabled in Skip Scenes mode because it cannot enforce local markers.
+-- Skip marked scenes works only for *exact scene ranges*, entered **before viewing** using Player Settings → Scene markers → Start/End timestamps, or saved while watching. **There is no automatic explicit-scene detection or trusted online scene-timestamp database.** Unmarked scenes are not automatically skipped.
++- Skip mature scenes uses available community and previously saved scene ranges automatically; the manual timestamp editor has been removed. Public movie scene-marker sources are supported when matching timestamps are available. Unmarked scenes are not automatically skipped.
+ - Hide titles uses provider age certificates and adult tags. It may miss incorrectly labeled titles; it is not a certified child-protection solution.
+ - Existing downloads, watch history, player and saved data formats remain intact.
+ 
+--- a/RUN-FULL-TEST.cmd
++++ b/RUN-FULL-TEST.cmd
+@@ -1,11 +1,11 @@
+ ﻿@echo off
+ setlocal EnableExtensions
+ cd /d "%~dp0"
+-title CinemanaTV v1.5.2 - Verify and build
++title CinemanaTV v1.5.3 - Verify and build
+ if not exist "output" mkdir "output"
+-set "LOG=%CD%\output\CinemanaTV-v1.5.2-BUILD.log"
++set "LOG=%CD%\output\CinemanaTV-v1.5.3-BUILD.log"
+ echo =============================================================
+-echo        CinemanaTV v1.5.2 - Verify and build
++echo        CinemanaTV v1.5.3 - Verify and build
+  echo =============================================================
+ where java >nul 2>&1
+ if errorlevel 1 (
+@@ -34,13 +34,13 @@
+   pause
+   exit /b 1
+ )
+-copy /y "app\build\outputs\apk\release\app-release.apk" "output\CinemanaTV-v1.5.2-test.apk" >nul
++copy /y "app\build\outputs\apk\release\app-release.apk" "output\CinemanaTV-v1.5.3-test.apk" >nul
+ if errorlevel 1 (
+   echo ERROR: Unable to copy APK into output folder.
+   pause
+   exit /b 1
+ )
+-echo SUCCESS: output\CinemanaTV-v1.5.2-test.apk
++echo SUCCESS: output\CinemanaTV-v1.5.3-test.apk
+ echo IMPORTANT: Only update an existing installation if the signing keys match.
+ echo Do not uninstall an existing app without backing up your local data.
+ pause
+--- a/BUILD-DEBUG-APK.cmd
++++ b/BUILD-DEBUG-APK.cmd
+@@ -1,10 +1,10 @@
+ ﻿@echo off
+ setlocal EnableExtensions
+ cd /d "%~dp0"
+-title CinemanaTV v1.5.2 - Debug APK Builder (slower app, runs unit tests)
++title CinemanaTV v1.5.3 - Debug APK Builder (slower app, runs unit tests)
+ 
+ echo =============================================================
+-echo   CinemanaTV v1.5.2 - DEBUG build (for diagnosing problems)
++echo   CinemanaTV v1.5.3 - DEBUG build (for diagnosing problems)
+ echo =============================================================
+ where java >nul 2>&1
+ if errorlevel 1 (
+@@ -27,14 +27,14 @@
+   exit /b 1
+ )
+ if not exist "output" mkdir "output"
+-copy /y "app\build\outputs\apk\debug\app-debug.apk" "output\CinemanaTV-Cinema-v1.5.2-debug.apk" >nul
++copy /y "app\build\outputs\apk\debug\app-debug.apk" "output\CinemanaTV-Cinema-v1.5.3-debug.apk" >nul
+ if errorlevel 1 (
+   echo ERROR: Could not copy the APK.
+   pause
+   exit /b 1
+ )
+ echo.
+-echo SUCCESS: output\CinemanaTV-Cinema-v1.5.2-debug.apk
++echo SUCCESS: output\CinemanaTV-Cinema-v1.5.3-debug.apk
+ echo NOTE: debug builds run noticeably slower than the release build from BUILD-APK.cmd.
+ echo.
+ pause
+--- a/app/build.gradle.kts
++++ b/app/build.gradle.kts
+@@ -25,8 +25,8 @@
+         applicationId = "app.cinemanatv"
+         minSdk = 26
+         targetSdk = 34
+-        versionCode = 47
+-        versionName = "1.5.2"
++        versionCode = 48
++        versionName = "1.5.3"
+         buildConfigField("String", "CLIENT_ID", "\"${cfg("cinemana.clientId")}\"")
+         buildConfigField("String", "CLIENT_SECRET", "\"\"")
+         buildConfigField("String", "SCOPE", "\"${cfg("cinemana.scope")}\"")
+--- a/.github/workflows/build.yml
++++ b/.github/workflows/build.yml
+@@ -22,11 +22,11 @@
+         run: |
+           chmod +x gradlew
+           ./gradlew testDebugUnitTest assembleRelease
+-          cp app/build/outputs/apk/release/app-release.apk CinemanaTV-v1.5.1-test.apk
+-          sha256sum CinemanaTV-v1.5.1-test.apk > CinemanaTV-v1.5.1-test.apk.sha256
++          cp app/build/outputs/apk/release/app-release.apk CinemanaTV-v1.5.3-test.apk
++          sha256sum CinemanaTV-v1.5.3-test.apk > CinemanaTV-v1.5.3-test.apk.sha256
+       - uses: actions/upload-artifact@v4
+         with:
+-          name: CinemanaTV-v1.5.1-debug-signed-test
++          name: CinemanaTV-v1.5.3-debug-signed-test
+           path: |
+-            CinemanaTV-v1.5.1-test.apk
+-            CinemanaTV-v1.5.1-test.apk.sha256
++            CinemanaTV-v1.5.3-test.apk
++            CinemanaTV-v1.5.3-test.apk.sha256
+--- a/app/src/main/java/app/cinemanatv/data/Prefs.kt
++++ b/app/src/main/java/app/cinemanatv/data/Prefs.kt
+@@ -124,7 +124,7 @@
+ 
+     // Legacy hide-title modes are migrated to scene-only skipping; catalog entries stay visible.
+     // Existing local watch history and downloads are never deleted.
+-    /** On by default so Skip Intro works out of the box; can be turned off in Settings. Consults public skip databases using IMDb ID + runtime; nothing about viewing history is sent. */
++    /** Legacy preference retained for saved settings compatibility; the player now uses community markers automatically. */
+     var communitySceneMarkersEnabled: Boolean
+         get() = sp.getBoolean("community_scene_markers", true)
+         set(value) = sp.edit().putBoolean("community_scene_markers", value).apply()
+--- a/app/src/main/java/app/cinemanatv/ui/Components.kt
++++ b/app/src/main/java/app/cinemanatv/ui/Components.kt
+@@ -84,6 +84,7 @@
+     modifier: Modifier = Modifier,
+     icon: ImageVector? = null,
+     primary: Boolean = false,
++    showFocusChevron: Boolean = false,
+     onFocused: (() -> Unit)? = null,
+     onClick: () -> Unit,
+ ) {
+@@ -114,6 +115,10 @@
+             focusedContentColor = if (primary) Color.White else Color.Black,
+         ),
+     ) {
++        if (showFocusChevron && focused) {
++            Text("›", fontSize = 20.sp, fontWeight = FontWeight.Bold)
++            Spacer(Modifier.width(5.dp))
++        }
+         if (icon != null) {
+             Icon(icon, contentDescription = null, modifier = Modifier.size(20.dp))
+             Spacer(Modifier.width(8.dp))
+--- a/app/src/main/java/app/cinemanatv/ui/Player.kt
++++ b/app/src/main/java/app/cinemanatv/ui/Player.kt
+@@ -116,7 +116,7 @@
+ private val Muted = Color(0xFFAAB8B2)
+ private val Accent = Color(0xFF83FFA4)
+ private val Focus = Color(0xFFF2FFF6)
+-private enum class PlayerSheet { ROOT, QUALITY, SUBTITLES, SUBSIZE, SUBSYNC, SUBSTYLE, SUBPOSITION, AUDIO, SPEED, ASPECT, SCENES, DETAILS }
++private enum class PlayerSheet { ROOT, QUALITY, SUBTITLES, SUBSIZE, SUBSYNC, SUBSTYLE, SUBPOSITION, AUDIO, SPEED, ASPECT, DETAILS }
+ private enum class ScreenMode { FIT, FILL, ZOOM }
+ 
+ /** What "Undo skip" restores: where to seek back to and, for mature scenes, which range to exempt. */
+@@ -210,14 +210,11 @@
+     var syncNote by remember(video.id) { mutableStateOf<String?>(null) }
+     var introWindow by remember(video.id) { mutableStateOf(video.introWindow) }
+     var externalMarkers by remember(video.id) { mutableStateOf<List<ExternalSceneMarker>>(emptyList()) }
+-    var externalMarkerStatus by remember(video.id) { mutableStateOf("Community scene metadata not checked") }
+-    val communityMarkerOptIn = prefs.communitySceneMarkersEnabled
++    // Community lookups are always available: no hidden 'timestamp' setting to enable first.
++    val communityMarkerOptIn = true
+     val skipMarkedScenes = prefs.matureAction == MatureAction.SKIP_SCENES
+-    var sceneRanges by remember(video.id) { mutableStateOf(prefs.sceneRanges(video.id)) }
+-    var draftSceneStart by remember(video.id) { mutableStateOf<Long?>(null) }
+-    var timecodeStart by remember(video.id) { mutableStateOf("") }
+-    var timecodeEnd by remember(video.id) { mutableStateOf("") }
+-    var markerError by remember(video.id) { mutableStateOf("") }
++    // Preserve previously saved scene ranges while removing the manual editor from the UI.
++    val sceneRanges = remember(video.id) { prefs.sceneRanges(video.id) }
+     // Undo only exempts the specifically restored scene for this playback session.
+     var undoInfo by remember(video.id) { mutableStateOf<UndoInfo?>(null) }
+     var exemptScenes by remember(video.id) { mutableStateOf<Set<SceneRange>>(emptySet()) }
+@@ -488,18 +485,11 @@
+             ?: ExternalSceneMarkers.imdbID(video.rootSeriesInfo?.imdbRef)
+             ?: ExternalSceneMarkers.imdbID(rootDetails?.imdbRef)
+         if (imdb == null) {
+-            externalMarkerStatus = "No IMDb ID available for this episode"
+             return@LaunchedEffect
+         }
+-        externalMarkerStatus = "Checking external timestamp sources…"
+         val marks = RemoteSceneMetadata.load(imdb, if (video.episodeNumber > 0) video.seasonNumber else 0,
+             video.episodeNumber, duration, communityMarkerOptIn, skipMarkedScenes)
+         externalMarkers = marks
+-        externalMarkerStatus = when {
+-            marks.isEmpty() -> "No verified timestamps for this edition"
+-            else -> "${marks.count { it.kind != "mature" }} intro/recap/credit markers; " +
+-                    "${marks.count { it.kind == "mature" }} mature scene markers"
+-        }
+     }
+ 
+     // Optional subtitles load independently of media discovery. A failed subtitle request
+@@ -1309,7 +1299,6 @@
+                                     PlayerSheet.AUDIO -> "Audio tracks"
+                                     PlayerSheet.SPEED -> "Playback speed"
+                                     PlayerSheet.ASPECT -> "Picture size"
+-                                    PlayerSheet.SCENES -> "Scene markers"
+                                     PlayerSheet.DETAILS -> "Stream information"
+                                 }), fontSize = 23.sp, fontWeight = FontWeight.Bold)
+                             }
+@@ -1330,16 +1319,8 @@
+                                     PlayerOption("Audio", selectedAudio ?: "Auto", "♫") { sheet = PlayerSheet.AUDIO }
+                                     PlayerOption("Playback speed", "${playbackSpeed}×", "⏩") { sheet = PlayerSheet.SPEED }
+                                     PlayerOption("Picture size", aspect.name.lowercase().replaceFirstChar { it.uppercase() }, "▱") { sheet = PlayerSheet.ASPECT }
+-                                    if (skipMarkedScenes) {
+-                                        Text("Scene skipping is available in the built-in player.",
+-                                            color = Muted, fontSize = 12.sp)
+-                                    } else {
+-                                        PlayerOption("Open in external player", "If installed; HTTP streams only", "↗") { openExternalPlayer() }
+-                                    }
+-                                    if (skipMarkedScenes) {
+-                                        PlayerOption("Scene markers", "Mark sections to skip on future playback", "✂") {
+-                                            sheet = PlayerSheet.SCENES
+-                                        }
++                                    if (!skipMarkedScenes) {
++                                        PlayerOption("Open in external player", "", "↗") { openExternalPlayer() }
+                                     }
+                                     PlayerOption("Technical details", "Codec & resolution", "ⓘ") { sheet = PlayerSheet.DETAILS }
+                                 }
+@@ -1479,84 +1460,6 @@
+                                             selected = aspect == mode) { aspect = mode; sheet = null }
+                                     }
+                                 }
+-                                PlayerSheet.SCENES -> {
+-                                    Text(t("Only manually marked ranges are skipped. No automatic scene detection is available."),
+-                                        color = Muted, fontSize = 13.sp)
+-                                    Text("Saved ranges: ${sceneRanges.size} · external: ${externalMarkers.count { it.kind == "mature" }}", color = Color.White, fontSize = 13.sp)
+-                                    Text(externalMarkerStatus, color = C.Dim, fontSize = 12.sp)
+-                                    if (sceneRanges.isEmpty()) Text(
+-                                        "No markers for this title. Skip Scenes does not protect unmarked video.",
+-                                        color = Color(0xFFFFBF8B), fontSize = 13.sp)
+-                                    Text("Add a range before watching (mm:ss or hh:mm:ss):",
+-                                        color = Muted, fontSize = 13.sp)
+-                                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+-                                        TvTextField(timecodeStart, { timecodeStart = it }, "Start 00:00",
+-                                            Modifier.weight(1f))
+-                                        TvTextField(timecodeEnd, { timecodeEnd = it }, "End 00:00",
+-                                            Modifier.weight(1f))
+-                                    }
+-                                    PlayerOption("Save timestamp range", "Skip on next playback", "+") {
+-                                        val start = SceneSkipping.parseStamp(timecodeStart)
+-                                        val end = SceneSkipping.parseStamp(timecodeEnd)
+-                                        if (start == null || end == null || end <= start) {
+-                                            markerError = "Enter a valid start and end (e.g. 12:05 and 13:10)"
+-                                        } else {
+-                                            val next = SceneSkipping.add(sceneRanges, start, end)
+-                                            if (next == sceneRanges) {
+-                                                markerError = "Range must be between 1 second and 20 minutes"
+-                                            } else {
+-                                                sceneRanges = next
+-                                                prefs.saveSceneRanges(video.id, next)
+-                                                timecodeStart = ""
+-                                                timecodeEnd = ""
+-                                                markerError = ""
+-                                                hint = "Scene timestamps saved"
+-                                            }
+-                                        }
+-                                    }
+-                                    if (markerError.isNotBlank()) Text(markerError,
+-                                        color = Color(0xFFFFBF8B), fontSize = 13.sp)
+-                                    if (draftSceneStart == null) {
+-                                        PlayerOption("Mark scene start", "At ${playClock(player.currentPosition)}", "[") {
+-                                            if (player.isCurrentMediaItemSeekable && player.currentPosition >= 0L) {
+-                                                draftSceneStart = player.currentPosition
+-                                                sheet = null
+-                                                hint = "Scene start saved · mark its end later"
+-                                            } else hint = "This stream cannot be marked"
+-                                        }
+-                                    } else {
+-                                        Text("Start at ${playClock(draftSceneStart!!)}", color = Muted, fontSize = 13.sp)
+-                                        PlayerOption("Mark scene end", "At ${playClock(player.currentPosition)}", "]") {
+-                                            val start = draftSceneStart!!
+-                                            val end = player.currentPosition
+-                                            val next = SceneSkipping.add(sceneRanges, start, end)
+-                                            if (next == sceneRanges) {
+-                                                hint = "End must be 1 sec–20 min after start"
+-                                            } else {
+-                                                sceneRanges = next
+-                                                prefs.saveSceneRanges(video.id, next)
+-                                                draftSceneStart = null
+-                                                sheet = null
+-                                                hint = "Scene marked · skips on replay"
+-                                            }
+-                                        }
+-                                        PlayerOption("Cancel start marker", "Discard the unsaved start", "×") {
+-                                            draftSceneStart = null
+-                                        }
+-                                    }
+-                                    if (sceneRanges.isNotEmpty()) {
+-                                        PlayerOption("Remove last marked scene", "Undo one saved range", "↶") {
+-                                            val next = sceneRanges.dropLast(1)
+-                                            sceneRanges = next
+-                                            prefs.saveSceneRanges(video.id, next)
+-                                        }
+-                                        PlayerOption("Clear this title's markers", "Remove all marked scenes", "×") {
+-                                            sceneRanges = emptyList()
+-                                            prefs.saveSceneRanges(video.id, emptyList())
+-                                            draftSceneStart = null
+-                                        }
+-                                    }
+-                                }
+                                 PlayerSheet.DETAILS -> {
+                                     val format = player.videoFormat
+                                     Column(Modifier.focusRequester(sheetRequester).focusable(), verticalArrangement = Arrangement.spacedBy(13.dp)) {
+--- a/app/src/main/java/app/cinemanatv/ui/Settings.kt
++++ b/app/src/main/java/app/cinemanatv/ui/Settings.kt
+@@ -12,6 +12,12 @@
+ import androidx.compose.ui.graphics.Brush
+ import androidx.compose.ui.graphics.Color
+ import androidx.compose.ui.focus.FocusRequester
++import androidx.compose.ui.focus.focusProperties
++import androidx.compose.ui.input.key.Key
++import androidx.compose.ui.input.key.KeyEventType
++import androidx.compose.ui.input.key.key
++import androidx.compose.ui.input.key.onPreviewKeyEvent
++import androidx.compose.ui.input.key.type
+ import androidx.compose.ui.focus.focusRequester
+ import kotlinx.coroutines.delay
+ import androidx.compose.ui.platform.LocalContext
+@@ -45,12 +51,25 @@
+         label("Storage", "التخزين"), label("Diagnostics", "فحص الاتصال"),
+     )
+     var selected by remember { mutableIntStateOf(0) }
+-    val firstSection = remember { FocusRequester() }
++    var pendingRightFocus by remember { mutableIntStateOf(-1) }
++    // Each category owns a stable focus target. Recomposition of the right pane must not
++    // invalidate the D-pad focus route back to the selected category.
++    val categoryFocus = remember { List(8) { FocusRequester() } }
++    val firstRightFocus = remember { FocusRequester() }
+     LaunchedEffect(Unit) {
+         // The category list owns initial remote focus. Individual buttons scroll into view
+         // automatically, so the focus indicator cannot disappear off-screen in Settings.
+         delay(70)
+-        runCatching { firstSection.requestFocus() }
++        runCatching { categoryFocus[0].requestFocus() }
++    }
++    // When Right changes categories, wait for the new options to be composed before
++    // requesting focus. Otherwise D-pad navigation can point at a removed control.
++    LaunchedEffect(selected, pendingRightFocus) {
++        if (pendingRightFocus == selected) {
++            delay(32)
++            runCatching { firstRightFocus.requestFocus() }
++            pendingRightFocus = -1
++        }
+     }
+     var quality by remember { mutableIntStateOf(prefs.maxQuality) }
+     var subtitle by remember { mutableStateOf(prefs.preferredSubtitleLanguage) }
+@@ -58,7 +77,6 @@
+     var bingeCheck by remember { mutableStateOf(prefs.bingeCheckEnabled) }
+     var unmetered by remember { mutableStateOf(prefs.downloadUnmeteredOnly) }
+     var tvHome by remember { mutableStateOf(prefs.tvHomeEnabled) }
+-    var communityMarkers by remember { mutableStateOf(prefs.communitySceneMarkersEnabled) }
+     var autoSkipIntro by remember { mutableStateOf(prefs.autoSkipIntro) }
+     var storageRefresh by remember { mutableIntStateOf(0) }
+     var diagnostic by remember { mutableStateOf("") }
+@@ -83,8 +101,23 @@
+                 itemsIndexed(sections) { i, name ->
+                     AppButton(
+                         if (i == selected) "▍  $name" else name,
+-                        Modifier.fillMaxWidth().then(if (i == 0) Modifier.focusRequester(firstSection) else Modifier),
+-                        primary = selected == i,
++                        Modifier.fillMaxWidth()
++                            .focusRequester(categoryFocus[i])
++                            .focusProperties {
++                                right = firstRightFocus
++                                up = if (i > 0) categoryFocus[i - 1] else FocusRequester.Default
++                                down = if (i < sections.lastIndex) categoryFocus[i + 1] else FocusRequester.Default
++                            }
++                            // Explicit Right navigation avoids Compose's geometric search picking
++                            // an unrelated button, or a target in a disappearing settings pane.
++                            .onPreviewKeyEvent { event ->
++                                if (event.key == Key.DirectionRight && event.type == KeyEventType.KeyDown) {
++                                    selected = i
++                                    pendingRightFocus = i
++                                    true
++                                } else false
++                            },
++                        primary = selected == i, showFocusChevron = true,
+                     ) { selected = i }
+                 }
+             }
+@@ -104,7 +137,7 @@
+                             SettingsCard(label("Interface language", "لغة الواجهة"),
+                                 "") {
+                                 SettingChoices(listOf("en" to "English", "ar" to "العربية"),
+-                                    vm.interfaceLanguage) { vm.changeInterfaceLanguage(it) }
++                                    vm.interfaceLanguage, firstFocus = firstRightFocus, backFocus = categoryFocus[selected]) { vm.changeInterfaceLanguage(it) }
+                             }
+                         }
+                     }
+@@ -114,18 +147,16 @@
+                                 SettingChoices(listOf(
+                                     MatureAction.OFF.name to label("Off", "إيقاف"),
+                                     MatureAction.SKIP_SCENES.name to label("Skip mature scenes", "تخطي المشاهد"),
+-                                ), vm.matureAction.name) { vm.changeMatureAction(MatureAction.valueOf(it), ctx) }
++                                ), vm.matureAction.name, firstFocus = firstRightFocus, backFocus = categoryFocus[selected]) {
++                                    vm.changeMatureAction(MatureAction.valueOf(it), ctx)
++                                }
+                             }
+                         }
+                     }
+                     2 -> {
+                         item {
+                             SettingsCard(label("Intro & credits", "المقدمة والنهاية"), "") {
+-                                SettingToggle(label("Use community skip timestamps", "استخدام توقيتات المجتمع"), communityMarkers) {
+-                                    communityMarkers = !communityMarkers
+-                                    prefs.communitySceneMarkersEnabled = communityMarkers
+-                                }
+-                                SettingToggle(label("Skip intros and recaps automatically", "تخطي المقدمة والملخص تلقائياً"), autoSkipIntro) {
++                                SettingToggle(label("Skip intros and recaps automatically", "تخطي المقدمة والملخص تلقائياً"), autoSkipIntro, firstFocus = firstRightFocus, backFocus = categoryFocus[selected]) {
+                                     autoSkipIntro = !autoSkipIntro
+                                     prefs.autoSkipIntro = autoSkipIntro
+                                 }
+@@ -156,7 +187,7 @@
+                         SettingsCard(label("Preferred subtitle language", "لغة الترجمة المفضلة"),
+                             "") {
+                             SettingChoices(listOf("auto" to label("Automatic", "تلقائي"), "ar" to label("Arabic", "عربي"),
+-                                "en" to label("English", "إنكليزي"), "off" to label("Off", "إيقاف")), subtitle) {
++                                "en" to label("English", "إنكليزي"), "off" to label("Off", "إيقاف")), subtitle, firstFocus = firstRightFocus, backFocus = categoryFocus[selected]) {
+                                 subtitle = it; prefs.preferredSubtitleLanguage = it
+                                 if (it != "auto") prefs.subtitleLabel = ""
+                             }
+@@ -166,7 +197,7 @@
+                         item {
+                             SettingsCard(label("Home sections", "أقسام الصفحة الرئيسية"),
+                                 "") {
+-                                SettingToggle(label("Continue Watching row", "قسم متابعة المشاهدة"), vm.showContinueRow) {
++                                SettingToggle(label("Continue Watching row", "قسم متابعة المشاهدة"), vm.showContinueRow, firstFocus = firstRightFocus, backFocus = categoryFocus[selected]) {
+                                     vm.updateHomeSections(continueRow = !vm.showContinueRow)
+                                 }
+                                 SettingToggle(label("My List row", "قسم قائمتي"), vm.showMyListRow) {
+@@ -190,7 +221,7 @@
+                     5 -> item {
+                         SettingsCard(label("Download preferences", "تفضيلات التنزيل"),
+                             "") {
+-                            SettingToggle(label("Unmetered networks only", "شبكات غير محدودة فقط"), unmetered) {
++                            SettingToggle(label("Unmetered networks only", "شبكات غير محدودة فقط"), unmetered, firstFocus = firstRightFocus, backFocus = categoryFocus[selected]) {
+                                 unmetered = !unmetered; prefs.downloadUnmeteredOnly = unmetered
+                             }
+                         }
+@@ -221,7 +252,7 @@
+                                     }
+                                 }
+                                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+-                                    AppButton(label("Refresh", "تحديث")) { storageRefresh++ }
++                                    AppButton(label("Refresh", "تحديث"), Modifier.focusRequester(firstRightFocus).focusProperties { left = categoryFocus[selected] }) { storageRefresh++ }
+                                     AppButton(label("Clear preloaded buffer", "مسح الفيديو المؤقت")) {
+                                         scope.launch {
+                                             withContext(Dispatchers.IO) { NextEpisodePreloader.clear(ctx) }
+@@ -237,7 +268,7 @@
+                             label("Check catalog access and the current video host independently.",
+                                 "افحص الوصول إلى الفهرس وخادم الفيديو بشكل منفصل.")) {
+                             AppButton(if (diagnosing) label("Checking…", "جارٍ الفحص…")
+-                                else label("Run connection test", "افحص الاتصال")) {
++                                else label("Run connection test", "افحص الاتصال"), Modifier.focusRequester(firstRightFocus).focusProperties { left = categoryFocus[selected] }) {
+                                 if (!diagnosing) scope.launch {
+                                     diagnosing = true
+                                     diagnostic = label("Checking the available routes…", "جارٍ فحص الاتصال…")
+@@ -274,13 +305,19 @@
+ }
+ 
+ @Composable
+-private fun SettingChoices(options: List<Pair<String, String>>, value: String, onSelect: (String) -> Unit) {
++private fun SettingChoices(options: List<Pair<String, String>>, value: String,
++                           firstFocus: FocusRequester? = null, backFocus: FocusRequester? = null,
++                           onSelect: (String) -> Unit) {
+     Column(verticalArrangement = Arrangement.spacedBy(9.dp)) {
+-        options.chunked(3).forEach { group ->
++        options.chunked(3).forEachIndexed { groupIndex, group ->
+             Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
+-                group.forEach { (key, name) ->
++                group.forEachIndexed { optionIndex, (key, name) ->
+                     AppButton((if (key == value) "✓  " else "") + name,
+-                        primary = key == value) { onSelect(key) }
++                        modifier = if (groupIndex == 0 && optionIndex == 0 && firstFocus != null)
++                            Modifier.focusRequester(firstFocus).then(
++                                if (backFocus != null) Modifier.focusProperties { left = backFocus } else Modifier
++                            ) else Modifier,
++                        primary = key == value, showFocusChevron = true) { onSelect(key) }
+                 }
+             }
+         }
+@@ -288,6 +325,11 @@
+ }
+ 
+ @Composable
+-private fun SettingToggle(text: String, checked: Boolean, onToggle: () -> Unit) {
+-    AppButton((if (checked) "✓  " else "○  ") + text, primary = checked, onClick = onToggle)
++private fun SettingToggle(text: String, checked: Boolean, firstFocus: FocusRequester? = null,
++                          backFocus: FocusRequester? = null, onToggle: () -> Unit) {
++    AppButton((if (checked) "✓  " else "○  ") + text,
++        modifier = if (firstFocus != null) Modifier.focusRequester(firstFocus).then(
++            if (backFocus != null) Modifier.focusProperties { left = backFocus } else Modifier
++        ) else Modifier,
++        primary = checked, showFocusChevron = true, onClick = onToggle)
+ }
+--- a/app/src/main/java/app/cinemanatv/ui/Home.kt
++++ b/app/src/main/java/app/cinemanatv/ui/Home.kt
+@@ -98,12 +98,6 @@
+ private fun TopBar(selected: Int, onUpAtTop: () -> Unit, onSearch: () -> Unit, onSelect: (Int) -> Unit) {
+     Row(
+         Modifier.fillMaxWidth().background(C.Bg)
+-            .onPreviewKeyEvent { e ->
+-                if (e.key == Key.DirectionUp && selected != 3) {
+-                    if (e.type == KeyEventType.KeyDown) onUpAtTop()
+-                    true
+-                } else false
+-            }
+             .padding(horizontal = 28.dp, vertical = 12.dp),
+         verticalAlignment = Alignment.CenterVertically,
+         horizontalArrangement = Arrangement.spacedBy(10.dp),
