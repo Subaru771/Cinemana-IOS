@@ -1,6 +1,14 @@
 name: Cinemana iOS — unsigned build
 on:
   workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'CinemanaMobile/**'
+      - 'project.yml'
+      - '.github/workflows/ios.yml'
+      - 'scripts/**'
+      - 'Tests/**'
 permissions:
   contents: read
 jobs:
