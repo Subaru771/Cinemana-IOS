@@ -52,12 +52,21 @@ jobs:
       - name: Prepare signing helper
         run: brew install ldid
 
-      - name: Build fake-signed test IPA
+      - name: Build fake-signed test IPA with Cinemana embedded
         working-directory: sidestore-upstream
         shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
-          set -o pipefail
-          make build fakesign ipa 2>&1 | tee ../sidestore-v09-build.log
+          set -euo pipefail
+          make build 2>&1 | tee ../sidestore-v09-build.log
+          gh release download ci-cinemana-ios-v2.1.1-refined \
+            --repo "${GITHUB_REPOSITORY}" --pattern 'Cinemana-iOS-v2.1.1-beta.1-Unsigned.ipa'
+          echo '42348c3d7571a4b202a73993106327440abfc457741e530fab3cba32926f6a00  Cinemana-iOS-v2.1.1-beta.1-Unsigned.ipa' | sha256sum --check -
+          cp Cinemana-iOS-v2.1.1-beta.1-Unsigned.ipa SideStore.xcarchive/Products/Applications/SideStore.app/Cinemana.ipa
+          test -s SideStore.xcarchive/Products/Applications/SideStore.app/Cinemana.ipa
+          make fakesign ipa
+          unzip -p SideStore.ipa Payload/SideStore.app/Cinemana.ipa | sha256sum | grep -q '^42348c3d7571a4b202a73993106327440abfc457741e530fab3cba32926f6a00 '
 
       - name: Validate archive and SHA-256
         shell: bash
@@ -65,7 +74,56 @@ jobs:
           set -euo pipefail
           test -f sidestore-upstream/SideStore.ipa
           unzip -t sidestore-upstream/SideStore.ipa >/dev/null
-          unzip -Z1 sidestore-upstream/SideStore.ipa | grep '^Payload/SideStore.app/Info.plist$' >/dev/null
+          unzip -Z1 sidestore-upstream/SideStore.ipa | grep '^Payload/SideStore.app/Info.plist
+          mkdir -p output-v09
+          cp sidestore-upstream/SideStore.ipa output-v09/Cinemana-SideStore-V0.9-TEST.ipa
+          (cd output-v09 && shasum -a 256 Cinemana-SideStore-V0.9-TEST.ipa > SHA256.txt)
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: cinemana-sidestore-v09-built-ipa
+          path: output-v09/
+          retention-days: 3
+          if-no-files-found: error
+      - name: Upload private draft release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          TAG="cinemana-sidestore-v09-${GITHUB_SHA:0:12}"
+          gh release create "$TAG" \
+            output-v09/Cinemana-SideStore-V0.9-TEST.ipa \
+            output-v09/SHA256.txt \
+            --target "$GITHUB_SHA" --draft --prerelease \
+            --title "Cinemana SideStore v0.9 Guided Setup TEST" \
+            --notes "Independently modified AGPLv3 SideStore test IPA. Guided setup, pairing protocol checks, safer LocalDevVPN requests and Anisette defaults. Requires personal Apple signing in iLoader, trust and a real iPhone validation. Verified Cinemana v2.1.1 IPA is embedded into SideStore. One-tap installation still requires Apple signing and on-device approval. Full patches available in this isolated branch."
+ >/dev/null
+          unzip -Z1 sidestore-upstream/SideStore.ipa | grep '^Payload/SideStore.app/Cinemana.ipa
+          mkdir -p output-v09
+          cp sidestore-upstream/SideStore.ipa output-v09/Cinemana-SideStore-V0.9-TEST.ipa
+          (cd output-v09 && shasum -a 256 Cinemana-SideStore-V0.9-TEST.ipa > SHA256.txt)
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: cinemana-sidestore-v09-built-ipa
+          path: output-v09/
+          retention-days: 3
+          if-no-files-found: error
+      - name: Upload private draft release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          TAG="cinemana-sidestore-v09-${GITHUB_SHA:0:12}"
+          gh release create "$TAG" \
+            output-v09/Cinemana-SideStore-V0.9-TEST.ipa \
+            output-v09/SHA256.txt \
+            --target "$GITHUB_SHA" --draft --prerelease \
+            --title "Cinemana SideStore v0.9 Guided Setup TEST" \
+            --notes "Independently modified AGPLv3 SideStore test IPA. Guided setup, pairing protocol checks, safer LocalDevVPN requests and Anisette defaults. Requires personal Apple signing in iLoader, trust and a real iPhone validation. Cinemana v2.1.1 install action is built into native setup UI; on-device confirmation remains required. Full patches available in this isolated branch."
+ >/dev/null
           mkdir -p output-v09
           cp sidestore-upstream/SideStore.ipa output-v09/Cinemana-SideStore-V0.9-TEST.ipa
           (cd output-v09 && shasum -a 256 Cinemana-SideStore-V0.9-TEST.ipa > SHA256.txt)
