@@ -1,12 +1,12 @@
-name: Cinemana TV v1.5.1 merged - Android test build
+name: Cinemana TV v1.5.2 merged - Android test build
 on:
   push:
-    branches: [build/tv-v1.5.1-merged]
+    branches: [build/tv-v1.5.2-merged]
   pull_request:
     branches: [main]
     paths:
       - '.github/workflows/cinemana-tv-android.yml'
-      - 'ci-sources/CinemanaTV-v1.5.1-Merged-SOURCE.zip'
+      - 'ci-sources/CinemanaTV-v1.5.2-Merged-SOURCE.zip'
   workflow_dispatch:
 permissions:
   contents: read
@@ -31,26 +31,26 @@ jobs:
           "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-35" "build-tools;35.0.0"
       - name: Extract exact merged source
         run: |
-          unzip -tq ci-sources/CinemanaTV-v1.5.1-Merged-SOURCE.zip
-          unzip -q ci-sources/CinemanaTV-v1.5.1-Merged-SOURCE.zip -d /tmp/cinemana-tv
-          test -f /tmp/cinemana-tv/CinemanaTV-v1.5.1/app/build.gradle.kts
-          grep -q 'versionCode = 46' /tmp/cinemana-tv/CinemanaTV-v1.5.1/app/build.gradle.kts
+          unzip -tq ci-sources/CinemanaTV-v1.5.2-Merged-SOURCE.zip
+          unzip -q ci-sources/CinemanaTV-v1.5.2-Merged-SOURCE.zip -d /tmp/cinemana-tv
+          test -f /tmp/cinemana-tv/CinemanaTV-v1.5.2/app/build.gradle.kts
+          grep -q 'versionCode = 47' /tmp/cinemana-tv/CinemanaTV-v1.5.2/app/build.gradle.kts
       - name: Run Kotlin/Android tests and build optimized locally debug-signed APK
-        working-directory: /tmp/cinemana-tv/CinemanaTV-v1.5.1
+        working-directory: /tmp/cinemana-tv/CinemanaTV-v1.5.2
         run: |
           chmod +x gradlew
           ./gradlew --no-daemon --stacktrace :app:testDebugUnitTest :app:assembleRelease
       - name: Verify and checksum APK
         run: |
           mkdir -p dist
-          cp /tmp/cinemana-tv/CinemanaTV-v1.5.1/app/build/outputs/apk/release/app-release.apk dist/CinemanaTV-v1.5.1-Merged-TEST.apk
-          test -s dist/CinemanaTV-v1.5.1-Merged-TEST.apk
-          unzip -tq dist/CinemanaTV-v1.5.1-Merged-TEST.apk
-          (cd dist && sha256sum CinemanaTV-v1.5.1-Merged-TEST.apk > SHA256SUMS.txt)
+          cp /tmp/cinemana-tv/CinemanaTV-v1.5.2/app/build/outputs/apk/release/app-release.apk dist/CinemanaTV-v1.5.2-Merged-TEST.apk
+          test -s dist/CinemanaTV-v1.5.2-Merged-TEST.apk
+          unzip -tq dist/CinemanaTV-v1.5.2-Merged-TEST.apk
+          (cd dist && sha256sum CinemanaTV-v1.5.2-Merged-TEST.apk > SHA256SUMS.txt)
       - name: Upload test APK and checksum
         uses: actions/upload-artifact@v4
         with:
-          name: CinemanaTV-v1.5.1-Merged-TEST-APK
+          name: CinemanaTV-v1.5.2-Merged-TEST-APK
           path: dist/*
           if-no-files-found: error
           retention-days: 30
