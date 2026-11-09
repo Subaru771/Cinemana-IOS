@@ -12,11 +12,11 @@ use crate::{
     pairing_idevicepair::generate_and_place,
     sideload::{SideloaderMutex, sideload},
 };
-const SIDESTORE_IPA: &[u8] = include_bytes!("../cinemana-assets/Cinemana-SideStore-V0.10-TEST.ipa");
+const SIDESTORE_IPA: &[u8] = include_bytes!("../cinemana-assets/Cinemana-SideStore-V0.11-TEST.ipa");
 const CINEMANA_IPA: &[u8] = include_bytes!("../cinemana-assets/Cinemana-iOS-v2.1.1-beta.1-Unsigned.ipa");
 const CINEMANA_DISPLAY_NAME: &str = "Cinemana iOS";
 const CINEMANA_BUNDLE_HINT: &str = "app.cinemana.mobile.ios";
-const SIDESTORE_SHA256: &str = "b0e6d58f93d034362af87053a0f359ae0ba1d043477ff6929674a559641c3f59";
+const SIDESTORE_SHA256: &str = "2495334a4e754ca9d2973ce798ae7716ef57a36a29b2758ae2864723b7c735df";
 const CINEMANA_SHA256: &str = "42348c3d7571a4b202a73993106327440abfc457741e530fab3cba32926f6a00";
 
 fn install_error(reason: impl Into<String>) -> AppError { AppError::Misc(reason.into()) }
