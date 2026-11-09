@@ -1,0 +1,70 @@
+name: Validate installation pages and published IPA
+on:
+  pull_request:
+    paths: ['landing/**', 'scripts/*install*', 'tests/*install*', '.github/workflows/install-pages.yml']
+  push:
+    paths: ['landing/**', 'scripts/*install*', 'tests/*install*', '.github/workflows/install-pages.yml']
+  workflow_dispatch:
+  release:
+    types: [published]
+  schedule:
+    - cron: '17 8 * * *'
+permissions:
+  contents: read
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python3 scripts/check_landing_locales.py
+      - run: python3 -m unittest discover -s tests -p 'test_install*.py'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install browser test tools
+        run: |
+          npm install --prefix "$RUNNER_TEMP/cinemana-browser" playwright@1.58.2
+          "$RUNNER_TEMP/cinemana-browser/node_modules/.bin/playwright" install --with-deps chromium
+      - name: Check bilingual mobile layouts and release failures
+        run: |
+          python3 -m http.server 8080 --directory landing > "$RUNNER_TEMP/install-server.log" 2>&1 &
+          SERVER_PID=$!
+          trap 'kill "$SERVER_PID"' EXIT
+          for attempt in 1 2 3 4 5; do
+            if curl --fail --silent http://127.0.0.1:8080/install.html > /dev/null; then break; fi
+            sleep 1
+          done
+          NODE_PATH="$RUNNER_TEMP/cinemana-browser/node_modules" node tests/test_install_browser.cjs
+      - name: Verify current public IPA and generate catalog
+        if: github.event_name != 'pull_request'
+        run: python3 scripts/sync_install_release.py
+      - uses: actions/upload-artifact@v4
+        with:
+          name: validated-installation-site
+          path: landing/
+  update-catalog:
+    if: github.event_name == 'schedule' || github.event_name == 'release' || github.event_name == 'workflow_dispatch'
+    needs: validate
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python3 scripts/sync_install_release.py
+      - name: Commit verified catalog changes only
+        run: |
+          git add landing/release.json landing/source.json
+          if ! git diff --cached --quiet; then
+            git config user.name 'github-actions[bot]'
+            git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+            git commit -m 'Update validated Cinemana installation catalog'
+            git push
+          fi

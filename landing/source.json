@@ -1,0 +1,24 @@
+{
+  "name": "Cinemana iOS beta",
+  "identifier": "app.cinemana.beta.source",
+  "apps": [
+    {
+      "name": "Cinemana iOS",
+      "bundleIdentifier": "app.cinemana.mobile.ios",
+      "developerName": "Cinemana iOS contributors",
+      "localizedDescription": "Unsigned development beta. Requires signing. Installation and playback have not been verified on a real iPhone.",
+      "iconURL": "https://raw.githubusercontent.com/Subaru771/Cinemana-IOS/main/landing/install-icon.png",
+      "versions": [
+        {
+          "version": "2.1.1",
+          "date": "2026-11-08T09:30:55Z",
+          "downloadURL": "https://github.com/Subaru771/Cinemana-IOS/releases/download/ci-cinemana-ios-v2.1.1-refined/Cinemana-iOS-v2.1.1-beta.1-Unsigned.ipa",
+          "size": 10652926,
+          "minOSVersion": "16.0",
+          "localizedDescription": "Development beta; requires signing. See installation page for device test status."
+        }
+      ]
+    }
+  ],
+  "news": []
+}

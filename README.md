@@ -45,3 +45,7 @@ swiftc -o /tmp/cinemana-tests CinemanaMobile/Models.swift CinemanaMobile/Cineman
 History, collections, favorites and custom skip markers are stored on the device. No personal telemetry or developer account is required. Select a movie to view details; choose **Play** to start video. Do not assume an arbitrary upstream server permits playback, download or redistribution of its media.
 
 See [CHANGELOG.md](CHANGELOG.md), [DISTRIBUTION.md](DISTRIBUTION.md) and [WINDOWS-APPLE-SIGNING.md](WINDOWS-APPLE-SIGNING.md).
+
+## iPhone installation website
+
+Use [English](landing/install.html) or [العربية](landing/install-ar.html). Phone-only AltLoad setup on iOS 27+ is conditional on a valid initial signature and has not been verified on a real iPhone. Release links are generated from checksummed published Cinemana app IPAs rather than hardcoded versions. See [findings, validation and device checklist](docs/IOS-INSTALLATION.md).
