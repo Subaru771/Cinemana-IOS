@@ -70,6 +70,12 @@ jobs:
           cp sidestore-upstream/SideStore.ipa output-v09/Cinemana-SideStore-V0.9-TEST.ipa
           (cd output-v09 && shasum -a 256 Cinemana-SideStore-V0.9-TEST.ipa > SHA256.txt)
 
+      - uses: actions/upload-artifact@v4
+        with:
+          name: cinemana-sidestore-v09-built-ipa
+          path: output-v09/
+          retention-days: 3
+          if-no-files-found: error
       - name: Upload private draft release
         shell: bash
         env:
