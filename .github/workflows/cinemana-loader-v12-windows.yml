@@ -55,14 +55,9 @@ jobs:
           npm run tauri build -- --no-bundle
           if ($LASTEXITCODE -ne 0) { throw "Native Windows EXE compilation failed" }
           Copy-Item -LiteralPath 'src-tauri/target/release/iloader.exe' -Destination 'src-tauri/target/release/Cinemana-Loader-v1.2.0-Portable.exe'
-          # NSIS is optional: GitHub occasionally returns HTTP 504 for the NSIS bootstrap.
-          # Never discard a successfully compiled EXE because bundling failed.
-          for ($attempt = 1; $attempt -le 3; $attempt++) {
-            npm run tauri bundle -- --bundles nsis
-            if ($LASTEXITCODE -eq 0) { break }
-            Write-Warning "NSIS download/bundle attempt $attempt failed; portable EXE is intact"
-            if ($attempt -lt 3) { Start-Sleep -Seconds ($attempt * 15) }
-          }
+          # Publish the native portable EXE. NSIS bundling is deliberately
+          # separate because upstream's tool archive returns HTTP 504 in CI.
+          $global:LASTEXITCODE = 0
       - name: Upload EXE
         uses: actions/upload-artifact@v4
         with:
