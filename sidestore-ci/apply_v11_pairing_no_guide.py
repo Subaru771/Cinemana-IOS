@@ -65,6 +65,32 @@ else:
     pass
 settings.write_text(s,encoding="utf-8")
 
+# SideStore has its own post-Apple-sign-in Instructions screen, independent
+# of the Cinemana Settings guide removed above.  Leaving resolvePostAuth()
+# untouched still displays "How It Works" after authentication.  Replace
+# only this presentation hook; leave credentials, 2FA and pairing handlers alone.
+signin = root / "SideStore/Handlers/SignInFlowHandler.swift"
+auth = signin.read_text(encoding="utf-8")
+start = "    @MainActor\\n    func resolvePostAuth() async {\\n".replace("\\n", "\n")
+end = "    @MainActor\\n    func resolveDeviceRegistrationErrors(".replace("\\n", "\n")
+if auth.count(start) != 1 or auth.count(end) != 1:
+    raise RuntimeError("Pinned SideStore post-auth flow changed: refusing a blind guide patch")
+i = auth.index(start)
+j = auth.index(end, i + len(start))
+old_flow = auth[i:j]
+if "instructionsViewController" not in old_flow or "withCheckedContinuation" not in old_flow:
+    raise RuntimeError("Expected post-auth instructions presentation not found")
+replacement = (
+    "    // CINEMANA_NO_POST_AUTH_GUIDE_V11: no post-login tutorial.\\n"
+    "    @MainActor\\n"
+    "    func resolvePostAuth() async {\\n"
+    "        // Keep successful authentication unchanged, then continue normally.\\n"
+    "    }\\n\\n"
+).replace("\\n", "\n")
+auth = auth[:i] + replacement + auth[j:]
+signin.write_text(auth, encoding="utf-8")
+print("v0.11: Removed SideStore's post-auth How It Works screen from source.")
+
 p=pair.read_text(encoding="utf-8")
 block='''    // CINEMANA_PAIRING_IMPORT_V11: iDevicePair-style AFC placement creates
     // distinct remote and lockdown records, plus a marker written LAST.
