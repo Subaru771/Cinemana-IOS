@@ -1,0 +1,56 @@
+name: Cinemana TV v1.5.4 - restore top search
+on:
+  push:
+    branches: [build/tv-v1.5.4-top-search]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  android-tv:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Configure Android SDK
+        run: |
+          echo "ANDROID_HOME=${ANDROID_HOME:-/usr/local/lib/android/sdk}" >> "$GITHUB_ENV"
+          echo "ANDROID_SDK_ROOT=${ANDROID_HOME:-/usr/local/lib/android/sdk}" >> "$GITHUB_ENV"
+      - name: Install SDK 35
+        run: |
+          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses > /dev/null || true
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-35" "build-tools;35.0.0"
+      - name: Prepare v1.5.4 source
+        run: |
+          unzip -tq ci-sources/CinemanaTV-v1.5.2-Focus-Refined-SOURCE.zip
+          unzip -q ci-sources/CinemanaTV-v1.5.2-Focus-Refined-SOURCE.zip -d /tmp/cinemana-tv
+          python3 ci-sources/v1.5.2-hotfix.py /tmp/cinemana-tv/CinemanaTV-v1.5.2
+          cd /tmp/cinemana-tv/CinemanaTV-v1.5.2
+          patch --batch -p1 < "$GITHUB_WORKSPACE/ci-sources/v1.5.3-source.patch"
+          python3 "$GITHUB_WORKSPACE/ci-sources/v1.5.4-restore-top-search.py" .
+          grep -q 'versionCode = 49' app/build.gradle.kts
+          cd /tmp/cinemana-tv
+          mv CinemanaTV-v1.5.2 CinemanaTV-v1.5.4
+      - name: Run tests and compile APK
+        working-directory: /tmp/cinemana-tv/CinemanaTV-v1.5.4
+        run: |
+          chmod +x gradlew
+          ./gradlew --no-daemon --stacktrace :app:testDebugUnitTest :app:assembleRelease
+      - name: Verify APK
+        run: |
+          mkdir -p dist
+          cp /tmp/cinemana-tv/CinemanaTV-v1.5.4/app/build/outputs/apk/release/app-release.apk dist/CinemanaTV-v1.5.4.apk
+          test -s dist/CinemanaTV-v1.5.4.apk
+          unzip -tq dist/CinemanaTV-v1.5.4.apk
+          (cd dist && sha256sum CinemanaTV-v1.5.4.apk > SHA256SUMS.txt)
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: CinemanaTV-v1.5.4-Search-Restored
+          path: dist/*
+          if-no-files-found: error
+          retention-days: 30
