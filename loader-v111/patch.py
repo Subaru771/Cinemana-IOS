@@ -61,7 +61,21 @@ def main():
     conf["bundle"]["createUpdaterArtifacts"]=False
     conf["bundle"].setdefault("windows",{})["webviewInstallMode"]={"type":"downloadBootstrapper","silent":True}
     confpath.write_text(json.dumps(conf,indent=2)+"\n")
-    (UPSTREAM/"package.json").write_text(json.dumps({**package,"name":"cinemana-loader","version":"1.1.1"},indent=2)+"\n")
+    package["name"]="cinemana-loader"
+    package["version"]="1.1.1"
+    # Prevent npm from resolving newer incompatible plugin minor versions.
+    exact = {
+        "@tauri-apps/api": "2.11.1",
+        "@tauri-apps/plugin-dialog": "2.7.3",
+        "@tauri-apps/plugin-opener": "2.5.5",
+        "@tauri-apps/plugin-process": "2.3.1",
+        "@tauri-apps/plugin-store": "2.4.5",
+        "@tauri-apps/plugin-updater": "2.12.0",
+    }
+    for name, version in exact.items():
+        package["dependencies"][name] = version
+    package["devDependencies"]["@tauri-apps/cli"] = "2.11.5"
+    (UPSTREAM/"package.json").write_text(json.dumps(package,indent=2)+"\n")
     print("Patched Cinemana Loader 1.1.1")
 if __name__=="__main__":
     main()
