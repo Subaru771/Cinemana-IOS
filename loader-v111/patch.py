@@ -44,7 +44,7 @@ def main():
 
     replace_once("src-tauri/src/lib.rs", "mod operation;", "mod operation;\nmod cinemana_install;\nmod pairing_idevicepair;")
     replace_once("src-tauri/src/lib.rs", "use tauri::Manager;", "use crate::cinemana_install::cinemana_install_operation;\nuse tauri::Manager;")
-    replace_once("src-tauri/src/lib.rs", "            has_stored_rppairing,", "            has_stored_rppairing,\n            cinemana_install_operation,")
+    replace_once("src-tauri/src/lib.rs", "            has_stored_rppairing,", "            has_stored_rppairing,\n            cinemana_install_operation,\n            pairing_idevicepair::cinemana_select_device,")
     replace_once("src-tauri/src/lib.rs", "        .plugin(tauri_plugin_updater::Builder::new().build())", "        // Do not use updater signed by upstream iLoader.")
     replace_once("src-tauri/Cargo.toml", 'serde_json = "1"', 'serde_json = "1"\nsha2 = "0.10"')
 
