@@ -126,7 +126,7 @@ export default function App() {
     setWasPairingError(false);
     setErrorText("");
     try {
-      await invoke("set_selected_device", { device });
+      await invoke("cinemana_select_device", { device });
       setSelectedDevice(device);
       selecting.current = false;
       await installBoth();
