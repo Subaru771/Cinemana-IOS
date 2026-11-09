@@ -6,7 +6,7 @@ from urllib.parse import urlsplit
 import re
 
 ROOT = Path(__file__).resolve().parents[1] / "landing"
-PAIRS = ("index", "livecontainer", "privacy")
+PAIRS = ("index", "install", "livecontainer", "privacy")
 
 
 class Inspect(HTMLParser):
