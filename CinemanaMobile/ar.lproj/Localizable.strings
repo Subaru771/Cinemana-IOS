@@ -175,3 +175,9 @@
 "Remove completed" = "إزالة المكتملة";
 "Tagged titles only; no scene skipping" = "العناوين المصنّفة فقط؛ لا يتخطى المشاهد";
 "Clear filters to see more." = "امسح عوامل التصفية لعرض المزيد.";
+"Display" = "العرض";
+"Landscape" = "أفقي";
+"Portrait" = "عمودي";
+"Fill screen" = "ملء الشاشة";
+"Fit video" = "ملاءمة الفيديو";
+"Rotate iPhone or turn off Portrait Orientation Lock" = "دوّر الآيفون أو أوقف قفل الاتجاه العمودي";
