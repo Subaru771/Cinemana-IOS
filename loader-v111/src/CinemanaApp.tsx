@@ -48,7 +48,7 @@ function ErrorBlock({ raw, fallback }: { raw: string; fallback?: ErrorCode }) {
 }
 
 export default function App() {
-  const [itunesState, setItunesState] = useState<"installing" | "ready" | "failed">("installing");
+  const [itunesState, setItunesState] = useState<"installing" | "ready" | "failed">("ready");
   const [itunesError, setItunesError] = useState("");
   const [itunesBypassed, setItunesBypassed] = useState(false);
   const [loggedInAs, setLoggedInAs] = useState<string | null>(null);
@@ -63,17 +63,18 @@ export default function App() {
   const [wasPairingError, setWasPairingError] = useState(false);
   const running = useRef(false);
   const selecting = useRef(false);
+  const refreshAfterRepair = useRef<null | (() => void)>(null);
 
   const ensureItunes = useCallback(() => {
     setItunesState("installing");
     setItunesBypassed(false);
     setItunesError("");
-    void invoke<string>("cinemana_ensure_itunes").then(() => setItunesState("ready")).catch((error) => {
+    void invoke<string>("cinemana_ensure_itunes").then(() => {setItunesState("ready"); void refreshAfterRepair.current?.();}).catch((error) => {
       setItunesError(humanError(error));
       setItunesState("failed");
     });
   }, []);
-  useEffect(() => { ensureItunes(); }, [ensureItunes]);
+
   useEffect(() => {
     invoke<boolean>("keyring_available").then((yes) => setNoKeyringAvailable(!yes)).catch(() => setNoKeyringAvailable(true));
   }, []);
@@ -98,6 +99,7 @@ export default function App() {
       setErrorText(humanError(e));
     } finally { setLoadingDevices(false); }
   }, []);
+  refreshAfterRepair.current = () => {void refreshDevices();};
   useEffect(() => {
     if (stage === "device") void refreshDevices();
   }, [stage, refreshDevices]);
@@ -163,20 +165,20 @@ export default function App() {
         <span className={stage === "device" || stage === "pairing" ? "active" : stage === "signin" ? "" : "done"}>{ui.nav.device}</span>
         <span className={stage === "install" || stage === "error" ? "active" : stage === "complete" ? "done" : ""}>{ui.nav.install}</span>
       </nav>
-      {itunesState !== "ready" && <section className="cinemana-panel">
-        <h2>{itunesState === "installing" ? "جاري تنزيل وتثبيت iTunes تلقائياً" : "تعذّر تثبيت iTunes"}</h2>
-        <p className="cinemana-muted">{itunesState === "installing" ? "إذا iTunes موجود، راح نتخطّى هالخطوة. خلي الإنترنت شغّال ووافق على طلب Windows إذا ظهر." : itunesError}</p>
-        {itunesState === "failed" && <div className="cinemana-buttons"><button type="button" onClick={ensureItunes}>إعادة المحاولة</button><button type="button" className="cinemana-secondary" onClick={() => {setItunesBypassed(true);setItunesState("ready");}}>متابعة بدون iTunes</button></div>}
-        {itunesState === "failed" && <p className="cinemana-muted">إذا جهازك يتعرف على الآيفون، تكدر تكمل. إذا ما يتعرف، ثبّت Apple Devices أو iTunes من Microsoft Store ورجع جرّب.</p>}
+      {stage === "device" && itunesState !== "ready" && <section className="cinemana-panel">
+        <h2>{itunesState === "installing" ? "جاري تجهيز اتصال Apple" : "تعذّر تجهيز اتصال Apple"}</h2>
+        <p className="cinemana-muted">{itunesState === "installing" ? "جاري محاولة إصلاح اتصال الآيفون. إذا ماكو تعريفات، راح ننزّل Apple Devices." : itunesError}</p>
+        {itunesState === "failed" && <div className="cinemana-buttons"><button type="button" onClick={ensureItunes}>إعادة المحاولة</button><button type="button" className="cinemana-secondary" onClick={() => {setItunesBypassed(true);setItunesState("ready");}}>متابعة بدون تثبيت</button></div>}
+        {itunesState === "failed" && <p className="cinemana-muted">تأكد من توصيل الآيفون وفتح قفله والضغط على وثوق. تگدر تعيد فحص الأجهزة.</p>}
       </section>}
-      {itunesState === "ready" && itunesBypassed && <p className="cinemana-muted">تم تخطي فحص Apple. إذا الآيفون ما يظهر، تأكد من تعريفات Apple على Windows.</p>}
+      {itunesState === "ready" && itunesBypassed && <p className="cinemana-muted">تم تخطي إصلاح الاتصال. إذا الآيفون ما يظهر، افحص تعريفات Apple على Windows.</p>}
       {itunesState === "ready" && stage === "signin" && <section className="cinemana-panel">
         <h2>{ui.signIn.title}</h2>
         <p className="cinemana-muted">{ui.signIn.body}</p>
         <AppleID loggedInAs={loggedInAs} setLoggedInAs={setLoggedInAs} noKeyringAvailable={noKeyringAvailable} />
         <small className="cinemana-muted">{ui.signIn.privacy}</small>
       </section>}
-      {itunesState === "ready" && stage === "device" && <section className="cinemana-panel">
+      {stage === "device" && itunesState === "ready" && <section className="cinemana-panel">
         <h2>{ui.devices.title}</h2>
         <p className="cinemana-muted">{ui.devices.body}</p>
         <div className="cinemana-device-list">
@@ -188,6 +190,7 @@ export default function App() {
           </button>)}
         </div>
         {errorText && <ErrorBlock raw={errorText} fallback={wasPairingError ? "PAIRING_INVALID" : undefined} />}
+        {!loadingDevices && devices.length === 0 && <button type="button" className="cinemana-secondary" onClick={ensureItunes}>إصلاح اتصال الآيفون تلقائياً</button>}
         <button className="cinemana-secondary" type="button" disabled={loadingDevices} onClick={() => void refreshDevices()}>{loadingDevices ? ui.devices.checking : ui.devices.refresh}</button>
       </section>}
       {itunesState === "ready" && stage === "pairing" && <section className="cinemana-panel cinemana-centered">
