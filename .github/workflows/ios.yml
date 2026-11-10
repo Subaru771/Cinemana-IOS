@@ -66,6 +66,7 @@ jobs:
           set -eu
           APP=build/Build/Products/Release-iphoneos/CinemanaMobile.app
           test -d "$APP"
+          plutil -replace CinemanaBuildRevision -string "$GITHUB_SHA" "$APP/Info.plist"
           test "$(plutil -extract CFBundleShortVersionString raw "$APP/Info.plist")" = '2.0.2'
           test "$(plutil -extract CFBundleDisplayName raw "$APP/Info.plist")" = 'Cinemana iOS'
           test -s "$APP/Assets.car"

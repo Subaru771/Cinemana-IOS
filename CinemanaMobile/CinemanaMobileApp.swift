@@ -20,6 +20,12 @@ struct CinemanaMobileApp: App {
     @StateObject private var library = LibraryStore()
     @StateObject private var startup = CinemanaStartupState()
     @State private var showBrandSplash = true
+    @StateObject private var releaseMonitor = CinemanaReleaseMonitor()
+    @Environment(\.scenePhase) private var scenePhase
+    @State private var showTelegramPrompt = false
+    @State private var showUpdatePrompt = false
+    @AppStorage("cinemana-telegram-shown-revision") private var telegramShownRevision = ""
+    @AppStorage("cinemana-update-announced-revision") private var announcedRevision = ""
     @AppStorage("cinemana-app-language") private var appLanguage = "system"
 
     init() {
@@ -53,6 +59,7 @@ struct CinemanaMobileApp: App {
             }
             .environmentObject(library)
             .environmentObject(startup)
+            .environmentObject(releaseMonitor)
             .environment(\.locale, selectedLocale)
             .environment(\.layoutDirection, isRightToLeft ? .rightToLeft : .leftToRight)
             // Rebuild static navigation and tab labels as soon as language changes.
@@ -72,10 +79,55 @@ struct CinemanaMobileApp: App {
                 try? await Task.sleep(for: .milliseconds(560))
                 guard !Task.isCancelled else { return }
                 withAnimation(.easeOut(duration: 0.18)) { showBrandSplash = false }
+                let build = CinemanaReleaseMonitor.localRevision
+                if telegramShownRevision != build {
+                    showTelegramPrompt = true
+                }
+                await releaseMonitor.refresh()
+                announceUpdateIfNeeded()
+            }
+            .onChange(of: scenePhase) { phase in
+                guard phase == .active else { return }
+                Task {
+                    await releaseMonitor.refresh()
+                    announceUpdateIfNeeded()
+                }
+            }
+            .onChange(of: releaseMonitor.latestRevision) { _ in announceUpdateIfNeeded() }
+            .onChange(of: showTelegramPrompt) { showing in
+                if !showing { announceUpdateIfNeeded() }
+            }
+            .alert("Cinemana Hub", isPresented: $showTelegramPrompt) {
+                Button("Join on Telegram") {
+                    telegramShownRevision = CinemanaReleaseMonitor.localRevision
+                    UIApplication.shared.open(CinemanaReleaseMonitor.telegramURL)
+                }
+                Button("Later", role: .cancel) {
+                    telegramShownRevision = CinemanaReleaseMonitor.localRevision
+                }
+            } message: {
+                Text("Updates and announcements on Telegram.")
+            }
+            .alert("New update available", isPresented: $showUpdatePrompt) {
+                Button("Download IPA") {
+                    if let url = releaseMonitor.downloadURL { UIApplication.shared.open(url) }
+                }
+                Button("Later", role: .cancel) {}
+            } message: {
+                Text("Download the new IPA and sign it with SideStore.")
             }
             .tint(mint)
             .preferredColorScheme(.dark)
         }
+    }
+
+    private func announceUpdateIfNeeded() {
+        guard !showBrandSplash, !showTelegramPrompt, !showUpdatePrompt,
+              let revision = releaseMonitor.latestRevision,
+              releaseMonitor.downloadURL != nil,
+              announcedRevision != revision else { return }
+        announcedRevision = revision
+        showUpdatePrompt = true
     }
 }
 
@@ -1142,6 +1194,7 @@ struct LibraryView: View {
 
 struct AboutView: View {
     @EnvironmentObject private var library: LibraryStore
+    @EnvironmentObject private var releaseMonitor: CinemanaReleaseMonitor
     @AppStorage(MatureContentFilter.preferenceKey) private var hideMatureContent = false
     @AppStorage("cinemana-auto-landscape") private var autoLandscape = true
     @AppStorage("cinemana-app-language") private var appLanguage = "system"
@@ -1221,8 +1274,23 @@ struct AboutView: View {
             }
             Section("Cinemana iOS") {
                 LabeledContent("Version", value: Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "—")
-                Link(destination: URL(string: "https://t.me/CinemanaHub")!) {
-                    Label("Cinema Hub", systemImage: "paperplane.fill")
+                Button("Check for updates") {
+                    Task { await releaseMonitor.refresh() }
+                }
+                if releaseMonitor.checking {
+                    ProgressView("Checking for updates…")
+                } else if releaseMonitor.checked {
+                    Text(releaseMonitor.error ? "Couldn't check for updates" :
+                         (releaseMonitor.latestRevision == nil ? "Up to date" : "Update available"))
+                        .font(.footnote).foregroundStyle(.secondary)
+                }
+                if let url = releaseMonitor.downloadURL {
+                    Link(destination: url) {
+                        Label("Download latest IPA", systemImage: "arrow.down.circle")
+                    }
+                }
+                Link(destination: CinemanaReleaseMonitor.telegramURL) {
+                    Label("Cinemana Hub on Telegram", systemImage: "paperplane.fill")
                 }
             }
         }
