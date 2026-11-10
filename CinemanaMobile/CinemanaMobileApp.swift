@@ -860,7 +860,9 @@ struct DownloadAction: View {
     private func activeRow(_ entry: OfflineEntry) -> some View {
         if entry.status == .queued || entry.status == .preparing {
             ProgressView().controlSize(.small)
-            Text(entry.status == .preparing ? "Preparing…" : (entry.message ?? "Waiting in queue"))
+            Text(CinemanaLocale.isArabic
+                 ? (entry.status == .preparing ? "جارٍ التحضير…" : "بانتظار الدور")
+                 : (entry.status == .preparing ? "Preparing…" : (entry.message ?? "Waiting in queue")))
                 .font(.caption)
         } else {
             ProgressView(value: entry.progress).tint(.green).frame(maxWidth: 140)
@@ -882,7 +884,7 @@ struct DownloadAction: View {
 
     private func progressText(_ entry: OfflineEntry) -> String {
         let percent = "\(Int(entry.progress * 100))%"
-        if entry.status == .paused { return "Paused · \(percent)" }
+        if entry.status == .paused { return "\(CinemanaLocale.text("Paused")) · \(percent)" }
         if let rate = center.rates[video.id], rate > 0 {
             return "\(percent) · \(ByteFormat.string(Int64(rate)))/s"
         }
