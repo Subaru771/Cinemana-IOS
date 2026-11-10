@@ -1,0 +1,56 @@
+
+:root { color-scheme: dark; }
+body { margin:0; background:#0b0e14; color:#f4f5f8; }
+.cinemana-loader { direction:rtl; text-align:start; min-height:100vh; font-family:Inter,system-ui,-apple-system,Segoe UI,sans-serif; background:radial-gradient(circle at 80% 0%,#242b45 0%,#11141c 38%,#0b0e14 70%); color:#f5f6f9; padding:28px 20px; box-sizing:border-box; }
+.cinemana-shell {width:min(100%,490px);margin:0 auto;}
+.cinemana-head{display:flex;align-items:center;gap:14px;margin-bottom:24px;}
+.cinemana-head h1{font-size:21px;font-weight:720;margin:0;line-height:1.3}
+.cinemana-head p{color:#9ca5b7;font-size:12px;margin:3px 0 0;}
+.cinemana-symbol{width:43px;height:43px;display:grid;place-items:center;border-radius:14px;font-weight:800;font-size:25px;background:linear-gradient(140deg,#f45d6e,#b21b3d);}
+.cinemana-steps{display:flex;gap:9px;margin:0 0 19px;}
+.cinemana-steps span{flex:1;color:#7b8396;font-size:11px;padding:9px 3px;text-align:center;border-bottom:2px solid #32394a;}
+.cinemana-steps span.active{color:#fff;border-color:#ee4568;}
+.cinemana-steps span.done{color:#a7b6a8;border-color:#48926d;}
+.cinemana-panel{border-radius:18px;border:1px solid #313744;background:#1b202b;padding:22px;box-shadow:0 12px 35px #00000034;}
+.cinemana-panel h2{font-size:19px;margin:0 0 10px;}
+.cinemana-panel h3{font-size:15px;margin:23px 0 8px;}
+.cinemana-panel p{line-height:1.6;font-size:13px;}
+.cinemana-muted{color:#a3acbb;font-size:12px;}
+.cinemana-panel button{cursor:pointer;border-radius:10px;border:1px solid #e4496b;color:#fff;background:#ba2447;padding:11px 15px;font-weight:600;}
+.cinemana-panel button:hover{background:#cf3258;}
+.cinemana-panel button:disabled{opacity:.6;cursor:default;}
+.cinemana-panel button.cinemana-secondary{background:transparent;border-color:#424a59;color:#dce0e9;}
+.cinemana-panel button.cinemana-secondary:hover{background:#28303c;}
+.cinemana-panel input:not([type="checkbox"]){box-sizing:border-box;max-width:100%;width:100%;border:1px solid #3b4351;background:#11161f;color:#fff;padding:12px;border-radius:10px;}
+.cinemana-panel .card{border:1px solid #31394b;background:#171b25;border-radius:12px;}
+.cinemana-panel .credentials-container,.cinemana-panel .credentials{display:flex;flex-direction:column;gap:11px;}
+.cinemana-panel .credentials-container h2{display:none;}
+.cinemana-panel .action-row{display:flex;gap:8px;flex-wrap:wrap;}
+.cinemana-panel .stored{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px;padding:10px;}
+.cinemana-panel .stored-email{overflow-wrap:anywhere;}
+.cinemana-panel .save-credentials{display:flex;gap:9px;align-items:center;}
+.cinemana-device-list{display:flex;flex-direction:column;gap:10px;margin:20px 0;}
+.cinemana-panel button.cinemana-device{display:flex;width:100%;background:#262d3a;border:1px solid #3a4251;text-align:start;align-items:center;gap:13px;padding:14px;}
+.cinemana-panel button.cinemana-device:hover{border-color:#ec526e;background:#303647;}
+.cinemana-device-icon{font-size:21px;color:#ee6880;}
+.cinemana-device-text{flex:1;display:flex;flex-direction:column;gap:3px;}
+.cinemana-device-text small{color:#9ea8ba;font-size:11px;}
+.cinemana-empty{padding:22px 10px;text-align:center;background:#141924;border-radius:10px;font-size:12px;color:#aeb6c5;}
+.cinemana-centered{text-align:center;padding:44px 24px;}
+.cinemana-spinner{border:3px solid #475062;border-top-color:#f35a77;width:36px;height:36px;border-radius:50%;margin:0 auto 20px;animation:cinemana-spin 1s linear infinite;}
+@keyframes cinemana-spin{to{transform:rotate(360deg)}}
+.cinemana-progress{display:flex;flex-direction:column;gap:11px;margin:22px 0;}
+.cinemana-progress-row{border-radius:10px;border:1px solid #343b49;background:#141923;color:#8892a2;padding:12px;display:flex;gap:12px;align-items:center;font-size:13px;}
+.cinemana-progress-row.current{background:#352333;border-color:#91465d;color:#fff;}
+.cinemana-progress-row.complete{color:#a3d8b3;border-color:#406549;}
+.cinemana-progress-mark{font-size:18px;width:20px;text-align:center;}
+.cinemana-buttons{display:flex;flex-wrap:wrap;gap:10px;margin-top:15px;}
+.cinemana-done{width:52px;height:52px;border-radius:50%;background:#245e45;color:#b7f6ce;font-size:29px;display:grid;place-items:center;margin-bottom:15px;}
+.cinemana-footer{text-align:center;font-size:10px;color:#697386;margin-top:17px;}
+.cinemana-errorbox{background:#2a1a1f;border:1px solid #6b2a36;border-radius:10px;padding:12px 14px;margin:14px 0;font-size:12px;line-height:1.7;}
+.cinemana-errorbox strong{color:#ff9aa8;font-size:13px;}
+.cinemana-errorbox p{margin:6px 0;}
+.cinemana-errorbox .cinemana-fix{color:#d9dfeb;}
+.cinemana-errorbox details{margin-top:8px;}
+.cinemana-errorbox summary{cursor:pointer;color:#aeb6c5;}
+.cinemana-errorbox pre{direction:ltr;text-align:left;white-space:pre-wrap;word-break:break-word;background:#141924;border-radius:8px;padding:8px;margin:8px 0;font-size:11px;max-height:140px;overflow:auto;}
