@@ -13,11 +13,8 @@ use crate::{
     sideload::{SideloaderMutex, sideload},
 };
 const SIDESTORE_IPA: &[u8] = include_bytes!("../cinemana-assets/Cinemana-SideStore-SettingsRestored.ipa");
-const CINEMANA_IPA: &[u8] = include_bytes!("../cinemana-assets/Cinemana-iOS-v2.0.2-Stable-Unsigned.ipa");
-const CINEMANA_DISPLAY_NAME: &str = "Cinemana iOS";
-const CINEMANA_BUNDLE_HINT: &str = "app.cinemana.mobile.ios";
+// Cinemana IPA is distributed through SideStore; do not sideload it separately.
 const SIDESTORE_SHA256: &str = "a13a3752213b58e09abea590a9ee356119ad91f7027619bce96b8c8c7a3e99c4";
-const CINEMANA_SHA256: &str = "19a0d161d764dc6b9ee8bcbc4eb028d64b8cc411610f4dc8ff9da9d9cde0a8b5";
 
 fn install_error(reason: impl Into<String>) -> AppError { AppError::Misc(reason.into()) }
 fn validate_asset(label: &str, bytes: &[u8], expected: &str) -> Result<(), AppError> {
@@ -61,11 +58,6 @@ fn pick_sidestore(apps: &[(String, String)]) -> Option<String> {
     }
     None
 }
-fn has_cinemana(apps: &[(String, String)]) -> bool {
-    apps.iter().any(|(bundle_id, display)| {
-        display == CINEMANA_DISPLAY_NAME || bundle_id.to_ascii_lowercase().contains(CINEMANA_BUNDLE_HINT)
-    })
-}
 async fn find_cinemana_sidestore(device: &DeviceInfo) -> Result<String, AppError> {
     let apps = list_user_apps(device).await?;
     pick_sidestore(&apps).ok_or_else(|| install_error(
@@ -87,16 +79,12 @@ pub async fn cinemana_install_operation(handle: AppHandle, window: Window) -> Re
         if lock.is_none() { return op.fail("prepare", install_error("Sign in to Apple Account first")); }
     }
     op.fail_if_err("prepare", validate_asset("SideStore", SIDESTORE_IPA, SIDESTORE_SHA256))?;
-    op.fail_if_err("prepare", validate_asset("Cinemana", CINEMANA_IPA, CINEMANA_SHA256))?;
     let dir = std::env::temp_dir().join(format!("CinemanaLoader-{}", Uuid::new_v4()));
     op.fail_if_err("prepare", fs::create_dir_all(&dir).map_err(|e| install_error(format!("Cannot create temporary directory: {e}"))))?;
     let _cleanup = Workdir(dir.clone());
     let side_path = dir.join("Cinemana-SideStore.ipa");
-    let app_path = dir.join("Cinemana.ipa");
     op.fail_if_err("prepare", fs::write(&side_path, SIDESTORE_IPA)
         .map_err(|e| install_error(format!("Cannot extract SideStore IPA: {e}"))))?;
-    op.fail_if_err("prepare", fs::write(&app_path, CINEMANA_IPA)
-        .map_err(|e| install_error(format!("Cannot extract Cinemana IPA: {e}"))))?;
     op.move_on("prepare", "sidestore")?;
     op.fail_if_err("sidestore", sideload(
         handle.state(), handle.state(), side_path.to_string_lossy().to_string()).await)?;
@@ -108,17 +96,12 @@ pub async fn cinemana_install_operation(handle: AppHandle, window: Window) -> Re
     // bytes by AFC read-back. Never reuse the old combined plist for all paths.
     op.fail_if_err("pairing", generate_and_place(
         &handle, &device.info, &sidestore_bundle_id).await)?;
-    op.move_on("pairing", "cinemana")?;
-    op.fail_if_err("cinemana", sideload(
-        handle.state(), handle.state(), app_path.to_string_lossy().to_string()).await)?;
-    op.move_on("cinemana", "verify")?;
+    // SideStore must own Cinemana's installation to manage refreshes.
+    // A Windows sideload would bypass SideStore's My Apps database.
+    op.move_on("pairing", "verify")?;
     let apps = op.fail_if_err("verify", list_user_apps(&device.info).await)?;
-    let mut missing: Vec<&str> = Vec::new();
-    if pick_sidestore(&apps).is_none() { missing.push("Cinemana SideStore"); }
-    if !has_cinemana(&apps) { missing.push("Cinemana iOS"); }
-    if !missing.is_empty() {
-        return op.fail("verify", install_error(format!(
-            "VERIFY_FAILED: device does not list: {}.", missing.join(", "))));
+    if pick_sidestore(&apps).is_none() {
+        return op.fail("verify", install_error("VERIFY_FAILED: SideStore not found on device."));
     }
     op.complete("verify")?;
     Ok(())
