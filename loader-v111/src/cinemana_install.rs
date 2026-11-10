@@ -16,7 +16,7 @@ const SIDESTORE_IPA: &[u8] = include_bytes!("../cinemana-assets/Cinemana-SideSto
 const CINEMANA_IPA: &[u8] = include_bytes!("../cinemana-assets/Cinemana-iOS-v2.0.2-Stable-Unsigned.ipa");
 const CINEMANA_DISPLAY_NAME: &str = "Cinemana iOS";
 const CINEMANA_BUNDLE_HINT: &str = "app.cinemana.mobile.ios";
-const SIDESTORE_SHA256: &str = "880ec959bb0d2ca9acdeba93a4d846bf73fbe352ad3f5fef5e1049d6e58c327c";
+const SIDESTORE_SHA256: &str = "a13a3752213b58e09abea590a9ee356119ad91f7027619bce96b8c8c7a3e99c4";
 const CINEMANA_SHA256: &str = "19a0d161d764dc6b9ee8bcbc4eb028d64b8cc411610f4dc8ff9da9d9cde0a8b5";
 
 fn install_error(reason: impl Into<String>) -> AppError { AppError::Misc(reason.into()) }
