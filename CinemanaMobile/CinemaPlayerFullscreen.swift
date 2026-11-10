@@ -239,6 +239,14 @@ struct CinemaPlayerScreen: View {
         .preferredColorScheme(.dark)
         .task(id: current.id) { await startPlayback() }
         .onAppear { prepareScreen() }
+        .task {
+            // Presenting a full-screen cover can finish after onAppear. Retry once
+            // when the scene is ready, without restarting video playback.
+            guard autoLandscape && !isPad else { return }
+            try? await Task.sleep(for: .milliseconds(400))
+            guard !Task.isCancelled else { return }
+            PlayerOrientation.request(.landscapeRight)
+        }
         .onReceive(Timer.publish(every: 0.25, on: .main, in: .common).autoconnect()) { _ in
             updateProgress()
         }
@@ -342,7 +350,7 @@ struct CinemaPlayerScreen: View {
     private func prepareScreen() {
         originalBrightness = UIScreen.main.brightness
         UIApplication.shared.isIdleTimerDisabled = true
-        if autoLandscape && !isPad { PlayerOrientation.request(.landscape) }
+        if autoLandscape && !isPad { PlayerOrientation.request(.landscapeRight) }
         let sessionRef = session
         NowPlayingBridge.shared.activate(
             player: { sessionRef.player },
@@ -746,25 +754,38 @@ struct CinemaPlayerScreen: View {
         }
     }
 
+    // Keep the initial menu short in portrait. Advanced actions stay in More,
+    // instead of creating a tall scrolling popover over the film.
     private var optionsMenu: some View {
         Menu {
-            Section("Content filter") {
-                Toggle("Hide Mature Content", isOn: $hideMatureContent)
-                Text("Tagged titles only; no scene skipping")
-            }
-            Section("Playback") {
-                speedMenu
-                if !isDownloaded && !session.streams.isEmpty { qualityMenu }
-                audioMenu
-                Button(cropVideo ? "Fit original aspect ratio" : "Fill screen (crop edges)") {
-                    cropVideo.toggle()
+            speedMenu
+            if !isDownloaded && !session.streams.isEmpty { qualityMenu }
+            subtitleMenu
+
+            Menu("Display") {
+                if !isPad {
+                    Button {
+                        PlayerOrientation.request(.landscapeRight) { _ in
+                            flashMessage("Rotate iPhone or turn off Portrait Orientation Lock")
+                        }
+                    } label: {
+                        Label("Landscape", systemImage: "rectangle.landscape")
+                    }
+                    Button {
+                        PlayerOrientation.request(.portrait)
+                    } label: {
+                        Label("Portrait", systemImage: "rectangle.portrait")
+                    }
+                }
+                Button { cropVideo.toggle() } label: {
+                    Label(cropVideo ? "Fit video" : "Fill screen", systemImage: "arrow.up.left.and.arrow.down.right")
                 }
             }
-            Section("Subtitles & skip") {
-                subtitleMenu
+
+            Menu("More") {
+                audioMenu
                 chapterMenu
-            }
-            Section("More") {
+                Toggle("Hide Mature Content", isOn: $hideMatureContent)
                 Button { locked = true; showControls() } label: {
                     Label("Lock controls", systemImage: "lock")
                 }
