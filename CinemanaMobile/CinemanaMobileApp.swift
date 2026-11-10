@@ -851,7 +851,7 @@ struct DownloadAction: View {
                                 title: entry?.status == .failed ? "Retry with quality" : "Download options")
                 .buttonStyle(.bordered)
             if let entry, entry.status == .failed, let message = entry.message {
-                Text(message).font(.caption2).foregroundStyle(.orange).lineLimit(2)
+                Text(CinemanaLocale.error(message)).font(.caption2).foregroundStyle(.orange).lineLimit(2)
             }
         }
     }
@@ -1280,7 +1280,7 @@ struct AboutView: View {
                 if releaseMonitor.checking {
                     ProgressView("Checking for updates…")
                 } else if releaseMonitor.checked {
-                    Text(releaseMonitor.error ? "Couldn't check for updates" :
+                    Text(LocalizedStringKey(releaseMonitor.error ? "Couldn't check for updates" :
                          (releaseMonitor.latestRevision == nil ? "Up to date" : "Update available")))
                         .font(.footnote).foregroundStyle(.secondary)
                 }
@@ -1320,7 +1320,7 @@ struct EmptyStateView: View {
                 .font(.system(size: 40, weight: .ultraLight)).foregroundStyle(mint)
             Text(LocalizedStringKey(title)).font(.headline)
             if !message.isEmpty {
-                Text(message).font(.subheadline).foregroundStyle(.secondary)
+                Text(LocalizedStringKey(message)).font(.subheadline).foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)
             }
         }
@@ -1334,7 +1334,7 @@ struct ErrorMessage: View {
     let retry: () -> Void
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text(LocalizedStringKey(text)).foregroundStyle(.red)
+            Text(CinemanaLocale.error(text)).foregroundStyle(.red)
             Button("Retry", action: retry).buttonStyle(.bordered)
         }
         .padding(16)
