@@ -24,7 +24,7 @@ struct CinemanaMobileApp: App {
     @Environment(\.scenePhase) private var scenePhase
     @State private var showTelegramPrompt = false
     @State private var showUpdatePrompt = false
-    @AppStorage("cinemana-telegram-shown-revision") private var telegramShownRevision = ""
+    @AppStorage("cinemana-hub-promo-hidden") private var telegramHidden = false
     @AppStorage("cinemana-update-announced-revision") private var announcedRevision = ""
     @AppStorage("cinemana-app-language") private var appLanguage = "system"
 
@@ -79,8 +79,7 @@ struct CinemanaMobileApp: App {
                 try? await Task.sleep(for: .milliseconds(560))
                 guard !Task.isCancelled else { return }
                 withAnimation(.easeOut(duration: 0.18)) { showBrandSplash = false }
-                let build = CinemanaReleaseMonitor.localRevision
-                if telegramShownRevision != build {
+                if !telegramHidden {
                     showTelegramPrompt = true
                 }
                 await releaseMonitor.refresh()
@@ -97,16 +96,10 @@ struct CinemanaMobileApp: App {
             .onChange(of: showTelegramPrompt) { showing in
                 if !showing { announceUpdateIfNeeded() }
             }
-            .alert("Cinemana Hub", isPresented: $showTelegramPrompt) {
-                Button("Join on Telegram") {
-                    telegramShownRevision = CinemanaReleaseMonitor.localRevision
-                    UIApplication.shared.open(CinemanaReleaseMonitor.telegramURL)
-                }
-                Button("Later", role: .cancel) {
-                    telegramShownRevision = CinemanaReleaseMonitor.localRevision
-                }
-            } message: {
-                Text("Updates and announcements on Telegram.")
+            .sheet(isPresented: $showTelegramPrompt) {
+                CinemaHubWelcomeView()
+                    .presentationDetents([.large])
+                    .presentationDragIndicator(.visible)
             }
             .alert("New update available", isPresented: $showUpdatePrompt) {
                 Button("Download IPA") {

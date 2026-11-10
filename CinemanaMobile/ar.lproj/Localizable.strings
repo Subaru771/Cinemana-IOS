@@ -266,8 +266,8 @@
 "Extra large" = "كبير جداً";
 "Looking for subtitles…" = "جارٍ البحث عن ترجمة…";
 "No subtitles available" = "لا توجد ترجمة متاحة";
-"Unmark watched" = "إلغاء علامة المشاهدة";
-"Mark watched" = "تحديد كمشاهَد";
+"Unmark watched" = "إلغاء تحديد تم مشاهدته";
+"Mark watched" = "تحديد ك تم مشاهدته";
 "Remove from My List" = "إزالة من قائمتي";
 "Add to My List" = "إضافة إلى قائمتي";
 "Waiting in queue" = "بانتظار الدور";
