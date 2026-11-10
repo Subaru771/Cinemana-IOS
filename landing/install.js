@@ -40,12 +40,18 @@ async function loadRelease() {
     const installer = document.getElementById('sideinstaller');
     installer.href = 'https://sideinstaller.net/open.html?url=' + encodeURIComponent(data.downloadURL);
     installer.hidden = false;
+    const direct = document.getElementById('direct-install');
+    direct.href = installer.href;
+    direct.hidden = false;
+    document.getElementById('direct-status').textContent = say('Requires SideInstaller setup above. Confirm installation in that app.', 'يتطلب إعداد SideInstaller أعلاه. أكّد التثبيت داخل الأداة.');
     document.getElementById('checksum').textContent = 'SHA-256: ' + data.sha256;
     if (match && Number(match[1]) < Number(data.minOSVersion.split('.')[0])) {
       status.textContent += say(' — This build requires a newer iOS version than detected.', ' — يتطلب هذا الإصدار نسخة iOS أحدث من المكتشفة.');
-      ipa.hidden = installer.hidden = true;
+      ipa.hidden = installer.hidden = direct.hidden = true;
+      document.getElementById('direct-status').textContent = say('This iOS version is below the build minimum.', 'إصدار iOS أقل من الحد المطلوب.');
     }
   } catch (_) {
+    document.getElementById('direct-status').textContent = say('Download unavailable. Check GitHub releases below.', 'التحميل غير متاح. راجع إصدارات GitHub أدناه.');
     status.textContent = say('Release details could not be loaded. Use GitHub releases below; no install link is enabled.', 'تعذّر تحميل تفاصيل الإصدار. استخدم إصدارات GitHub أدناه؛ لم يتم تفعيل رابط التثبيت.');
   }
 }

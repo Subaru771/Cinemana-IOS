@@ -1,10 +1,12 @@
 # Cinemana iPhone installation: findings and operations
 
-Checked 9 November 2026. **No physical iPhone was available. None of the native installation, refresh, source import or playback paths is device-verified.** Browser tests do not establish that Apple accepts a signature.
+Checked 10 November 2026. **No physical iPhone was available. None of the native installation, refresh, source import or playback paths is device-verified.** Browser tests do not establish that Apple accepts a signature.
 
 ## Decision
 
-The shortest documented free route is **official AltLoad → local pairing → import Cinemana IPA**, on iOS 27+. It avoids SideStore and LiveContainer. It is conditional, not a reliable universal first install: getting AltLoad onto an unprepared phone depends on an existing signer or a currently valid public signing certificate. Public certificates can be revoked, and DNS profiles do not make them permanent. The official setup also requires LocalDevVPN, Developer Mode, an Apple Account and recurring signing. Never advertise it as one-tap installation.
+The shortest documented website handoff is **official SideInstaller → local setup → Install Cinemana button**, on iOS 27+. Unlike manual AltLoad import, the official `open.html?url=…` handoff downloads the IPA in the installer; no Files import, SideStore or LiveContainer is required. This is documented in [upstream's Links section](https://github.com/FrizzleM/SideInstaller#links). The button is populated only after validating the shared release catalog. Existing AltLoad instructions remain in a collapsed alternative.
+
+This is conditional, not a reliable universal first install: getting the installer onto an unprepared phone depends on an existing signer or a currently valid public signing certificate. Public certificates can be revoked, and DNS profiles do not make them permanent. The setup also requires LocalDevVPN, Developer Mode, an Apple Account and recurring signing. Never advertise it as one-tap first installation.
 
 For predictable phone-only onboarding, prioritize a reviewed **TestFlight invitation** when the publisher has a paid developer membership and appropriate rights. No invitation is configured. The repository already has a manual TestFlight workflow; this change neither invokes it nor handles signing secrets.
 
@@ -66,3 +68,9 @@ Record tester/date, iPhone model, exact iOS build, installer version, signature 
 - [ ] If TestFlight/Ad Hoc becomes available: verify rights, review/registration, OTA or invitation, renewal and regional availability before enabling any public install CTA.
 
 **Release gate:** keep `deviceTested: false` and the visible unverified notice until a named tester completes and records the relevant checks. A website cannot bypass Apple signing or guarantee a public certificate's validity.
+
+## Follow-up: simpler route investigation (10 November 2026)
+
+[SideInstaller's iSH bootstrap](https://github.com/FrizzleM/SideInstaller/tree/main/ish) attempts signing with a personal account from the App Store iSH app, avoiding the shared-certificate bootstrap. Its README explicitly leaves live Apple authentication, iSH signer execution, UDID capture and final device installation unverified. It also needs a 10–40 minute first signer compilation and trusting a local root certificate. It is an experimental investigation, not an easier beginner workflow, so no terminal commands or certificate installer were added to Cinemana. Tetherless still requires an initially installed signer. No supported website-only way to sign this unsigned IPA on an ordinary unprepared iPhone was established.
+
+The direct handoff removes manual download/import steps; it does not provide a new signing method or make the initial certificate reliable. Browser tests verify the decoded handoff URL exactly matches the validated IPA, hides links on failure/unsupported OS, and leaves AltLoad collapsed in both languages. Native app handoff, renewal, data preservation and installation remain unverified. The same button can be used for signing a newer published build, but automated native renewal is not claimed.

@@ -45,7 +45,38 @@
 <div class="warning">اختر إصدارًا أعلاه. لا توجد طريقة مجانية عامة لتثبيت تطبيق iOS غير موقّع بضغطة واحدة من موقع ويب.</div>
 </section>
  <section data-path="modern">
-<h2>جرّب AltLoad · دون كمبيوتر إذا نجح الإعداد</h2>
+<h2>أقصر إعداد · iOS 27+</h2>
+<p>أداة تثبيت واحدة ثم زر سينمانا. دون تحميل IPA يدويًا أو استخدام SideStore أو LiveContainer.</p>
+<div class="steps">
+<div class="step">
+<span class="no">1</span>
+<div>
+<h3>ثبّت SideInstaller مرة واحدة</h3>
+<p>استخدم موقعه الرسمي في Safari واتبع تعليمات التثبيت الموقّع. راجع أي ملف DNS قبل إضافته ثم امنح الثقة للمطوّر إذا طُلب ذلك. إذا كانت الشهادة العامة ملغاة أو غير متاحة فلن تبدأ هذه الطريقة؛ لا تستمر بإضافة ملفات التعريف.</p>
+<a class="button" href="https://sideinstaller.net/">تنزيل SideInstaller الرسمي</a>
+</div>
+</div>
+<div class="step">
+<span class="no">2</span>
+<div>
+<h3>أكمل الإعداد على هذا الآيفون</h3>
+<p>افتح SideInstaller واتبع خطوات الاقتران الخاصة بـ iOS 27. فعّل نمط المطوّر وأعد التشغيل إذا طُلب ذلك. اتصل بـ LocalDevVPN وسجّل الدخول بحساب Apple الخاص بك داخل SideInstaller. لا تحتاج إلى تثبيت SideStore.</p>
+<a class="button" href="https://apps.apple.com/app/id6755608044">تنزيل LocalDevVPN</a>
+</div>
+</div>
+<div class="step">
+<span class="no">3</span>
+<div>
+<h3>عُد إلى هنا واضغط تثبيت سينمانا</h3>
+<p>تفتح صفحة التحويل الرسمية SideInstaller برابط أحدث ملف سينمانا المتحقق منه. أكّد العملية هناك ليحمّله ويوقّعه ويثبّته. ثم افتح سينمانا من الشاشة الرئيسية. إذا لم تفتح الأداة، أكمل الخطوتين 1 و2 أولًا.</p>
+<a id="direct-install" class="button primary" hidden>تثبيت سينمانا عبر SideInstaller</a>
+<p id="direct-status" role="status" aria-live="polite">جارٍ التحقق من أحدث تحميل…</p>
+</div>
+</div>
+</div>
+<p>قبل مرور سبعة أيام: اتصل بـ LocalDevVPN واستخدم الزر مجددًا لتجديد توقيع سينمانا بالحساب نفسه. استخدم خيارات التجديد داخل SideInstaller لتجديد الأداة. لا يزال التجديد والحفاظ على البيانات بحاجة إلى اختبار على جهاز حقيقي.</p>
+<details class="alternative">
+<summary>تستخدم AltLoad بالفعل؟ يمكنك المتابعة به</summary>
 <div class="steps">
 <div class="step">
 <span class="no">1</span>
@@ -71,7 +102,7 @@
 </div>
 </div>
 </div>
-<p>البديل: <a href="https://sideinstaller.net/">SideInstaller</a> يدعم أيضًا الاقتران على iOS 27+ ورابط تثبيت IPA المباشر أدناه. شهادة تثبيته الأولية معرضة للمشكلة نفسها. يمكن استخدام SideStore اختياريًا لإدارة التحديث والتجديد.</p>
+</details>
 </section>
 <section data-path="legacy">
 <h2>iOS 18–26: إعداد أولي بكمبيوتر</h2>
@@ -94,8 +125,8 @@
 <p id="release-status" role="status" aria-live="polite">جارٍ تحميل تفاصيل الإصدار المتحقق منه…</p>
 <p>نسخة تطوير تجريبية غير موقّعة — التحميل وحده لا يثبّتها. لا يتوفر هنا إصدار عام موقّع أو دعوة TestFlight.</p>
 <div class="actions">
-<a id="ipa" class="button primary" hidden>تحميل ملف سينمانا IPA</a>
-<a id="sideinstaller" class="button" hidden>فتح في SideInstaller المثبّت</a>
+<a id="ipa" class="button" hidden>تحميل ملف سينمانا IPA</a>
+<a id="sideinstaller" class="button primary" hidden>فتح في SideInstaller المثبّت</a>
 <a class="button alt" href="https://github.com/Subaru771/Cinemana-IOS/releases">عرض إصدارات GitHub</a>
 </div>
 <p class="hash" id="checksum">
@@ -127,7 +158,7 @@
 <p>لا يطلب هذا الموقع بيانات Apple أو الشهادات أو ملفات الاقتران. استخدم الأدوات الرسمية وراجع شروطها. تتصل الأدوات بـ Apple وقد تستخدم خدمات مساعدة للمصادقة؛ ادعاءات الخصوصية ليست تدقيقًا أمنيًا مستقلًا. أزل ملفات DNS غير اللازمة من الإعدادات بعد مراجعة تعليمات مزوّدها.</p>
 </details>
 </section>
-<footer>نسخة تجريبية مستقلة. استخدم المحتوى المصرّح لك به فقط. روجعت الوثائق في 9 نوفمبر 2026؛ اختبار الأجهزة لم يُنجز بعد.<p>
+<footer>نسخة تجريبية مستقلة. استخدم المحتوى المصرّح لك به فقط. روجعت الوثائق في 10 نوفمبر 2026؛ اختبار الأجهزة لم يُنجز بعد.<p>
 <a href="index-ar.html">العودة إلى سينمانا</a> · <a href="https://developer.apple.com/testflight/">TestFlight</a>
 </p>
 </footer>

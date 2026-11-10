@@ -45,7 +45,38 @@
 <div class="warning">Choose a version above. There is no universal free one-tap website installation for an unsigned iOS app.</div>
 </section>
  <section data-path="modern">
-<h2>Try AltLoad · no computer if setup succeeds</h2>
+<h2>Shortest setup · iOS 27+</h2>
+<p>One installer, then a Cinemana button. No manual IPA download, SideStore or LiveContainer.</p>
+<div class="steps">
+<div class="step">
+<span class="no">1</span>
+<div>
+<h3>Get SideInstaller once</h3>
+<p>Use its official site in Safari and follow its signed installation instructions. Review any DNS profile before installing it, then trust the developer if prompted. If its public certificate is unavailable or revoked, this route cannot start; do not keep adding profiles.</p>
+<a class="button" href="https://sideinstaller.net/">Get official SideInstaller</a>
+</div>
+</div>
+<div class="step">
+<span class="no">2</span>
+<div>
+<h3>Complete setup on this iPhone</h3>
+<p>Open SideInstaller and follow its iOS 27 pairing prompts. Enable Developer Mode and restart if asked. Connect LocalDevVPN and sign in with your own Apple Account inside SideInstaller. You do not need to install SideStore.</p>
+<a class="button" href="https://apps.apple.com/app/id6755608044">Get LocalDevVPN</a>
+</div>
+</div>
+<div class="step">
+<span class="no">3</span>
+<div>
+<h3>Return here and tap Install Cinemana</h3>
+<p>The official handoff page opens SideInstaller with the latest validated Cinemana IPA link. Confirm there: SideInstaller downloads, signs and installs it. Then open Cinemana from your Home Screen. If no app opens, finish steps 1–2 first.</p>
+<a id="direct-install" class="button primary" hidden>Install Cinemana with SideInstaller</a>
+<p id="direct-status" role="status" aria-live="polite">Checking the latest download…</p>
+</div>
+</div>
+</div>
+<p>Before seven days: reconnect LocalDevVPN and use this button again to re-sign Cinemana with the same Apple Account. Use SideInstaller’s own renewal controls for the installer. Renewal and data preservation still need real-device testing.</p>
+<details class="alternative">
+<summary>Already use AltLoad? Keep using it</summary>
 <div class="steps">
 <div class="step">
 <span class="no">1</span>
@@ -71,7 +102,7 @@
 </div>
 </div>
 </div>
-<p>Fallback: <a href="https://sideinstaller.net/">SideInstaller</a> also supports on-device pairing on iOS 27+ and a direct IPA install link below. Its initial certificate has the same availability risk. SideStore is optional for ongoing refresh/update management.</p>
+</details>
 </section>
 <section data-path="legacy">
 <h2>iOS 18–26: one-time computer setup</h2>
@@ -94,8 +125,8 @@
 <p id="release-status" role="status" aria-live="polite">Loading validated release details…</p>
 <p>Unsigned development beta — downloading alone does not install it. No signed public Cinemana release or TestFlight invitation is configured here.</p>
 <div class="actions">
-<a id="ipa" class="button primary" hidden>Download Cinemana IPA</a>
-<a id="sideinstaller" class="button" hidden>Open in installed SideInstaller</a>
+<a id="ipa" class="button" hidden>Download Cinemana IPA</a>
+<a id="sideinstaller" class="button primary" hidden>Open in installed SideInstaller</a>
 <a class="button alt" href="https://github.com/Subaru771/Cinemana-IOS/releases">Browse GitHub releases</a>
 </div>
 <p class="hash" id="checksum">
@@ -127,7 +158,7 @@
 <p>This website never asks for Apple credentials, certificates or pairing files. Only use official installer builds and review their terms. Installers contact Apple and may use third-party authentication helpers; upstream privacy claims are not an independent security audit. Remove unneeded DNS profiles in Settings after reviewing the provider’s instructions.</p>
 </details>
 </section>
-<footer>Independent beta. Use only media you are authorized to access. Documentation checked 9 November 2026; device testing pending.<p>
+<footer>Independent beta. Use only media you are authorized to access. Documentation checked 10 November 2026; device testing pending.<p>
 <a href="index.html">Back to Cinemana</a> · <a href="https://developer.apple.com/testflight/">TestFlight</a>
 </p>
 </footer>
