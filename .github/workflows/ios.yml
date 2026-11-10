@@ -95,12 +95,8 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          # Older builds must not overwrite the newest published IPA.
-          HEAD="$(git ls-remote origin refs/heads/main | cut -f1)"
-          if [ "$HEAD" != "$GITHUB_SHA" ]; then
-            echo "Skipping stale release upload for $GITHUB_SHA"
-            exit 0
-          fi
+          # Workflow concurrency cancels superseded iOS builds. Changes to
+          # SideStore or other unrelated projects must not suppress this IPA.
           TAG=cinemana-ios-latest-unsigned
           IPA=dist/Cinemana-iOS-v2.0.2-beta.1-Unsigned.ipa
           CHECKSUM=dist/SHA256SUMS.txt
