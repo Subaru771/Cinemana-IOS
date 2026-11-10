@@ -37,10 +37,12 @@ assert png_dimensions(splash) == (2823, 5016), "Approved splash must be a Retina
 assert 'Text("iOS")' in header
 assert 'RoundedRectangle(cornerRadius: side' not in brand, "Do not add an inner icon tile"
 menu = (root / "CinemanaMobile/DownloadQualityMenu.swift").read_text()
-assert "ForEach([480, 720, 1080, 2160]" in menu
-for removed in ["Best available", "Use preferred quality", "Wi-Fi only", "wifiOnly", "center.enqueue(videos) "]:
-    assert removed not in menu, removed
-print("Full-resolution icon and four-option download menu validated.")
+assert "ForEach(qualities, id:" in menu, "Download menu must use provider-supplied qualities"
+assert "CinemanaAPI.shared.streams(video.id, preferComplete: true)" in menu
+assert "HLSQuality.availableHeights(at: stream.url)" in menu
+assert "ForEach([480, 720, 1080, 2160]" not in menu, "Never show invented quality options"
+assert "Use preferred quality" not in menu
+print("Full-resolution icon and provider-supplied download qualities validated.")
 
 # The approved v1.6.13 iOS icon is RGB, opaque and exactly 1024px.
 assert "CFBundleShortVersionString: '2.0.2'" in project
