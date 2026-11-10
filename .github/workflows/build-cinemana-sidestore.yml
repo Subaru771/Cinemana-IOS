@@ -1,0 +1,69 @@
+name: Build customized SideStore IPA
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - fix/sidestore-anisette-controls
+    paths:
+      - "tools/sidestore-custom/**"
+      - ".github/workflows/build-cinemana-sidestore.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: macos-26
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - name: Checkout official SideStore 0.7.0-alpha
+        run: |
+          git clone --depth 1 --branch 0.7.0-alpha --recurse-submodules https://github.com/SideStore/SideStore.git sidestore
+          git -C sidestore submodule update --init --recursive --depth 1
+      - name: Restore Anisette settings
+        run: python3 tools/sidestore-custom/restore-settings.py sidestore
+      - name: Select Xcode 26.2
+        uses: maxim-lobanov/setup-xcode@v1.6.0
+        with:
+          xcode-version: "26.2"
+      - name: Install SideStore build dependencies
+        run: brew install ldid xcbeautify
+      - name: Build IPA using official SideStore build tooling
+        working-directory: sidestore
+        run: python3 scripts/ci/workflow.py build
+      - name: Verify output and record SHA-256
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import hashlib, plistlib, zipfile
+          path = Path("sidestore/SideStore.ipa")
+          if not path.is_file():
+              raise SystemExit("SideStore.ipa not produced by the build")
+          with zipfile.ZipFile(path) as archive:
+              infos = [n for n in archive.namelist() if n.startswith("Payload/") and n.endswith(".app/Info.plist")]
+              if len(infos) != 1:
+                  raise SystemExit("Invalid IPA app structure")
+              info = plistlib.loads(archive.read(infos[0]))
+              if "sidestore" not in info.get("CFBundleIdentifier", "").lower():
+                  raise SystemExit("Unexpected app bundle identifier")
+              name = info.get("CFBundleDisplayName") or info.get("CFBundleName") or ""
+              if name.lower() != "sidestore":
+                  raise SystemExit(f"Unexpected app name: {name!r}")
+          output = Path("sidestore/Cinemana-SideStore-SettingsRestored.ipa")
+          output.write_bytes(path.read_bytes())
+          digest = hashlib.sha256(output.read_bytes()).hexdigest()
+          Path("sidestore/Cinemana-SideStore-SettingsRestored.sha256").write_text(
+              digest + "  Cinemana-SideStore-SettingsRestored.ipa\n", encoding="utf-8"
+          )
+          print("IPA SHA256", digest)
+          PY
+      - name: Upload IPA for Cinemana Loader
+        uses: actions/upload-artifact@v4
+        with:
+          name: Cinemana-SideStore-SettingsRestored
+          path: |
+            sidestore/Cinemana-SideStore-SettingsRestored.ipa
+            sidestore/Cinemana-SideStore-SettingsRestored.sha256
+          if-no-files-found: error
