@@ -49,3 +49,10 @@ See [CHANGELOG.md](CHANGELOG.md), [DISTRIBUTION.md](DISTRIBUTION.md) and [WINDOW
 ## iPhone installation website
 
 Use [English](landing/install.html) or [العربية](landing/install-ar.html). Direct SideInstaller setup on iOS 27+ avoids manual IPA import but is conditional on a valid initial signature and has not been verified on a real iPhone. Release links are generated from checksummed published Cinemana app IPAs rather than hardcoded versions. See [findings, validation and device checklist](docs/IOS-INSTALLATION.md).
+
+
+## Cinemana Web — phone-only Home Screen version
+
+The new [Cinemana Web](landing/web/index.html) is a standalone, installable Progressive Web App. From **Safari**, open the deployed \`/web/\` path, choose **Share → Add to Home Screen**, keep **Open as Web App** enabled, and tap Add. No installer IPA, SideStore, LiveContainer, computer or signing certificate is required for the web application itself.
+
+The PWA includes bilingual English/Arabic UI, catalog/search requests mapped from the native client, local saved titles, an HTTPS media-link player, responsive styling and an app-shell-only offline cache. **This does not install the native IPA.** The provider's HTTP service is not guaranteed to expose CORS permission to browsers; catalog and stream playback are **not yet verified on a physical iPhone**. The PWA does not circumvent regional authorization, DRM, provider restrictions or copyright. It does not implement video downloads, native offline viewing, native AirPlay behavior, or background refresh. See [Web deployment and test notes](docs/WEB-PWA.md).
