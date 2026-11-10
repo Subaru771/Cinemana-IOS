@@ -616,12 +616,12 @@ struct CinemaPlayerScreen: View {
         HStack(spacing: isPad ? 16 : 8) {
             overlayButton("chevron.down", label: "Close player") { closePlayer() }
             VStack(alignment: .leading, spacing: 3) {
-                Text(current.title)
+                Text(current.localizedTitle)
                     .font((isPad ? Font.title3 : Font.subheadline).weight(.semibold))
                     .lineLimit(1)
                 HStack(spacing: 7) {
                     if current.episode > 0 {
-                        Text("S\(current.season) · E\(current.episode)")
+                        Text(CinemanaLocale.isArabic ? "م\(current.season) · ح\(current.episode)" : "S\(current.season) · E\(current.episode)")
                     }
                     Text(isDownloaded ? "OFFLINE" : (session.selected?.label ?? "AUTO"))
                     if savedSpeed != 1 { Text("\(savedSpeed.formatted())×") }
@@ -665,7 +665,7 @@ struct CinemaPlayerScreen: View {
     private var bottomBar: some View {
         VStack(alignment: .leading, spacing: 12) {
             if let notice = session.notice {
-                Label(notice, systemImage: "arrow.triangle.2.circlepath")
+                Label(CinemanaLocale.error(notice), systemImage: "arrow.triangle.2.circlepath")
                     .font(.caption).foregroundStyle(.yellow)
                     .lineLimit(2)
             }
@@ -790,7 +790,7 @@ struct CinemaPlayerScreen: View {
                     Label("Lock controls", systemImage: "lock")
                 }
                 Button { library.markWatched(current, watched: !library.isWatched(current.id)) } label: {
-                    Label(library.isWatched(current.id) ? "Unmark watched" : "Mark watched",
+                    Label(LocalizedStringKey(library.isWatched(current.id) ? "Unmark watched" : "Mark watched"),
                           systemImage: "checkmark.circle")
                 }
                 Button {
@@ -886,7 +886,7 @@ struct CinemaPlayerScreen: View {
                 Menu("Subtitle timing") {
                     Button("Show 0.5 s earlier") { subtitles.adjustOffset(by: -0.5); showControls() }
                     Button("Show 0.5 s later") { subtitles.adjustOffset(by: 0.5); showControls() }
-                    Button("Reset (\(subtitles.offset.formatted()) s)") {
+                    Button(CinemanaLocale.isArabic ? "إعادة ضبط (\(subtitles.offset.formatted()) ث)" : "Reset (\(subtitles.offset.formatted()) s)") {
                         subtitles.adjustOffset(by: -subtitles.offset)
                         showControls()
                     }
@@ -897,32 +897,32 @@ struct CinemaPlayerScreen: View {
                             subtitleScale = entry.1
                         } label: {
                             if abs(subtitleScale - entry.1) < 0.01 {
-                                Label(entry.0, systemImage: "checkmark")
+                                Label(CinemanaLocale.text(entry.0), systemImage: "checkmark")
                             } else {
-                                Text(entry.0)
+                                Text(CinemanaLocale.text(entry.0))
                             }
                         }
                     }
                 }
             }
             if subtitles.available.isEmpty && captions.isEmpty {
-                Text(subtitles.loading ? "Looking for subtitles…" : "No subtitles available")
+                Text(LocalizedStringKey(subtitles.loading ? "Looking for subtitles…" : "No subtitles available"))
             }
-            if let failure = subtitles.failure { Text(failure) }
+            if let failure = subtitles.failure { Text(CinemanaLocale.error(failure)) }
         }
     }
 
     private var chapterMenu: some View {
         Menu("Skip markers") {
-                        Button("Intro ends at \(formatTime(livePosition()))") {
+                        Button(CinemanaLocale.isArabic ? "نهاية المقدمة: \(formatTime(livePosition()))" : "Intro ends at \(formatTime(livePosition()))") {
                 var value = markers; value.introEndsAt = livePosition()
                 library.setMarkers(value, for: current.id)
             }
-            Button("Recap ends at \(formatTime(livePosition()))") {
+            Button(CinemanaLocale.isArabic ? "نهاية الملخص: \(formatTime(livePosition()))" : "Recap ends at \(formatTime(livePosition()))") {
                 var value = markers; value.recapEndsAt = livePosition()
                 library.setMarkers(value, for: current.id)
             }
-            Button("Credits start at \(formatTime(livePosition()))") {
+            Button(CinemanaLocale.isArabic ? "بداية الشارة: \(formatTime(livePosition()))" : "Credits start at \(formatTime(livePosition()))") {
                 var value = markers; value.creditsBeginAt = livePosition()
                 library.setMarkers(value, for: current.id)
             }

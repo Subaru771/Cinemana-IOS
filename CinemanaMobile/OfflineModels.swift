@@ -73,6 +73,11 @@ enum ByteFormat {
     static func duration(_ seconds: Double) -> String {
         guard seconds.isFinite, seconds >= 0 else { return "—" }
         let total = Int(seconds)
+        if CinemanaLocale.isArabic {
+            if total < 60 { return "\(total) ث" }
+            if total < 3600 { return "\(total / 60) د" }
+            return "\(total / 3600) س و\((total % 3600) / 60) د"
+        }
         if total < 60 { return "\(total)s" }
         if total < 3600 { return "\(total / 60) min" }
         return "\(total / 3600) h \((total % 3600) / 60) min"
