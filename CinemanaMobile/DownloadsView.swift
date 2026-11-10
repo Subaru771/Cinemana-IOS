@@ -39,7 +39,7 @@ struct DownloadsView: View {
             Image(systemName: "arrow.down.to.line.compact")
                 .font(.system(size: 54))
                 .foregroundStyle(.mint)
-            Text(hideMatureContent && !center.items.isEmpty ? "Downloads hidden by content filter" : "No downloads").font(.title2.bold())
+            Text(LocalizedStringKey(hideMatureContent && !center.items.isEmpty ? "Downloads hidden by content filter" : "No downloads")).font(.title2.bold())
         }
         .padding(24)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -82,10 +82,10 @@ struct DownloadsView: View {
     private var storageSummary: some View {
         VStack(alignment: .leading, spacing: 6) {
             HStack {
-                Label("\(ByteFormat.string(center.usedBytes)) used", systemImage: "internaldrive")
+                Label(CinemanaLocale.isArabic ? "مستخدم: \(ByteFormat.string(center.usedBytes))" : "\(ByteFormat.string(center.usedBytes)) used", systemImage: "internaldrive")
                 Spacer()
                 if let free = center.freeBytes {
-                    Text("\(ByteFormat.string(free)) free").foregroundStyle(.secondary)
+                    Text(CinemanaLocale.isArabic ? "المتاح: \(ByteFormat.string(free))" : "\(ByteFormat.string(free)) free").foregroundStyle(.secondary)
                 }
             }
             .font(.subheadline)
@@ -143,11 +143,11 @@ struct DownloadsView: View {
             }
 
             VStack(alignment: .leading, spacing: 7) {
-                Text(entry.video.title)
+                Text(entry.video.localizedTitle)
                     .font(.subheadline.weight(.semibold))
                     .lineLimit(2)
                 if entry.video.episode > 0 {
-                    Text("Season \(entry.video.season) · Episode \(entry.video.episode)")
+                    Text(CinemanaLocale.episode(entry.video.season, entry.video.episode))
                         .font(.caption2).foregroundStyle(.secondary)
                 }
                 Text(statusDescription(entry))
@@ -157,7 +157,7 @@ struct DownloadsView: View {
                     ProgressView(value: entry.progress).tint(entry.status == .paused ? Color.gray : Color.mint)
                 }
                 if let message = entry.message, entry.status == .failed {
-                    Text(message).font(.caption2).foregroundStyle(.orange).lineLimit(3)
+                    Text(CinemanaLocale.error(message)).font(.caption2).foregroundStyle(.orange).lineLimit(3)
                 }
                 actions(entry)
             }
@@ -190,33 +190,37 @@ struct DownloadsView: View {
     }
 
     private func statusDescription(_ entry: OfflineEntry) -> String {
+        let ar = CinemanaLocale.isArabic
         switch entry.status {
-        case .queued: return entry.message ?? "Waiting in queue"
-        case .preparing: return "Preparing download…"
+        case .queued: return ar ? "بانتظار الدور" : (entry.message ?? "Waiting in queue")
+        case .preparing: return CinemanaLocale.text("Preparing download…")
         case .downloading:
             var parts = [String]()
             if entry.bytesExpected > 0 {
-                parts.append("\(ByteFormat.string(entry.bytesReceived)) of \(ByteFormat.string(entry.bytesExpected))")
+                let received = ByteFormat.string(entry.bytesReceived)
+                let expected = ByteFormat.string(entry.bytesExpected)
+                parts.append(ar ? "\(received) من \(expected)" : "\(received) of \(expected)")
             } else {
                 parts.append("\(Int(entry.progress * 100))%")
             }
             if entry.format == .hls {
-                parts.append("HLS · time estimate unavailable")
+                parts.append(CinemanaLocale.text("HLS · time estimate unavailable"))
             } else if let rate = center.rates[entry.id], rate > 0 {
-                parts.append("\(ByteFormat.string(Int64(rate)))/s")
+                parts.append("\(ByteFormat.string(Int64(rate)))/\(ar ? "ث" : "s")")
                 if entry.bytesExpected > entry.bytesReceived {
                     let remaining = Double(entry.bytesExpected - entry.bytesReceived) / rate
-                    parts.append("\(ByteFormat.duration(remaining)) left")
+                    parts.append(ar ? "المتبقي \(ByteFormat.duration(remaining))" : "\(ByteFormat.duration(remaining)) left")
                 }
             }
             return parts.joined(separator: " · ")
-        case .paused: return "Paused · \(Int(entry.progress * 100))%"
+        case .paused: return "\(CinemanaLocale.text("Paused")) · \(Int(entry.progress * 100))%"
         case .ready:
-            guard center.localURL(for: entry.id) != nil else { return "File unavailable" }
+            guard center.localURL(for: entry.id) != nil else { return CinemanaLocale.text("File unavailable") }
             let size = max(entry.bytesExpected, entry.bytesReceived)
-            return size > 0 ? "Ready offline · \(ByteFormat.string(size))" : "Ready to watch offline"
-        case .failed: return "Download failed"
-        case .cancelled: return "Cancelled"
+            if size <= 0 { return CinemanaLocale.text("Ready to watch offline") }
+            return "\(CinemanaLocale.text("Ready offline")) · \(ByteFormat.string(size))"
+        case .failed: return CinemanaLocale.text("Download failed")
+        case .cancelled: return CinemanaLocale.text("Cancelled")
         }
     }
 }
