@@ -1,0 +1,95 @@
+name: Build Cinemana Installer (unsigned IPA)
+on:
+  pull_request:
+    paths:
+      - 'installer-ios/**'
+      - '.github/workflows/cinemana-native-installer.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'installer-ios/**'
+      - '.github/workflows/cinemana-native-installer.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  source-check:
+    name: Check native installer source
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: python3 -m py_compile installer-ios/apply.py
+      - name: Check security and release references
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          s = Path("installer-ios/CinemanaSetupView.swift").read_text()
+          p = Path("installer-ios/apply.py").read_text()
+          assert "CryptoKit" in s and "SHA256.hash" in s
+          assert "engine.installSource = .sideStore" in s
+          assert "engine.installSource = .custom" in s
+          assert "raw.githubusercontent.com/Subaru771/Cinemana-IOS/main/landing/release.json" in s
+          assert "FrizzleM" in s and "PINNED_UPSTREAM" in p
+          assert "https://github.com" not in s or "github.com" in s
+          print("PASS: two-app native installer source and checksums present")
+          PY
+  build:
+    name: Compile unsigned native IPA
+    needs: source-check
+    runs-on: xcode-27
+    timeout-minutes: 90
+    env:
+      HOMEBREW_NO_AUTO_UPDATE: '1'
+      HOMEBREW_NO_INSTALL_CLEANUP: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check out pinned SideInstaller source (not an official binary)
+        shell: bash
+        run: |
+          set -euo pipefail
+          git clone --filter=blob:none https://github.com/FrizzleM/SideInstaller.git upstream
+          git -C upstream checkout 4504b3cf2b0123f3ceb2d55f13a202f0cfec839e
+          test -f upstream/LICENSE.md
+      - name: Apply Cinemana installer additions and artwork
+        run: python3 installer-ios/apply.py upstream
+      - name: Select Xcode 27
+        shell: bash
+        run: |
+          set -euo pipefail
+          app=""
+          for candidate in /Applications/Xcode_27.1.app /Applications/Xcode_27.1_*.app; do
+            if [[ -d "$candidate" ]]; then app="$candidate"; break; fi
+          done
+          if [[ -z "$app" ]]; then
+            app="$(xcode-select -p)"
+            app="${app%/Contents/Developer}"
+          fi
+          echo "DEVELOPER_DIR=$app/Contents/Developer" >> "$GITHUB_ENV"
+          DEVELOPER_DIR="$app/Contents/Developer" xcodebuild -version
+      - name: Install XcodeGen and Rust target
+        shell: bash
+        run: |
+          set -euo pipefail
+          command -v xcodegen >/dev/null || brew install xcodegen
+          rustup target add aarch64-apple-ios
+      - name: Build unsigned native IPA from pinned source
+        shell: bash
+        env:
+          BUNDLE_ID: com.subaru771.cinemanainstaller
+          VERSION: 0.1.0
+          BUILD_NUMBER: 1
+          OUTPUT: ${{ runner.temp }}/Cinemana-Installer-Unsigned.ipa
+          DERIVED_DATA: ${{ runner.temp }}/CinemanaDerivedData
+        run: |
+          set -euo pipefail
+          bash upstream/scripts/build-ipa.sh
+          shasum -a 256 "$OUTPUT" > "${OUTPUT}.sha256"
+      - name: Archive for personal device signing (not a signed public release)
+        uses: actions/upload-artifact@v4
+        with:
+          name: Cinemana-Installer-UNSIGNED
+          path: |
+            ${{ runner.temp }}/Cinemana-Installer-Unsigned.ipa
+            ${{ runner.temp }}/Cinemana-Installer-Unsigned.ipa.sha256
+          retention-days: 7
+          if-no-files-found: error
