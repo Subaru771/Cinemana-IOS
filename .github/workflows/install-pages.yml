@@ -1,7 +1,7 @@
 name: Validate installation pages and published IPA
 on:
   pull_request:
-    paths: ['landing/**', 'scripts/*install*', 'tests/*install*', '.github/workflows/install-pages.yml']
+    paths: ['landing/**', 'scripts/*install*', 'tests/*install*', 'tests/test_web*', '.github/workflows/install-pages.yml']
   push:
     paths: ['landing/**', 'scripts/*install*', 'tests/*install*', '.github/workflows/install-pages.yml']
   workflow_dispatch:
@@ -24,6 +24,8 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
+      - name: Verify Cinemana Web data parsing
+        run: node --test tests/test_web_core.mjs
       - name: Install browser test tools
         run: |
           npm install --prefix "$RUNNER_TEMP/cinemana-browser" playwright@1.58.2
@@ -38,6 +40,7 @@ jobs:
             sleep 1
           done
           NODE_PATH="$RUNNER_TEMP/cinemana-browser/node_modules" node tests/test_install_browser.cjs
+          NODE_PATH="$RUNNER_TEMP/cinemana-browser/node_modules" node tests/test_web_browser.cjs
       - name: Verify current public IPA and generate catalog
         if: github.event_name != 'pull_request'
         run: python3 scripts/sync_install_release.py
