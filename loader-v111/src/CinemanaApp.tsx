@@ -5,6 +5,7 @@ import { AppleID } from "./AppleID";
 import type { DeviceInfo } from "./Device";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
+import { openUrl } from "@tauri-apps/plugin-opener";
 import { classify } from "./cinemana/errors";
 import type { ErrorCode } from "./cinemana/errors";
 import { errorText as errorStrings, ui } from "./cinemana/strings.ar-IQ";
@@ -190,7 +191,7 @@ export default function App() {
           </button>)}
         </div>
         {errorText && <ErrorBlock raw={errorText} fallback={wasPairingError ? "PAIRING_INVALID" : undefined} />}
-        {!loadingDevices && devices.length === 0 && <button type="button" className="cinemana-secondary" onClick={ensureItunes}>إصلاح اتصال الآيفون تلقائياً</button>}
+        {!loadingDevices && devices.length === 0 && <button type="button" className="cinemana-secondary" onClick={() => void openUrl("https://www.apple.com/itunes/")}>فتح موقع iTunes الرسمي</button>}
         <button className="cinemana-secondary" type="button" disabled={loadingDevices} onClick={() => void refreshDevices()}>{loadingDevices ? ui.devices.checking : ui.devices.refresh}</button>
       </section>}
       {itunesState === "ready" && stage === "pairing" && <section className="cinemana-panel cinemana-centered">
