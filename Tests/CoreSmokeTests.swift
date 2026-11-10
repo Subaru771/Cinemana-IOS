@@ -13,6 +13,19 @@ struct CoreSmokeTests {
         precondition(movie.title == "A Test Film")
         precondition(movie.rating == 8.5)
         precondition(movie.poster?.host == "example.org")
+        // The app-language selector must favor Arabic metadata without
+        // deleting original titles or breaking Codable snapshots.
+        let multi = Video(json: ["id": "multilingual", "en_title": "Example",
+             "ar_title": "مثال", "en_content": "English summary",
+             "ar_content": "ملخص عربي"])!
+        UserDefaults.standard.set("ar", forKey: "cinemana-app-language")
+        precondition(multi.localizedTitle == "مثال")
+        precondition(multi.localizedOverview == "ملخص عربي")
+        UserDefaults.standard.set("en", forKey: "cinemana-app-language")
+        precondition(multi.localizedTitle == "Example")
+        precondition(multi.localizedOverview == "English summary")
+        UserDefaults.standard.removeObject(forKey: "cinemana-app-language")
+
         precondition(movie.genres.count == 2)
         // Regressions from the One Piece report: series aliases and nested
         // provider season/episode records must not silently become empty.

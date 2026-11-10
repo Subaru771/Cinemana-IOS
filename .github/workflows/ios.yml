@@ -11,6 +11,9 @@ on:
       - 'Tests/**'
 permissions:
   contents: write
+concurrency:
+  group: cinemana-ios-latest-main
+  cancel-in-progress: true
 jobs:
   build:
     runs-on: macos-26-intel
@@ -30,6 +33,7 @@ jobs:
           python3 scripts/check_download_menu.py
           python3 scripts/check_landing_locales.py
           python3 scripts/check_launch_autoplay.py
+          python3 scripts/check_ios_localizations.py
           plutil -lint CinemanaMobile/en.lproj/Localizable.strings
           plutil -lint CinemanaMobile/ar.lproj/Localizable.strings
       - name: Verify included app icon source
@@ -67,6 +71,7 @@ jobs:
           APP=build/Build/Products/Release-iphoneos/CinemanaMobile.app
           test -d "$APP"
           plutil -replace CinemanaBuildRevision -string "$GITHUB_SHA" "$APP/Info.plist"
+          test "$(plutil -extract CinemanaBuildRevision raw "$APP/Info.plist")" = "$GITHUB_SHA"
           test "$(plutil -extract CFBundleShortVersionString raw "$APP/Info.plist")" = '2.0.2'
           test "$(plutil -extract CFBundleDisplayName raw "$APP/Info.plist")" = 'Cinemana iOS'
           test -s "$APP/Assets.car"
@@ -90,6 +95,12 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
+          # Older builds must not overwrite the newest published IPA.
+          HEAD="$(git ls-remote origin refs/heads/main | cut -f1)"
+          if [ "$HEAD" != "$GITHUB_SHA" ]; then
+            echo "Skipping stale release upload for $GITHUB_SHA"
+            exit 0
+          fi
           TAG=cinemana-ios-latest-unsigned
           IPA=dist/Cinemana-iOS-v2.0.2-beta.1-Unsigned.ipa
           CHECKSUM=dist/SHA256SUMS.txt
