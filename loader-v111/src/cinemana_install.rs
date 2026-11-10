@@ -1,4 +1,4 @@
-// Cinemana Loader 1.1.1 - native serial installation workflow.
+// Cinemana Loader 1.2.6 - native serial installation workflow.
 // Apple credentials remain in upstream iLoader; no private pairing data to the frontend.
 use std::{fs, path::PathBuf};
 use sha2::{Digest, Sha256};
@@ -12,12 +12,12 @@ use crate::{
     pairing_idevicepair::generate_and_place,
     sideload::{SideloaderMutex, sideload},
 };
-const SIDESTORE_IPA: &[u8] = include_bytes!("../cinemana-assets/Cinemana-SideStore-V0.11-TEST.ipa");
-const CINEMANA_IPA: &[u8] = include_bytes!("../cinemana-assets/Cinemana-iOS-v2.1.1-beta.1-Unsigned.ipa");
+const SIDESTORE_IPA: &[u8] = include_bytes!("../cinemana-assets/Cinemana-SideStore-SettingsRestored.ipa");
+const CINEMANA_IPA: &[u8] = include_bytes!("../cinemana-assets/Cinemana-iOS-v2.0.2-Stable-Unsigned.ipa");
 const CINEMANA_DISPLAY_NAME: &str = "Cinemana iOS";
 const CINEMANA_BUNDLE_HINT: &str = "app.cinemana.mobile.ios";
-const SIDESTORE_SHA256: &str = "2495334a4e754ca9d2973ce798ae7716ef57a36a29b2758ae2864723b7c735df";
-const CINEMANA_SHA256: &str = "42348c3d7571a4b202a73993106327440abfc457741e530fab3cba32926f6a00";
+const SIDESTORE_SHA256: &str = "880ec959bb0d2ca9acdeba93a4d846bf73fbe352ad3f5fef5e1049d6e58c327c";
+const CINEMANA_SHA256: &str = "19a0d161d764dc6b9ee8bcbc4eb028d64b8cc411610f4dc8ff9da9d9cde0a8b5";
 
 fn install_error(reason: impl Into<String>) -> AppError { AppError::Misc(reason.into()) }
 fn validate_asset(label: &str, bytes: &[u8], expected: &str) -> Result<(), AppError> {
