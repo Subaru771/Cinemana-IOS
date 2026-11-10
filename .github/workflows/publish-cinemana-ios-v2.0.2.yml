@@ -15,7 +15,7 @@ jobs:
     steps:
       - name: Retrieve the exact approved Build 26 IPA
         env:
-          GH_TOKEN: \${{ github.token }}
+          GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
           mkdir -p dist
@@ -30,7 +30,7 @@ jobs:
 
       - name: Publish permanent stable release without recompiling
         env:
-          GH_TOKEN: \${{ github.token }}
+          GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
           TAG="cinemana-ios-v2.0.2"
