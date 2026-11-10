@@ -1,10 +1,61 @@
 import Foundation
 
+/// Explicit app-language setting is independent of the iPhone's system locale.
+enum CinemanaLocale {
+    static var isArabic: Bool {
+        let language = UserDefaults.standard.string(forKey: "cinemana-app-language") ?? "system"
+        return language == "ar" || (language == "system" && Locale.current.languageCode == "ar")
+    }
+
+    static func text(_ english: String) -> String {
+        guard isArabic,
+              let path = Bundle.main.path(forResource: "ar", ofType: "lproj"),
+              let bundle = Bundle(path: path) else { return english }
+        return bundle.localizedString(forKey: english, value: english, table: "Localizable")
+    }
+
+    static func error(_ message: String) -> String {
+        let translated = text(message)
+        if isArabic && translated == message &&
+           message.range(of: "[a-zA-Z]", options: .regularExpression) != nil {
+            return "تعذّر إكمال الطلب. تحقّق من الاتصال وحاول مجدداً."
+        }
+        return translated
+    }
+
+    static func season(_ number: Int) -> String {
+        isArabic ? "الموسم \(number)" : "Season \(number)"
+    }
+
+    static func episode(_ season: Int, _ number: Int) -> String {
+        isArabic ? "الموسم \(season) · الحلقة \(number)" : "Season \(season) · Episode \(number)"
+    }
+
+    static func genre(_ english: String) -> String {
+        guard isArabic else { return english }
+        let names = [
+            "Action": "أكشن", "Adventure": "مغامرة", "Animation": "رسوم متحركة",
+            "Comedy": "كوميديا", "Crime": "جريمة", "Documentary": "وثائقي",
+            "Drama": "دراما", "Family": "عائلي", "Fantasy": "خيال",
+            "History": "تاريخ", "Horror": "رعب", "Music": "موسيقى",
+            "Mystery": "غموض", "Romance": "رومانسي", "Science Fiction": "خيال علمي",
+            "Sci-Fi": "خيال علمي", "Thriller": "إثارة", "War": "حرب",
+            "Western": "غرب أمريكي", "Biography": "سيرة ذاتية",
+            "Sport": "رياضة", "Sports": "رياضة", "Reality": "واقعي",
+            "Kids": "أطفال", "News": "أخبار", "Talk": "حواري",
+            "Soap": "دراما يومية", "War & Politics": "حرب وسياسة",
+            "Action & Adventure": "أكشن ومغامرة", "Sci-Fi & Fantasy": "خيال علمي وفانتازيا"
+        ]
+        return names[english] ?? text(english)
+    }
+}
+
 struct Video: Identifiable, Hashable, Codable, Sendable {
     let id: String
     let title: String
     let arabicTitle: String
     let overview: String
+    let arabicOverview: String?
     let year: String
     let rating: Double?
     let kind: String
@@ -22,6 +73,16 @@ struct Video: Identifiable, Hashable, Codable, Sendable {
     var isSeries: Bool {
         ["2", "series", "tv", "tvshow", "tv-show", "tv series", "show"].contains(
             kind.lowercased().trimmingCharacters(in: .whitespacesAndNewlines))
+    }
+
+    var localizedTitle: String {
+        CinemanaLocale.isArabic && !arabicTitle.isEmpty ? arabicTitle : title
+    }
+    var localizedOverview: String {
+        if CinemanaLocale.isArabic, let arabicOverview, !arabicOverview.isEmpty {
+            return arabicOverview
+        }
+        return overview
     }
 
     static func == (a: Video, b: Video) -> Bool { a.id == b.id }
@@ -43,6 +104,8 @@ struct Video: Identifiable, Hashable, Codable, Sendable {
         self.title = title.isEmpty ? arabic : title
         self.arabicTitle = arabic
         self.overview = s("en_content", "englishContent", "enContent", "description", "overview", "ar_content")
+        let arabicSynopsis = s("ar_content", "arabicContent", "arDescription", "arabic_description")
+        self.arabicOverview = arabicSynopsis.isEmpty ? nil : arabicSynopsis
         self.year = s("year")
         self.kind = s("kind", "videoKind", "video_kind")
         self.rating = Double(s("stars", "rating", "imdbRating"))
@@ -93,7 +156,7 @@ struct Stream: Identifiable, Hashable, Sendable {
     let url: URL
     let quality: Int
     var id: String { url.absoluteString }
-    var label: String { quality == 0 ? "Auto" : "\(quality)p" }
+    var label: String { quality == 0 ? CinemanaLocale.text("Auto") : "\(quality)p" }
     var playableOnIOS: Bool {
         let ext = url.pathExtension.lowercased()
         // AVPlayer supports HLS and supported progressive media, not MPEG-DASH manifests.
