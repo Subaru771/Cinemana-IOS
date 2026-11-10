@@ -10,6 +10,17 @@ This is conditional, not a reliable universal first install: getting the install
 
 For predictable phone-only onboarding, prioritize a reviewed **TestFlight invitation** when the publisher has a paid developer membership and appropriate rights. No invitation is configured. The repository already has a manual TestFlight workflow; this change neither invokes it nor handles signing secrets.
 
+## If the shared signing certificates are all revoked
+
+The official SideInstaller install page displayed zero currently valid shared certificates on 10 November 2026. The list of certificate names and expiry dates does **not** establish that Apple's signing daemon will accept them. Do not suggest reinstalling random DNS profiles as a fix.
+
+Two explicit, secondary fallback routes are offered in the collapsed `certificate-fallback` section of the bilingual iOS 27+ pages. Neither is silently substituted into the primary install button.
+
+* **iPhone only / experimental:** [SideInstaller's official iSH bootstrap](https://github.com/FrizzleM/SideInstaller/blob/main/ish/README.md). iSH itself is obtained from the App Store, so a revoked public signing certificate is not needed to bootstrap the signer. However the process requires source compilation (the author estimates 10–40 minutes), Apple Account authentication in a local script, collecting a UDID, a locally trusted CA certificate and an unverified `itms-services` final installation. The upstream author has not confirmed the live account flow, iSH code-signer compilation or final iPhone install. Never call this one-tap or a production-ready method, and never mirror its credential-handling script without a security review.
+* **Windows / practical free fallback:** [iPASide](https://github.com/pwnapplehat/iPASide). Uses the person's own Apple Account with a cable and Apple Devices/iTunes, signs and installs an unsigned IPA over USB and supports auto-refresh when the Windows task can run. The project's real-device test claims do not mean Cinemana's current IPA has been tested. Keep the SHA-256-verifiable Cinemana IPA available separately; do not handle user Apple credentials on the website.
+
+Independent of both: **Apple TestFlight** is the cleanest mass-distribution UX when the publisher has the paid Apple Developer Program, the appropriate distribution/content rights, a signed build and successful Apple external TestFlight review.
+
 ## Comparison (upstream documentation, not independent device verification)
 
 | Method | Versions / first setup | Signing, pairing and renewal | Assessment |
