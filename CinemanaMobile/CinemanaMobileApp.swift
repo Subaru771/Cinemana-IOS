@@ -305,7 +305,7 @@ struct PosterCard: View {
             RemotePoster(url: video.poster)
                 .frame(width: width, height: width * 1.46)
                 .clipShape(RoundedRectangle(cornerRadius: 12))
-            Text(video.title)
+            Text(video.localizedTitle)
                 .font(.caption.weight(.semibold))
                 .lineLimit(2)
                 .frame(width: width, alignment: .leading)
@@ -365,7 +365,7 @@ struct FeaturedPoster: View {
             LinearGradient(colors: [.clear, ink.opacity(0.98)], startPoint: .top, endPoint: .bottom)
             VStack(alignment: .leading, spacing: 6) {
                 Text("FEATURED").font(.caption2.weight(.black)).foregroundStyle(mint)
-                Text(video.title).font(.title.weight(.bold)).lineLimit(2)
+                Text(video.localizedTitle).font(.title.weight(.bold)).lineLimit(2)
                 Text(video.year).foregroundStyle(.white.opacity(0.75))
             }
             .padding(18)
@@ -421,7 +421,7 @@ struct FeaturedPoster: View {
                     .frame(maxWidth: .infinity)
                     .clipped()
                 VStack(alignment: .leading, spacing: 14) {
-                    Text((detail ?? video).title)
+                    Text((detail ?? video).localizedTitle)
                         .font(.largeTitle.weight(.bold))
                     Text([detail?.year ?? video.year, (detail?.rating ?? video.rating).map { String(format: "★ %.1f", $0) } ?? ""]
                         .filter { !$0.isEmpty }.joined(separator: "  •  "))
@@ -430,8 +430,8 @@ struct FeaturedPoster: View {
                         Button {
                             if let target = playTarget { watch = target }
                         } label: {
-                            Label(isSeries ? (playTarget.flatMap { library.playback(for: $0.id) } == nil ? "Play Episode" : "Resume Episode")
-                                   : (library.playback(for: video.id) == nil ? "Play" : "Resume"),
+                            Label(LocalizedStringKey(isSeries ? (playTarget.flatMap { library.playback(for: $0.id) } == nil ? "Play Episode" : "Resume Episode")
+                                   : (library.playback(for: video.id) == nil ? "Play" : "Resume")),
                                   systemImage: "play.fill")
                                 .frame(maxWidth: .infinity).padding(7)
                         }
@@ -444,14 +444,14 @@ struct FeaturedPoster: View {
                         }
                         .buttonStyle(.bordered)
                         .tint(mint)
-                        .accessibilityLabel(library.isSaved(video) ? "Remove from My List" : "Add to My List")
+                        .accessibilityLabel(LocalizedStringKey(library.isSaved(video) ? "Remove from My List" : "Add to My List"))
                     }
                     if let target = playTarget { DownloadAction(video: target) }
                     HStack(spacing: 12) {
                         Button {
                             library.markWatched(video, watched: !library.isWatched(video.id))
                         } label: {
-                            Label(library.isWatched(video.id) ? "Watched" : "Mark watched",
+                            Label(LocalizedStringKey(library.isWatched(video.id) ? "Watched" : "Mark watched"),
                                   systemImage: library.isWatched(video.id) ? "checkmark.circle.fill" : "checkmark.circle")
                         }
                         .buttonStyle(.bordered)
@@ -473,17 +473,17 @@ struct FeaturedPoster: View {
                     .font(.footnote)
                     if !(detail ?? video).overview.isEmpty {
                         VStack(alignment: .leading, spacing: 5) {
-                            Text((detail ?? video).overview)
+                            Text((detail ?? video).localizedOverview)
                                 .lineLimit(synopsisExpanded ? nil : 4)
                                 .foregroundStyle(.secondary)
-                            Button(synopsisExpanded ? "Show less" : "Read more") {
+                            Button(CinemanaLocale.text(synopsisExpanded ? "Show less" : "Read more")) {
                                 withAnimation(.easeInOut(duration: 0.15)) { synopsisExpanded.toggle() }
                             }
                             .font(.footnote.weight(.semibold)).tint(mint)
                         }
                     }
                     if !(detail ?? video).genres.isEmpty {
-                        Text((detail ?? video).genres.joined(separator: "  •  "))
+                        Text((detail ?? video).genres.map(CinemanaLocale.genre).joined(separator: "  •  "))
                             .font(.footnote).foregroundStyle(mint)
                     }
                     if isSeries {
@@ -493,16 +493,16 @@ struct FeaturedPoster: View {
                             if !visibleEpisodes.isEmpty {
 
                                 DownloadQualityMenu(videos: visibleEpisodes, compact: true,
-                                                    title: "Download entire season \(selectedSeason)")
+                                                    title: CinemanaLocale.isArabic ? "تنزيل الموسم \(selectedSeason)" : "Download entire season \(selectedSeason)")
                                     .foregroundStyle(mint)
                             }
                             if sortedSeasons.count > 1 {
                                 Menu {
                                     ForEach(sortedSeasons, id: \.self) { season in
-                                        Button("Season \(season)") { selectedSeason = season }
+                                        Button(CinemanaLocale.season(season)) { selectedSeason = season }
                                     }
                                 } label: {
-                                    Label("Season \(selectedSeason)", systemImage: "chevron.down")
+                                    Label(CinemanaLocale.season(selectedSeason), systemImage: "chevron.down")
                                         .font(.subheadline).foregroundStyle(mint)
                                 }
                             }
@@ -513,7 +513,7 @@ struct FeaturedPoster: View {
                             Label("Episodes aren't available yet", systemImage: "exclamationmark.triangle")
                                 .font(.subheadline.weight(.semibold))
                                 .foregroundStyle(.orange)
-                            Text(episodeError ?? "The provider returned no episodes for this series.")
+                            Text(CinemanaLocale.error(episodeError ?? "The provider returned no episodes for this series."))
                                 .font(.footnote).foregroundStyle(.secondary)
                                 .fixedSize(horizontal: false, vertical: true)
                             Button { Task { await reloadEpisodes() } } label: {
@@ -528,9 +528,9 @@ struct FeaturedPoster: View {
                                     RemotePoster(url: ep.poster ?? (detail ?? video).poster)
                                         .frame(width: 96, height: 65).clipShape(RoundedRectangle(cornerRadius: 8))
                                     VStack(alignment: .leading, spacing: 4) {
-                                        Text("S\(ep.season) · E\(ep.episode)")
+                                        Text(CinemanaLocale.episode(ep.season, ep.episode))
                                             .font(.caption).foregroundStyle(mint)
-                                        Text(ep.title).font(.subheadline).lineLimit(2)
+                                        Text(ep.localizedTitle).font(.subheadline).lineLimit(2)
                                         if library.isWatched(ep.id) {
                                             Label("Watched", systemImage: "checkmark.circle.fill")
                                                 .font(.caption2).foregroundStyle(.green)
@@ -548,7 +548,7 @@ struct FeaturedPoster: View {
                                 Button {
                                     library.markWatched(ep, watched: !library.isWatched(ep.id))
                                 } label: {
-                                    Label(library.isWatched(ep.id) ? "Unmark watched" : "Mark watched",
+                                    Label(LocalizedStringKey(library.isWatched(ep.id) ? "Unmark watched" : "Mark watched"),
                                           systemImage: library.isWatched(ep.id) ? "checkmark.circle.fill" : "circle")
                                         .font(.caption2)
                                 }
@@ -706,13 +706,13 @@ struct SearchCatalogView: View {
                     HStack(spacing: 9) {
                         Menu {
                             Picker("Type", selection: $options.type) {
-                                ForEach(SearchType.allCases) { Text($0.rawValue).tag($0) }
+                                ForEach(SearchType.allCases) { Text(LocalizedStringKey($0.rawValue)).tag($0) }
                             }
                         } label: { FilterLabel(text: options.type.rawValue, active: options.type != .all) }
                         Button { options.recent.toggle() } label: { FilterLabel(text: "2025+", active: options.recent) }
                         Menu {
                             ForEach([0.0, 6.0, 7.0, 8.0, 9.0], id: \.self) { value in
-                                Button(value == 0 ? "Any rating" : "★ \(Int(value))+") {
+                                Button(value == 0 ? CinemanaLocale.text("Any rating") : "★ \(Int(value))+") {
                                     options.minRating = value
                                 }
                             }
@@ -722,20 +722,20 @@ struct SearchCatalogView: View {
                         }
                         Menu {
                             Picker("Sort", selection: $options.sort) {
-                                ForEach(SearchOrder.allCases) { Text($0.rawValue).tag($0) }
+                                ForEach(SearchOrder.allCases) { Text(LocalizedStringKey($0.rawValue)).tag($0) }
                             }
                         } label: { FilterLabel(text: options.sort.rawValue, active: options.sort != .relevance) }
                         if !genres.isEmpty {
                             Menu {
                                 Button("Any genre") { options.genre = "" }
                                 ForEach(genres, id: \.self) { genre in
-                                    Button(genre) { options.genre = genre }
+                                    Button(CinemanaLocale.genre(genre)) { options.genre = genre }
                                 }
-                            } label: { FilterLabel(text: options.genre.isEmpty ? "Genre" : options.genre, active: !options.genre.isEmpty) }
+                            } label: { FilterLabel(text: options.genre.isEmpty ? "Genre" : CinemanaLocale.genre(options.genre), active: !options.genre.isEmpty) }
                         }
                         Menu {
                             ForEach([0, 2010, 2020, 2024, 2025, 2026], id: \.self) { year in
-                                Button(year == 0 ? "Any year" : "From \(year)") { minimumYear = year }
+                                Button(year == 0 ? CinemanaLocale.text("Any year") : (CinemanaLocale.isArabic ? "من \(year)" : "From \(year)")) { minimumYear = year }
                             }
                         } label: { FilterLabel(text: minimumYear == 0 ? "Year" : "\(minimumYear)+", active: minimumYear > 0) }
                         Button { onlyUnwatched.toggle() } label: {
@@ -815,7 +815,7 @@ struct FilterLabel: View {
     let text: String
     let active: Bool
     var body: some View {
-        Text(text)
+        Text(LocalizedStringKey(text))
             .font(.footnote.weight(.semibold))
             .padding(.horizontal, 12).padding(.vertical, 8)
             .background(active ? mint.opacity(0.20) : tile)
@@ -1154,7 +1154,7 @@ struct LibraryView: View {
                                 .frame(width: 72, height: 105)
                                 .clipShape(RoundedRectangle(cornerRadius: 10))
                             VStack(alignment: .leading, spacing: 8) {
-                                Text(item.video.title).font(.subheadline.weight(.semibold)).lineLimit(2)
+                                Text(item.video.localizedTitle).font(.subheadline.weight(.semibold)).lineLimit(2)
                                 ProgressBar(fraction: item.fraction).frame(height: 4)
                                 Text("\(Int(item.fraction * 100))%")
                                     .font(.caption).foregroundStyle(.secondary)
@@ -1281,7 +1281,7 @@ struct AboutView: View {
                     ProgressView("Checking for updates…")
                 } else if releaseMonitor.checked {
                     Text(releaseMonitor.error ? "Couldn't check for updates" :
-                         (releaseMonitor.latestRevision == nil ? "Up to date" : "Update available"))
+                         (releaseMonitor.latestRevision == nil ? "Up to date" : "Update available")))
                         .font(.footnote).foregroundStyle(.secondary)
                 }
                 if let url = releaseMonitor.downloadURL {
@@ -1334,7 +1334,7 @@ struct ErrorMessage: View {
     let retry: () -> Void
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text(text).foregroundStyle(.red)
+            Text(LocalizedStringKey(text)).foregroundStyle(.red)
             Button("Retry", action: retry).buttonStyle(.bordered)
         }
         .padding(16)
