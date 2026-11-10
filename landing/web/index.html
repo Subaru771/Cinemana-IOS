@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#080e0c">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Cinemana Web">
+<meta name="description" content="Cinemana Web: an installable iPhone web companion for browsing and playback where provider access is permitted.">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data: https:; connect-src 'self' https://cinemana.shabakaty.com; media-src 'self' https: blob:; object-src 'none'; base-uri 'self'; form-action 'none';">
+<link rel="manifest" href="./manifest.webmanifest">
+<link rel="apple-touch-icon" href="../install-icon.png">
+<link rel="icon" href="../install-icon.png">
+<link rel="stylesheet" href="./style.css">
+<title>Cinemana Web</title>
+</head>
+<body>
+<div class="shell" id="app">
+<header class="topbar">
+  <div class="brand"><span class="brand-mark" aria-hidden="true">▶</span><div><strong>CINEMANA</strong><small>WEB</small></div></div>
+  <div class="header-actions"><button class="text-button" id="language" type="button" aria-label="Change language">عربي</button><button class="icon-button" id="help" type="button" aria-label="Install and help">?</button></div>
+</header>
+<main>
+  <section class="intro">
+    <div class="overline" data-i18n="overline">Made for your iPhone</div>
+    <h1 data-i18n="headline">Your cinema. <em>Anywhere.</em></h1>
+    <p class="subtitle" data-i18n="subtitle">No IPA, computer, or signing certificate. Add Cinemana Web to your Home Screen from Safari.</p>
+    <button class="install-link" id="install-instructions" type="button"><span data-i18n="addHome">How to add to Home Screen</span><span aria-hidden="true">↗</span></button>
+  </section>
+  <div class="notice" id="notice" role="status" aria-live="polite" hidden></div>
+  <div class="toolbar">
+    <label class="search"><span aria-hidden="true">⌕</span><input id="search" type="search" placeholder="Search movies and series" autocomplete="off" enterkeyhint="search" aria-label="Search movies and series"></label>
+    <button id="refresh" class="icon-button refresh" type="button" aria-label="Refresh catalog">↻</button>
+  </div>
+  <nav class="tabs" aria-label="Browse">
+    <button type="button" data-tab="home" class="active" aria-current="page" data-i18n="home">Home</button>
+    <button type="button" data-tab="movies" data-i18n="movies">Movies</button>
+    <button type="button" data-tab="series" data-i18n="series">Series</button>
+    <button type="button" data-tab="saved" data-i18n="saved">Saved</button>
+  </nav>
+  <div class="section-heading"><h2 id="list-heading">Discover</h2><span id="result-count"></span></div>
+  <div id="catalog" class="catalog" aria-live="polite"></div>
+  <div id="empty" class="empty" hidden>
+    <div class="empty-symbol">◈</div>
+    <h3 id="empty-title">Nothing to display</h3>
+    <p id="empty-detail">Try refreshing the catalog or searching for a title.</p>
+  </div>
+</main>
+<footer>
+  <p data-i18n="footer">Independent web beta. Provider access and playback depend on your network and its permissions. Downloads are not supported here.</p>
+  <button id="open-link" type="button" class="muted-link" data-i18n="playLink">Play your own media link</button>
+  <a class="muted-link" href="../privacy.html" data-i18n="privacy">Privacy</a>
+</footer>
+</div>
+<dialog id="details" class="modal" aria-label="Title details">
+  <div class="modal-inner">
+    <button type="button" class="close icon-button" data-close="details" aria-label="Close">×</button>
+    <div class="detail-header"><img id="detail-poster" alt="" hidden><div><p class="overline" id="detail-type"></p><h2 id="detail-name"></h2><p id="detail-meta" class="meta"></p><p id="detail-summary" class="description"></p></div></div>
+    <div class="detail-actions"><button id="play" type="button" class="primary" data-i18n="play">Play</button><button id="toggle-save" type="button" class="secondary" data-i18n="save">Save</button></div>
+    <div id="episodes" class="episodes" hidden></div>
+    <p id="detail-error" class="error" role="status"></p>
+  </div>
+</dialog>
+<dialog id="player-dialog" class="modal player-dialog" aria-label="Video player">
+  <div class="modal-inner">
+    <div class="player-head"><h2 id="player-title">Player</h2><button class="close icon-button" type="button" data-close="player-dialog" aria-label="Close">×</button></div>
+    <video id="video" controls playsinline preload="metadata"></video>
+    <p id="player-error" class="error" role="status"></p>
+  </div>
+</dialog>
+<dialog id="install-dialog" class="modal" aria-label="Installation instructions">
+  <div class="modal-inner">
+    <button type="button" class="close icon-button" data-close="install-dialog" aria-label="Close">×</button>
+    <h2 data-i18n="installTitle">Install Cinemana Web</h2>
+    <ol class="instructions"><li data-i18n="install1">Open this page in Safari on your iPhone.</li><li data-i18n="install2">Tap Share, then Add to Home Screen.</li><li data-i18n="install3">Enable Open as Web App and tap Add.</li></ol>
+    <p class="description" data-i18n="installNote">The icon will open Cinemana Web without Safari's tabs. No Apple ID sign-in is needed.</p>
+    <p class="description" data-i18n="restrictionNote">The web app can't bypass provider network restrictions or Safari's media permissions.</p>
+  </div>
+</dialog>
+<dialog id="link-dialog" class="modal" aria-label="Open media link">
+  <div class="modal-inner">
+    <button type="button" class="close icon-button" data-close="link-dialog" aria-label="Close">×</button>
+    <h2 data-i18n="linkTitle">Play a media URL</h2>
+    <p class="description" data-i18n="linkNote">Paste an HTTPS MP4 or HLS link you have permission to play. This does not bypass DRM or provider restrictions.</p>
+    <label class="url-label" for="media-url">URL</label>
+    <input id="media-url" class="url-input" type="url" inputmode="url" placeholder="https://example.com/video.m3u8">
+    <button type="button" id="play-link" class="primary" data-i18n="play">Play</button>
+    <p id="link-error" class="error" role="status"></p>
+  </div>
+</dialog>
+<script type="module" src="./app.mjs"></script>
+</body>
+</html>
