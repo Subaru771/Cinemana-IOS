@@ -2,7 +2,7 @@
 # Cinemana Installer experimental phone bootstrap (iSH App Store app).
 # The upstream iSH HTTPS installation process is NOT device-verified.
 set -eu
-IPA="\${1:-Cinemana-Installer-Unsigned.ipa}"
+IPA="${1:-Cinemana-Installer-Unsigned.ipa}"
 UPSTREAM="4504b3cf2b0123f3ceb2d55f13a202f0cfec839e"
 BASE="https://raw.githubusercontent.com/FrizzleM/SideInstaller/$UPSTREAM/ish"
 if [ ! -f "$IPA" ]; then
