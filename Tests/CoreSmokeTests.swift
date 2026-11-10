@@ -137,6 +137,8 @@ struct CoreSmokeTests {
         precondition(PlaybackPlanner.downloadStream(from: sources, maximumQuality: 1080)?.quality == 1080)
         precondition(PlaybackPlanner.downloadStream(from: sources, maximumQuality: Int.max)?.quality == 2160)
         let unknown = Stream(url: URL(string: "https://cdn.example/unknown.mp4")!, quality: 0)
+        let hlsMaster = Stream(url: URL(string: "https://cdn.example/master.m3u8")!, quality: 0)
+        precondition(PlaybackPlanner.downloadStream(from: [hlsMaster], maximumQuality: 720)?.id == hlsMaster.id)
         precondition(PlaybackPlanner.downloadStream(from: [unknown], maximumQuality: 720) == nil)
         precondition(PlaybackPlanner.downloadStream(from: [unknown], maximumQuality: Int.max) != nil)
         let other = Stream(url: URL(string: "https://cdn.example/480.mp4")!, quality: 480)

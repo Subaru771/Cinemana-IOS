@@ -31,6 +31,23 @@ enum HLSQuality {
         return found
     }
 
+    /// Inspect an HLS master, not its media segments, to discover real resolutions.
+    static func availableHeights(at url: URL) async -> [Int] {
+        do {
+            let request = URLRequest(url: url, cachePolicy: .reloadIgnoringLocalCacheData,
+                                     timeoutInterval: 8)
+            let (bytes, response) = try await URLSession.shared.data(for: request)
+            guard let http = response as? HTTPURLResponse,
+                  (200..<300).contains(http.statusCode),
+                  bytes.count < 2_000_000,
+                  let manifest = String(data: bytes, encoding: .utf8),
+                  manifest.hasPrefix("#EXTM3U") else { return [] }
+            return Array(Set(variants(in: manifest, relativeTo: url).map(\.height))).sorted()
+        } catch {
+            return []
+        }
+    }
+
     static func choose(_ variants: [Variant], ceiling: Int) -> Variant? {
         let usable = ceiling == Int.max ? variants : variants.filter { $0.height <= ceiling }
         return usable.max { a, b in

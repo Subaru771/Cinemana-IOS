@@ -1096,7 +1096,7 @@ struct LibraryView: View {
         } else {
             ForEach(visibleRecent) { item in
                 HStack(spacing: 12) {
-                    NavigationLink(value: item.video) {
+                    NavigationLink { MovieDetailView(video: item.video) } label: {
                         HStack(spacing: 12) {
                             RemotePoster(url: item.video.poster)
                                 .frame(width: 72, height: 105)
@@ -1124,7 +1124,7 @@ struct LibraryView: View {
         } else {
             LazyVGrid(columns: [GridItem(.adaptive(minimum: 125), spacing: 12)], spacing: 20) {
                 ForEach(visibleFavorites) { item in
-                    NavigationLink(value: item) { PosterCard(video: item) }.buttonStyle(.plain)
+                    NavigationLink { MovieDetailView(video: item) } label: { PosterCard(video: item) }.buttonStyle(.plain)
                 }
             }
         }

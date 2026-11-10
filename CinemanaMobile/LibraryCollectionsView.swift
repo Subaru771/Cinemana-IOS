@@ -37,7 +37,7 @@ struct CollectionsView: View {
                     } else {
                         ForEach(matching) { video in
                             HStack {
-                                NavigationLink(value: video) {
+                                NavigationLink { MovieDetailView(video: video) } label: {
                                     HStack(spacing: 12) {
                                         RemotePoster(url: video.poster).frame(width: 43, height: 63)
                                             .clipShape(RoundedRectangle(cornerRadius: 6))

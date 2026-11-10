@@ -58,6 +58,10 @@ enum PlaybackPlanner {
         guard maximumQuality > 0 else { return nil }
         return supported.filter { $0.quality > 0 && $0.quality <= maximumQuality }
             .max(by: { $0.quality < $1.quality })
+            // A resolution-free HLS master can offer a verified capped variant.
+            // HLSQuality.resolve will reject the download when it cannot.
+            ?? supported.first(where: { $0.quality == 0 &&
+                $0.url.pathExtension.lowercased() == "m3u8" })
     }
 
     /// Prefer moving down in quality when a CDN source fails, not up to a larger stream.
