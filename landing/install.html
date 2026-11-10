@@ -75,6 +75,12 @@
 </div>
 </div>
 <p>Before seven days: reconnect LocalDevVPN and use this button again to re-sign Cinemana with the same Apple Account. Use SideInstaller’s own renewal controls for the installer. Renewal and data preservation still need real-device testing.</p>
+<details class="certificate-fallback">
+<summary>SideInstaller won't install? Other ways</summary>
+<p><strong>iPhone only (experimental):</strong> the official <a href="https://github.com/FrizzleM/SideInstaller/blob/main/ish/README.md" rel="noopener noreferrer">iSH bootstrap</a> signs SideInstaller using your own Apple Account instead of a shared certificate. It requires the App Store iSH app, terminal setup, a local certificate trust step and a lengthy first build. The developer has <strong>not verified</strong> a complete installation on an iPhone. Only use and review the original source before entering credentials.</p>
+<p><strong>Windows (more established):</strong> use <a href="https://github.com/pwnapplehat/iPASide/releases/latest" rel="noopener noreferrer">official iPASide</a> with your own free Apple Account, an iPhone cable and Apple Devices/iTunes. Download the verified Cinemana IPA below, drag it into iPASide, sign in and install, then enable auto-refresh. This does not use public certificates. Cinemana still needs real-device testing.</p>
+<p>Neither route removes Apple's signing rules. Free-account installs generally expire after seven days. Do not install random signing profiles or enter your Apple password on this site.</p>
+</details>
 <details class="alternative">
 <summary>Already use AltLoad? Keep using it</summary>
 <div class="steps">
