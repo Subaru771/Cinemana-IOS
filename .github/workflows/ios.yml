@@ -10,7 +10,7 @@ on:
       - 'scripts/**'
       - 'Tests/**'
 permissions:
-  contents: read
+  contents: write
 jobs:
   build:
     runs-on: macos-26-intel
@@ -83,3 +83,22 @@ jobs:
             dist/SHA256SUMS.txt
           if-no-files-found: error
           retention-days: 3
+      - name: Publish direct-download IPA on GitHub Releases
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          TAG=cinemana-ios-latest-unsigned
+          IPA=dist/Cinemana-iOS-v2.0.2-beta.1-Unsigned.ipa
+          CHECKSUM=dist/SHA256SUMS.txt
+          if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release upload "$TAG" "$IPA" "$CHECKSUM" --repo "$GITHUB_REPOSITORY" --clobber
+            gh release edit "$TAG" --repo "$GITHUB_REPOSITORY" --notes "Unsigned Cinemana iOS IPA rebuilt from main. Source commit: ${GITHUB_SHA}. Sign with SideStore before installing."
+          else
+            gh release create "$TAG" "$IPA" "$CHECKSUM" --repo "$GITHUB_REPOSITORY" \
+              --target "$GITHUB_SHA" \
+              --title "Cinemana iOS — Latest unsigned IPA" \
+              --notes "Unsigned Cinemana iOS IPA built from main. Source commit: ${GITHUB_SHA}. Sign with SideStore before installing." \
+              --prerelease --latest=false
+          fi
