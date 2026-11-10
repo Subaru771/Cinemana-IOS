@@ -96,10 +96,14 @@ struct CinemanaMobileApp: App {
             .onChange(of: showTelegramPrompt) { showing in
                 if !showing { announceUpdateIfNeeded() }
             }
-            .sheet(isPresented: $showTelegramPrompt) {
-                CinemaHubWelcomeView()
-                    .presentationDetents([.large])
-                    .presentationDragIndicator(.visible)
+            .overlay {
+                if showTelegramPrompt && !showBrandSplash {
+                    CinemaHubWelcomeView {
+                        showTelegramPrompt = false
+                    }
+                    .transition(.opacity)
+                    .zIndex(2)
+                }
             }
             .alert("New update available", isPresented: $showUpdatePrompt) {
                 Button("Download IPA") {
