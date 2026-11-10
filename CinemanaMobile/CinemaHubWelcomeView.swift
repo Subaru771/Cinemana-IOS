@@ -35,7 +35,6 @@ struct CinemaHubWelcomeView: View {
                     .frame(minHeight: geometry.size.height)
                     .frame(maxWidth: .infinity)
                 }
-                .scrollBounceBehavior(.basedOnSize)
             }
         }
         .environment(\.layoutDirection, arabic ? .rightToLeft : .leftToRight)
