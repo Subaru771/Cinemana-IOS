@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Patch pinned upstream iLoader v2.4.1 into Cinemana Loader 1.1.1."""
+"""Patch pinned upstream iLoader v2.4.1 into Cinemana Loader 1.2.6."""
 import json
 import hashlib
 import shutil
@@ -23,8 +23,8 @@ def main():
     if package.get("version") != "2.4.1":
         raise RuntimeError("Only validated against iLoader v2.4.1")
     expected = {
-        "Cinemana-SideStore-V0.11-TEST.ipa": "2495334a4e754ca9d2973ce798ae7716ef57a36a29b2758ae2864723b7c735df",
-        "Cinemana-iOS-v2.1.1-beta.1-Unsigned.ipa": "42348c3d7571a4b202a73993106327440abfc457741e530fab3cba32926f6a00",
+        "Cinemana-SideStore-SettingsRestored.ipa": "880ec959bb0d2ca9acdeba93a4d846bf73fbe352ad3f5fef5e1049d6e58c327c",
+        "Cinemana-iOS-v2.0.2-Stable-Unsigned.ipa": "19a0d161d764dc6b9ee8bcbc4eb028d64b8cc411610f4dc8ff9da9d9cde0a8b5",
     }
     for name, expected_hash in expected.items():
         data=(ROOT/"assets"/name).read_bytes()
@@ -51,7 +51,7 @@ def main():
     confpath=UPSTREAM/"src-tauri/tauri.conf.json"
     conf=json.loads(confpath.read_text())
     conf["productName"]="Cinemana Loader"
-    conf["version"]="1.2.0"
+    conf["version"]="1.2.6"
     conf["identifier"]="app.cinemana.loader"
     conf["build"]["beforeDevCommand"]="npm run dev"
     conf["build"]["beforeBuildCommand"]="npm run build"
@@ -63,7 +63,7 @@ def main():
     conf["bundle"].setdefault("windows",{})["webviewInstallMode"]={"type":"downloadBootstrapper","silent":True}
     confpath.write_text(json.dumps(conf,indent=2)+"\n")
     package["name"]="cinemana-loader"
-    package["version"]="1.2.0"
+    package["version"]="1.2.6"
     # Prevent npm from resolving newer incompatible plugin minor versions.
     exact = {
         "@tauri-apps/api": "2.11.1",
@@ -77,6 +77,6 @@ def main():
         package["dependencies"][name] = version
     package["devDependencies"]["@tauri-apps/cli"] = "2.11.5"
     (UPSTREAM/"package.json").write_text(json.dumps(package,indent=2)+"\n")
-    print("Patched Cinemana Loader 1.1.1")
+    print("Patched Cinemana Loader 1.2.6")
 if __name__=="__main__":
     main()
