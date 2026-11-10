@@ -1,0 +1,156 @@
+name: Cinemana Loader v1.2.6 Complete Windows ZIP
+
+on:
+  push:
+    branches:
+      - recovery/cinemana-loader-v1.2.6
+    paths:
+      - 'loader-v111/**'
+      - 'tools/sidestore-custom/**'
+      - 'patches/**'
+      - 'sidestore-ci/**'
+      - '.github/workflows/cinemana-loader-v126-complete.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  windows:
+    name: Build and verify complete v1.2.6 package
+    runs-on: windows-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - uses: dtolnay/rust-toolchain@stable
+
+      - name: Download successful customized SideStore artifact
+        uses: actions/download-artifact@v4
+        with:
+          repository: Subaru771/Cinemana-IOS
+          run-id: 42765943823
+          name: Cinemana-SideStore-SettingsRestored
+          github-token: ${{ github.token }}
+          path: loader-v111/assets
+
+      - name: Download published Cinemana iOS IPA
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release download cinemana-ios-v2.0.2 --repo "${{ github.repository }}" --pattern "Cinemana-iOS-v2.0.2-Stable-Unsigned.ipa" --dir loader-v111/assets
+
+      - name: Verify exact IPA hashes, format, and SideStore patch
+        shell: pwsh
+        run: |
+          @'
+          import hashlib, zipfile, plistlib
+          from pathlib import Path
+          root=Path("loader-v111/assets")
+          expected={
+              "Cinemana-SideStore-SettingsRestored.ipa":"880ec959bb0d2ca9acdeba93a4d846bf73fbe352ad3f5fef5e1049d6e58c327c",
+              "Cinemana-iOS-v2.0.2-Stable-Unsigned.ipa":"19a0d161d764dc6b9ee8bcbc4eb028d64b8cc411610f4dc8ff9da9d9cde0a8b5",
+          }
+          for name, sha in expected.items():
+              p=root/name
+              assert p.is_file(),name
+              actual=hashlib.sha256(p.read_bytes()).hexdigest()
+              assert actual==sha,(name,actual)
+              with zipfile.ZipFile(p) as z:
+                  assert z.testzip() is None
+                  apps=[n for n in z.namelist() if n.startswith("Payload/") and n.endswith(".app/Info.plist")]
+                  assert len(apps)==1,(name,apps)
+                  info=plistlib.loads(z.read(apps[0]))
+                  print(name,p.stat().st_size,info.get("CFBundleIdentifier"),actual)
+          patch=Path("tools/sidestore-custom/restore-settings.py").read_text(encoding="utf-8")
+          for setting in ('https://new.ani.sidestore.io','disableAnisetteRotation): true','useOnDeviceAnisette): false','CinemanaAnisettePresetV1Applied','keepAnisetteData: false'):
+              assert setting in patch,setting
+          print("SideStore defaults and one-time adi.pb reset patch present")
+          '@ | python -
+
+      - name: Clone pinned upstream iLoader v2.4.1
+        shell: pwsh
+        run: git clone --depth 1 --branch v2.4.1 https://github.com/nab138/iloader.git upstream
+
+      - name: Patch iLoader source with Cinemana Loader 1.2.6
+        shell: pwsh
+        run: python loader-v111/patch.py upstream
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: upstream/src-tauri -> target
+
+      - name: Build portable Windows EXE
+        shell: pwsh
+        working-directory: upstream
+        run: |
+          npm install --no-audit --no-fund
+          if ($LASTEXITCODE -ne 0) { throw "npm install failed" }
+          npm run tauri build -- --no-bundle
+          if ($LASTEXITCODE -ne 0) { throw "Tauri build failed" }
+          $exe = 'src-tauri/target/release/iloader.exe'
+          if (!(Test-Path $exe)) { throw "Windows EXE missing" }
+          Copy-Item $exe 'src-tauri/target/release/Cinemana-Loader-v1.2.6-Portable.exe'
+
+      - name: Assemble and validate one complete ZIP
+        shell: pwsh
+        run: |
+          @'
+          from pathlib import Path
+          import hashlib, json, shutil, zipfile, subprocess
+          base=Path("Cinemana-Loader-v1.2.6")
+          base.mkdir(exist_ok=True)
+          shutil.copy2("upstream/src-tauri/target/release/Cinemana-Loader-v1.2.6-Portable.exe",base/"Cinemana-Loader-v1.2.6-Portable.exe")
+          (base/"IPAs").mkdir()
+          for f in Path("loader-v111/assets").glob("*.ipa"):
+              shutil.copy2(f,base/"IPAs"/f.name)
+          # Complete patched source, project files, and all recovered overlays.
+          source=base/"Source"
+          shutil.copytree("upstream",source/"iLoader-patched",ignore=shutil.ignore_patterns(".git","node_modules","target","dist",".DS_Store","cinemana-assets"))
+          for folder in ("loader-v111","tools/sidestore-custom","patches","sidestore-ci"):
+              if Path(folder).exists():
+                  shutil.copytree(folder,source/folder,ignore=shutil.ignore_patterns("assets","__pycache__"))
+          (base/"README.txt").write_text(
+              "Cinemana Loader v1.2.6 - recovered Windows portable build.\n"
+              "Run Cinemana-Loader-v1.2.6-Portable.exe. Requires iPhone trust, Apple account signing and SideStore/LocalDevVPN setup.\n"
+              "IPAs are unsigned and must be personally signed for installation.\n"
+              "SideStore defaults: On-Device Anisette OFF; Auto-Rotate OFF; Server https://new.ani.sidestore.io.\n"
+              "adi.pb is cleared once per SideStore data container during initial provisioning, not every launch.\n"
+              "Source/iLoader-patched contains the complete patched build source.\n"
+              "SHA256SUMS.txt verifies each bundled EXE and IPA.\n",encoding="utf-8")
+          targets=[base/"Cinemana-Loader-v1.2.6-Portable.exe",*sorted((base/"IPAs").glob("*.ipa"))]
+          assert len(targets)==3
+          (base/"SHA256SUMS.txt").write_text("".join(
+              hashlib.sha256(p.read_bytes()).hexdigest()+"  "+p.relative_to(base).as_posix()+"\n" for p in targets
+          ),encoding="utf-8")
+          output=Path("Cinemana-Loader-v1.2.6-Complete.zip")
+          with zipfile.ZipFile(output,"w",compression=zipfile.ZIP_DEFLATED,compresslevel=6,allowZip64=True) as z:
+              for p in sorted(base.rglob("*")):
+                  if p.is_file():z.write(p,p.as_posix())
+          with zipfile.ZipFile(output) as z:
+              assert z.testzip() is None
+              names=set(z.namelist())
+              for p in targets:assert p.as_posix() in names,p
+              assert any(n.endswith("Source/loader-v111/patch.py") for n in names)
+              assert any(n.endswith("Source/tools/sidestore-custom/restore-settings.py") for n in names)
+          digest=hashlib.sha256(output.read_bytes()).hexdigest()
+          Path("Cinemana-Loader-v1.2.6-Complete.zip.sha256").write_text(digest+"  "+output.name+"\n")
+          print("COMPLETE VERIFIED ZIP:",output,output.stat().st_size,"SHA256:",digest)
+          '@ | python -
+
+      - name: Upload complete ZIP to GitHub Actions
+        uses: actions/upload-artifact@v4
+        with:
+          name: Cinemana-Loader-v1.2.6-Complete
+          path: |
+            Cinemana-Loader-v1.2.6-Complete.zip
+            Cinemana-Loader-v1.2.6-Complete.zip.sha256
+          if-no-files-found: error
+          retention-days: 90
