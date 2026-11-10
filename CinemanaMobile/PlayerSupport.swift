@@ -286,11 +286,16 @@ final class NowPlayingBridge {
 // MARK: - Orientation, volume
 
 enum PlayerOrientation {
-    static func request(_ mask: UIInterfaceOrientationMask) {
+    static func request(_ mask: UIInterfaceOrientationMask, onError: ((Error) -> Void)? = nil) {
         guard UIDevice.current.userInterfaceIdiom == .phone else { return }
         let scenes = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
         guard let scene = scenes.first(where: { $0.activationState == .foregroundActive }) ?? scenes.first else { return }
-        scene.requestGeometryUpdate(UIWindowScene.GeometryPreferences.iOS(interfaceOrientations: mask)) { _ in }
+        // iOS 16+ requires the scene and presenting controller to agree about
+        // supported orientations before applying a geometry update.
+        scene.keyWindow?.rootViewController?.setNeedsUpdateOfSupportedInterfaceOrientations()
+        scene.requestGeometryUpdate(UIWindowScene.GeometryPreferences.iOS(interfaceOrientations: mask)) { error in
+            DispatchQueue.main.async { onError?(error) }
+        }
     }
 }
 
