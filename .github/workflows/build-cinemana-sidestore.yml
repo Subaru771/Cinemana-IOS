@@ -48,8 +48,9 @@ jobs:
               info = plistlib.loads(archive.read(infos[0]))
               if "sidestore" not in info.get("CFBundleIdentifier", "").lower():
                   raise SystemExit("Unexpected app bundle identifier")
-              if info.get("CFBundleDisplayName") != "SideStore":
-                  raise SystemExit("Unexpected app display name")
+              name = info.get("CFBundleDisplayName") or info.get("CFBundleName") or ""
+              if name.lower() != "sidestore":
+                  raise SystemExit(f"Unexpected app name: {name!r}")
           output = Path("sidestore/Cinemana-SideStore-SettingsRestored.ipa")
           output.write_bytes(path.read_bytes())
           digest = hashlib.sha256(output.read_bytes()).hexdigest()
