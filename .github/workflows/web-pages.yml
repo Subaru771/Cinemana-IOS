@@ -1,0 +1,38 @@
+name: Publish Cinemana Web
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'landing/**'
+      - '.github/workflows/web-pages.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+concurrency:
+  group: cinemana-web-pages
+  cancel-in-progress: false
+jobs:
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check public app files
+        run: |
+          test -s landing/web/index.html
+          test -s landing/web/manifest.webmanifest
+          test -s landing/web/sw.js
+          test -s landing/install-icon.png
+          node --check landing/web/sw.js
+          node --check landing/web/app.mjs
+          node --test tests/test_web_core.mjs
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: landing
+      - id: deployment
+        uses: actions/deploy-pages@v4
