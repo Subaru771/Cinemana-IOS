@@ -48,6 +48,8 @@ function ErrorBlock({ raw, fallback }: { raw: string; fallback?: ErrorCode }) {
 }
 
 export default function App() {
+  const [itunesState, setItunesState] = useState<"installing" | "ready" | "failed">("installing");
+  const [itunesError, setItunesError] = useState("");
   const [loggedInAs, setLoggedInAs] = useState<string | null>(null);
   const [noKeyringAvailable, setNoKeyringAvailable] = useState(false);
   const [stage, setStage] = useState<Stage>("signin");
@@ -61,6 +63,15 @@ export default function App() {
   const running = useRef(false);
   const selecting = useRef(false);
 
+  const ensureItunes = useCallback(() => {
+    setItunesState("installing");
+    setItunesError("");
+    void invoke<string>("cinemana_ensure_itunes").then(() => setItunesState("ready")).catch((error) => {
+      setItunesError(humanError(error));
+      setItunesState("failed");
+    });
+  }, []);
+  useEffect(() => { ensureItunes(); }, [ensureItunes]);
   useEffect(() => {
     invoke<boolean>("keyring_available").then((yes) => setNoKeyringAvailable(!yes)).catch(() => setNoKeyringAvailable(true));
   }, []);
@@ -150,13 +161,18 @@ export default function App() {
         <span className={stage === "device" || stage === "pairing" ? "active" : stage === "signin" ? "" : "done"}>{ui.nav.device}</span>
         <span className={stage === "install" || stage === "error" ? "active" : stage === "complete" ? "done" : ""}>{ui.nav.install}</span>
       </nav>
-      {stage === "signin" && <section className="cinemana-panel">
+      {itunesState !== "ready" && <section className="cinemana-panel">
+        <h2>{itunesState === "installing" ? "جاري تنزيل وتثبيت iTunes تلقائياً" : "تعذّر تثبيت iTunes"}</h2>
+        <p className="cinemana-muted">{itunesState === "installing" ? "إذا iTunes موجود، راح نتخطّى هالخطوة. خلي الإنترنت شغّال ووافق على طلب Windows إذا ظهر." : itunesError}</p>
+        {itunesState === "failed" && <button type="button" onClick={ensureItunes}>إعادة المحاولة</button>}
+      </section>}
+      {itunesState === "ready" && stage === "signin" && <section className="cinemana-panel">
         <h2>{ui.signIn.title}</h2>
         <p className="cinemana-muted">{ui.signIn.body}</p>
         <AppleID loggedInAs={loggedInAs} setLoggedInAs={setLoggedInAs} noKeyringAvailable={noKeyringAvailable} />
         <small className="cinemana-muted">{ui.signIn.privacy}</small>
       </section>}
-      {stage === "device" && <section className="cinemana-panel">
+      {itunesState === "ready" && stage === "device" && <section className="cinemana-panel">
         <h2>{ui.devices.title}</h2>
         <p className="cinemana-muted">{ui.devices.body}</p>
         <div className="cinemana-device-list">
@@ -170,12 +186,12 @@ export default function App() {
         {errorText && <ErrorBlock raw={errorText} fallback={wasPairingError ? "PAIRING_INVALID" : undefined} />}
         <button className="cinemana-secondary" type="button" disabled={loadingDevices} onClick={() => void refreshDevices()}>{loadingDevices ? ui.devices.checking : ui.devices.refresh}</button>
       </section>}
-      {stage === "pairing" && <section className="cinemana-panel cinemana-centered">
+      {itunesState === "ready" && stage === "pairing" && <section className="cinemana-panel cinemana-centered">
         <div className="cinemana-spinner" aria-hidden="true" />
         <h2>{ui.trusting.title}</h2>
         <p className="cinemana-muted">{ui.trusting.body(deviceName ?? ui.trusting.fallbackName)}</p>
       </section>}
-      {(stage === "install" || stage === "error") && <section className="cinemana-panel">
+      {itunesState === "ready" && (stage === "install" || stage === "error") && <section className="cinemana-panel">
         <h2>{stage === "error" ? ui.progress.needsAttention : ui.progress.installingOn(deviceName ?? ui.progress.fallbackName)}</h2>
         <div className="cinemana-progress">
           {stepOrder.map((step) => <div key={step} className={`cinemana-progress-row ${completedSteps.includes(step) ? "complete" : currentStep === step ? "current" : ""}`}>
@@ -190,7 +206,7 @@ export default function App() {
         </>}
         {stage === "install" && <p className="cinemana-muted">{ui.progress.keepUnlocked}</p>}
       </section>}
-      {stage === "complete" && <section className="cinemana-panel">
+      {itunesState === "ready" && stage === "complete" && <section className="cinemana-panel">
         <div className="cinemana-done">✓</div>
         <h2>{ui.success.title}</h2>
         <p className="cinemana-muted">{ui.success.body}</p>
