@@ -93,11 +93,14 @@ jobs:
         run: |
           npm install --no-audit --no-fund
           if ($LASTEXITCODE -ne 0) { throw "npm install failed" }
-          npm run tauri build -- --no-bundle
+          npm run tauri build -- --bundles nsis
           if ($LASTEXITCODE -ne 0) { throw "Tauri build failed" }
           $exe = 'src-tauri/target/release/iloader.exe'
           if (!(Test-Path $exe)) { throw "Windows EXE missing" }
           Copy-Item $exe 'src-tauri/target/release/Cinemana-Loader-v1.2.6-Portable.exe'
+          $setups = @(Get-ChildItem 'src-tauri/target/release/bundle/nsis' -Filter '*-setup.exe' -File)
+          if ($setups.Count -ne 1) { throw "Expected one NSIS setup EXE, found $($setups.Count)" }
+          Copy-Item $setups[0].FullName 'src-tauri/target/release/Cinemana-Loader-v1.2.6-Setup.exe'
 
       - name: Assemble and validate one complete ZIP
         shell: pwsh
@@ -108,6 +111,7 @@ jobs:
           base=Path("Cinemana-Loader-v1.2.6")
           base.mkdir(exist_ok=True)
           shutil.copy2("upstream/src-tauri/target/release/Cinemana-Loader-v1.2.6-Portable.exe",base/"Cinemana-Loader-v1.2.6-Portable.exe")
+          shutil.copy2("upstream/src-tauri/target/release/Cinemana-Loader-v1.2.6-Setup.exe",base/"Cinemana-Loader-v1.2.6-Setup.exe")
           (base/"IPAs").mkdir()
           for f in Path("loader-v111/assets").glob("*.ipa"):
               shutil.copy2(f,base/"IPAs"/f.name)
@@ -119,14 +123,15 @@ jobs:
                   shutil.copytree(folder,source/folder,ignore=shutil.ignore_patterns("assets","__pycache__"))
           (base/"README.txt").write_text(
               "Cinemana Loader v1.2.6 - recovered Windows portable build.\n"
-              "Run Cinemana-Loader-v1.2.6-Portable.exe. Requires iPhone trust, Apple account signing and SideStore/LocalDevVPN setup.\n"
+              "Run Cinemana-Loader-v1.2.6-Setup.exe to install, create Windows shortcuts, and enable uninstallation. Portable EXE is also included.\n"
+              "Requires iPhone trust, Apple account signing and SideStore/LocalDevVPN setup.\n"
               "IPAs are unsigned and must be personally signed for installation.\n"
               "SideStore defaults: On-Device Anisette OFF; Auto-Rotate OFF; Server https://new.ani.sidestore.io.\n"
               "adi.pb is cleared once per SideStore data container during initial provisioning, not every launch.\n"
               "Source/iLoader-patched contains the complete patched build source.\n"
               "SHA256SUMS.txt verifies each bundled EXE and IPA.\n",encoding="utf-8")
-          targets=[base/"Cinemana-Loader-v1.2.6-Portable.exe",*sorted((base/"IPAs").glob("*.ipa"))]
-          assert len(targets)==3
+          targets=[base/"Cinemana-Loader-v1.2.6-Setup.exe",base/"Cinemana-Loader-v1.2.6-Portable.exe",*sorted((base/"IPAs").glob("*.ipa"))]
+          assert len(targets)==4
           (base/"SHA256SUMS.txt").write_text("".join(
               hashlib.sha256(p.read_bytes()).hexdigest()+"  "+p.relative_to(base).as_posix()+"\n" for p in targets
           ),encoding="utf-8")
@@ -144,6 +149,14 @@ jobs:
           Path("Cinemana-Loader-v1.2.6-Complete.zip.sha256").write_text(digest+"  "+output.name+"\n")
           print("COMPLETE VERIFIED ZIP:",output,output.stat().st_size,"SHA256:",digest)
           '@ | python -
+
+      - name: Upload standalone Windows installer
+        uses: actions/upload-artifact@v4
+        with:
+          name: Cinemana-Loader-v1.2.6-Windows-Setup
+          path: upstream/src-tauri/target/release/Cinemana-Loader-v1.2.6-Setup.exe
+          if-no-files-found: error
+          retention-days: 90
 
       - name: Upload complete ZIP to GitHub Actions
         uses: actions/upload-artifact@v4
