@@ -48,4 +48,4 @@ See [CHANGELOG.md](CHANGELOG.md), [DISTRIBUTION.md](DISTRIBUTION.md) and [WINDOW
 
 ## iPhone installation website
 
-Use [English](landing/install.html) or [العربية](landing/install-ar.html). Phone-only AltLoad setup on iOS 27+ is conditional on a valid initial signature and has not been verified on a real iPhone. Release links are generated from checksummed published Cinemana app IPAs rather than hardcoded versions. See [findings, validation and device checklist](docs/IOS-INSTALLATION.md).
+Use [English](landing/install.html) or [العربية](landing/install-ar.html). Direct SideInstaller setup on iOS 27+ avoids manual IPA import but is conditional on a valid initial signature and has not been verified on a real iPhone. Release links are generated from checksummed published Cinemana app IPAs rather than hardcoded versions. See [findings, validation and device checklist](docs/IOS-INSTALLATION.md).
