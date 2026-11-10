@@ -211,13 +211,17 @@ struct CinemanaAPI: Sendable {
                 ?? numeric(object["episode"])
             let looksLikeSeason = childKeys.prefix(7).contains(where: { object[$0] != nil })
             // The provider sometimes omits episodeNummer inside an episodes array.
-            let ordinal = explicitEpisode ?? (insideList && !looksLikeSeason ? episodeIndex : nil)
-            if let ordinal, ordinal > 0 {
+            let ordinal = (explicitEpisode ?? 0) > 0
+                ? explicitEpisode
+                : (insideList && !looksLikeSeason ? episodeIndex : nil)
+            // An E1 numbered zero still occupies the first position in the episode array.
+            if let ordinal, ordinal > 0, !looksLikeSeason {
                 var fields = object
                 fields["episodeNummer"] = ordinal
                 fields["season"] = seasonNumber
                 fields["kind"] = "2"
-                if let video = Video(json: fields), video.id != seriesID,
+                if let video = Video(json: fields),
+                   (video.id != seriesID || episodeIndex != nil),
                    seen.insert(video.id).inserted { found.append(video) }
             }
             for key in childKeys {
@@ -231,28 +235,50 @@ struct CinemanaAPI: Sendable {
         return found.sorted { ($0.season, $0.episode, $0.id) < ($1.season, $1.episode, $1.id) }
     }
 
-    /// The known season endpoint is authoritative. A detail response is a safe
-    /// fallback when it embeds season arrays; provider failures remain visible.
+    /// The first episode may be omitted from the season response; look for
+    /// an E1 in embedded detail episodes before accepting an incomplete list.
+    static func missingFirstEpisode(_ episodes: [Video]) -> Bool {
+        guard let season = episodes.map(\.season).min() else { return false }
+        return !episodes.contains { $0.season == season && $0.episode == 1 }
+    }
+
+    static func mergeEpisodes(_ primary: [Video], backup: [Video]) -> [Video] {
+        var merged = primary
+        var ids = Set(primary.map(\.id))
+        var positions = Set(primary.map { "\($0.season):\($0.episode)" })
+        for episode in backup {
+            let position = "\(episode.season):\(episode.episode)"
+            guard !ids.contains(episode.id), !positions.contains(position) else { continue }
+            merged.append(episode)
+            ids.insert(episode.id)
+            positions.insert(position)
+        }
+        return merged.sorted { ($0.season, $0.episode, $0.id) < ($1.season, $1.episode, $1.id) }
+    }
+
     func episodesDetailed(_ id: String) async throws -> [Video] {
         var firstError: Error?
+        var result = [Video]()
         for path in ["videoSeason/id/\(segment(id))", "allVideoInfo/id/\(segment(id))"] {
             do {
                 let raw = try await fetch(path, timeout: 14)
-                let parsed = Self.decodeEpisodes(raw, seriesID: id)
-                if !parsed.isEmpty { return parsed }
+                result = Self.mergeEpisodes(result, backup: Self.decodeEpisodes(raw, seriesID: id))
+                if !result.isEmpty && !Self.missingFirstEpisode(result) { return result }
             } catch is CancellationError {
                 throw CancellationError()
             } catch {
                 if firstError == nil { firstError = error }
-                // Authorization failures should not trigger redundant requests.
                 if let status = error as? APIError {
                     switch status {
-                    case .unauthorized, .providerRestricted: throw status
+                    case .unauthorized, .providerRestricted:
+                        if !result.isEmpty { return result }
+                        throw status
                     default: break
                     }
                 }
             }
         }
+        if !result.isEmpty { return result }
         if let firstError { throw firstError }
         throw APIError.noEpisodes
     }
