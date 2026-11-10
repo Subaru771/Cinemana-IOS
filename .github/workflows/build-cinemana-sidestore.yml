@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
   push:
     branches:
-      - fix/sidestore-anisette-controls
+      - fix/sidestore-anisette-defaults
     paths:
       - "tools/sidestore-custom/**"
       - ".github/workflows/build-cinemana-sidestore.yml"
