@@ -169,7 +169,7 @@ export default function App() {
           </button>)}
         </div>
         {errorText && <ErrorBlock raw={errorText} fallback={wasPairingError ? "PAIRING_INVALID" : undefined} />}
-        {!loadingDevices && devices.length === 0 && <button type="button" className="cinemana-secondary" onClick={() => void openUrl("https://www.apple.com/itunes/")}>فتح موقع iTunes الرسمي</button>}
+        {!loadingDevices && devices.length === 0 && <button type="button" className="cinemana-secondary" onClick={() => void openUrl("https://support.apple.com/en-us/106372")}>فتح صفحة تنزيل iTunes من Apple</button>}
         <button className="cinemana-secondary" type="button" disabled={loadingDevices} onClick={() => void refreshDevices()}>{loadingDevices ? ui.devices.checking : ui.devices.refresh}</button>
       </section>}
       {stage === "pairing" && <section className="cinemana-panel cinemana-centered">
