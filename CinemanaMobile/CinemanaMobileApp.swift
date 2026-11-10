@@ -334,7 +334,7 @@ struct FeaturedPoster: View {
     @State private var selectedSeason = 1
     @State private var synopsisExpanded = false
     @State private var loadingEpisodes = false
-    @State private var showBatchDownloader = false
+
     @State private var episodeError: String?
     @AppStorage(MatureContentFilter.preferenceKey) private var hideMatureContent = false
     var seriesContext = false
@@ -439,10 +439,7 @@ struct FeaturedPoster: View {
                             Text("Episodes").font(.title2.weight(.bold))
                             Spacer()
                             if !visibleEpisodes.isEmpty {
-                                Button { showBatchDownloader = true } label: {
-                                    Label("Select episodes", systemImage: "checklist")
-                                        .font(.caption)
-                                }.foregroundStyle(mint)
+
                                 DownloadQualityMenu(videos: visibleEpisodes, compact: true,
                                                     title: "Download entire season \(selectedSeason)")
                                     .foregroundStyle(mint)
@@ -529,9 +526,7 @@ struct FeaturedPoster: View {
         .navigationBarTitleDisplayMode(.inline)
         .navigationDestination(for: Video.self) { MovieDetailView(video: $0) }
         .fullScreenCover(item: $watch) { CinemaPlayerScreen(video: $0, playlist: episodes) }
-        .sheet(isPresented: $showBatchDownloader) {
-            EpisodeBatchDownloadView(videos: visibleEpisodes)
-        }
+
         .task(id: video.id) {
             // Restore the reliable details-first flow. Never launch playback from
             // a poster tap: Play/Resume and episode row buttons own that action.
