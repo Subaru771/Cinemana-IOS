@@ -50,6 +50,7 @@ function ErrorBlock({ raw, fallback }: { raw: string; fallback?: ErrorCode }) {
 export default function App() {
   const [itunesState, setItunesState] = useState<"installing" | "ready" | "failed">("installing");
   const [itunesError, setItunesError] = useState("");
+  const [itunesBypassed, setItunesBypassed] = useState(false);
   const [loggedInAs, setLoggedInAs] = useState<string | null>(null);
   const [noKeyringAvailable, setNoKeyringAvailable] = useState(false);
   const [stage, setStage] = useState<Stage>("signin");
@@ -65,6 +66,7 @@ export default function App() {
 
   const ensureItunes = useCallback(() => {
     setItunesState("installing");
+    setItunesBypassed(false);
     setItunesError("");
     void invoke<string>("cinemana_ensure_itunes").then(() => setItunesState("ready")).catch((error) => {
       setItunesError(humanError(error));
@@ -164,8 +166,10 @@ export default function App() {
       {itunesState !== "ready" && <section className="cinemana-panel">
         <h2>{itunesState === "installing" ? "جاري تنزيل وتثبيت iTunes تلقائياً" : "تعذّر تثبيت iTunes"}</h2>
         <p className="cinemana-muted">{itunesState === "installing" ? "إذا iTunes موجود، راح نتخطّى هالخطوة. خلي الإنترنت شغّال ووافق على طلب Windows إذا ظهر." : itunesError}</p>
-        {itunesState === "failed" && <button type="button" onClick={ensureItunes}>إعادة المحاولة</button>}
+        {itunesState === "failed" && <div className="cinemana-buttons"><button type="button" onClick={ensureItunes}>إعادة المحاولة</button><button type="button" className="cinemana-secondary" onClick={() => {setItunesBypassed(true);setItunesState("ready");}}>متابعة بدون iTunes</button></div>}
+        {itunesState === "failed" && <p className="cinemana-muted">إذا جهازك يتعرف على الآيفون، تكدر تكمل. إذا ما يتعرف، ثبّت Apple Devices أو iTunes من Microsoft Store ورجع جرّب.</p>}
       </section>}
+      {itunesState === "ready" && itunesBypassed && <p className="cinemana-muted">تم تخطي فحص Apple. إذا الآيفون ما يظهر، تأكد من تعريفات Apple على Windows.</p>}
       {itunesState === "ready" && stage === "signin" && <section className="cinemana-panel">
         <h2>{ui.signIn.title}</h2>
         <p className="cinemana-muted">{ui.signIn.body}</p>
