@@ -29,6 +29,20 @@ struct CoreSmokeTests {
         precondition(nestedEpisodes.map(\.season) == [1, 1, 2])
         precondition(nestedEpisodes.map(\.episode) == [1, 2, 1])
         precondition(CinemanaAPI.decodeEpisodes(["id": "onepiece", "title": "One Piece", "kind": "2"], seriesID: "onepiece").isEmpty)
+        // Regression: some episode lists encode E1 as zero and/or reuse
+        // the series ID; neither case may silently hide the first row.
+        let zeroFirst: [String: Any] = ["episodes": [
+            ["nb": "onepiece", "en_title": "First Episode", "episodeNummer": 0],
+            ["nb": "s1e2", "en_title": "Second Episode", "episodeNummer": 2]
+        ]]
+        let zeroDecoded = CinemanaAPI.decodeEpisodes(zeroFirst, seriesID: "onepiece")
+        precondition(zeroDecoded.map(\.episode) == [1, 2])
+        precondition(zeroDecoded.first?.id == "onepiece")
+        let incomplete = [nestedEpisodes[1], nestedEpisodes[2]]
+        precondition(CinemanaAPI.missingFirstEpisode(incomplete))
+        let completed = CinemanaAPI.mergeEpisodes(incomplete, backup: nestedEpisodes)
+        precondition(completed.map(\.id) == ["s1e1", "s1e2", "s2e1"])
+        precondition(!CinemanaAPI.missingFirstEpisode(completed))
         let flagged = Video(json: ["id": "restricted", "title": "Mature", "adult": true])!
         let teen = Video(json: ["id": "teen", "title": "Teen", "ageRating": "PG-13"])!
         precondition(MatureContentFilter.isMature(flagged))
