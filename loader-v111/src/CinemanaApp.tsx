@@ -15,7 +15,9 @@ type OperationUpdate = {
   stepId: string;
   extraDetails?: unknown;
 };
-const stepOrder = ["prepare", "sidestore", "pairing", "cinemana", "verify"];
+const stepOrder = ["prepare", "sidestore", "pairing", "verify"];
+const CINEMANA_IPA_URL = "https://github.com/Subaru771/Cinemana-IOS/releases/download/cinemana-ios-v2.0.2/Cinemana-iOS-v2.0.2-Stable-Unsigned.ipa";
+const SIDESTORE_INSTALL_URL = `sidestore://install?url=${encodeURIComponent(CINEMANA_IPA_URL)}`;
 
 function humanError(error: unknown): string {
   if (typeof error === "string") return error;
@@ -197,6 +199,9 @@ export default function App() {
         <h3>{ui.success.finishTitle}</h3>
         <p>{ui.success.trust}</p>
         <p>{ui.success.vpn}</p>
+        <p>{ui.success.installInSideStore}</p>
+        <button type="button" onClick={() => void navigator.clipboard.writeText(SIDESTORE_INSTALL_URL)}>{ui.success.copyInstallLink}</button>
+        <p className="cinemana-muted">{ui.success.openOnPhone}</p>
         <p className="cinemana-muted">{ui.success.note80045}</p>
         <button className="cinemana-secondary" onClick={() => { setSelectedDevice(null); setStage("device"); }}>{ui.success.another}</button>
       </section>}
