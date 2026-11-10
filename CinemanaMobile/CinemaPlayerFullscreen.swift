@@ -282,7 +282,7 @@ struct CinemaPlayerScreen: View {
                                 VStack(alignment: .leading, spacing: 4) {
                                     Text("Season \(episode.season) · Episode \(episode.episode)")
                                         .font(.subheadline.weight(.semibold))
-                                    Text(episode.title).font(.caption).foregroundStyle(.secondary)
+                                    Text(episode.localizedTitle).font(.caption).foregroundStyle(.secondary)
                                 }
                                 Spacer()
                                 if library.isWatched(episode.id) {
@@ -529,7 +529,7 @@ struct CinemaPlayerScreen: View {
             Image(systemName: "play.slash.fill").font(.system(size: 42))
                 .foregroundStyle(cinemaAccent)
             Text("Couldn't play this video").font(.title3.weight(.bold))
-            Text(message).font(.callout).multilineTextAlignment(.center)
+            Text(CinemanaLocale.error(message)).font(.callout).multilineTextAlignment(.center)
                 .foregroundStyle(.white.opacity(0.7))
             Button("Try again") { Task { await session.load(video: current, library: library) } }
                 .buttonStyle(.borderedProminent).tint(cinemaAccent)
@@ -567,7 +567,7 @@ struct CinemaPlayerScreen: View {
                 Spacer()
                 VStack(alignment: .leading, spacing: 10) {
                     Text("UP NEXT").font(.caption.weight(.heavy)).foregroundStyle(cinemaAccent)
-                    Text(next.title).font(.headline).lineLimit(2)
+                    Text(next.localizedTitle).font(.headline).lineLimit(2)
                     Text("Season \(next.season) · Episode \(next.episode)")
                         .font(.caption).foregroundStyle(.white.opacity(0.7))
                     HStack(spacing: 12) {
@@ -623,7 +623,7 @@ struct CinemaPlayerScreen: View {
                     if current.episode > 0 {
                         Text(CinemanaLocale.isArabic ? "م\(current.season) · ح\(current.episode)" : "S\(current.season) · E\(current.episode)")
                     }
-                    Text(isDownloaded ? "OFFLINE" : (session.selected?.label ?? "AUTO"))
+                    Text(isDownloaded ? CinemanaLocale.text("Offline") : (session.selected?.label ?? CinemanaLocale.text("Auto")))
                     if savedSpeed != 1 { Text("\(savedSpeed.formatted())×") }
                 }
                 .font(.caption2.weight(.semibold))
@@ -745,7 +745,7 @@ struct CinemaPlayerScreen: View {
         if let entry = downloads.entry(for: current.id), entry.isActive {
             HStack(spacing: 8) {
                 ProgressView(value: entry.progress).frame(width: 42)
-                Text(entry.status == .paused ? "Paused" : "\(Int(entry.progress * 100))%")
+                Text(entry.status == .paused ? CinemanaLocale.text("Paused") : "\(Int(entry.progress * 100))%")
             }
         } else if !isDownloaded {
             DownloadQualityMenu(video: current)
@@ -778,7 +778,7 @@ struct CinemaPlayerScreen: View {
                     }
                 }
                 Button { cropVideo.toggle() } label: {
-                    Label(cropVideo ? "Fit video" : "Fill screen", systemImage: "arrow.up.left.and.arrow.down.right")
+                    Label(LocalizedStringKey(cropVideo ? "Fit video" : "Fill screen"), systemImage: "arrow.up.left.and.arrow.down.right")
                 }
             }
 
