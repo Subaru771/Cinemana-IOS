@@ -55,7 +55,7 @@ jobs:
           from pathlib import Path
           root=Path("loader-v111/assets")
           expected={
-              "Cinemana-SideStore-SettingsRestored.ipa":"880ec959bb0d2ca9acdeba93a4d846bf73fbe352ad3f5fef5e1049d6e58c327c",
+              "Cinemana-SideStore-SettingsRestored.ipa":"a13a3752213b58e09abea590a9ee356119ad91f7027619bce96b8c8c7a3e99c4",
               "Cinemana-iOS-v2.0.2-Stable-Unsigned.ipa":"19a0d161d764dc6b9ee8bcbc4eb028d64b8cc411610f4dc8ff9da9d9cde0a8b5",
           }
           for name, sha in expected.items():
