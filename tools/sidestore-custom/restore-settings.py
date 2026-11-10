@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Restore SideStore 0.7.0-alpha anisette settings while using original auth/failover."""
+"""Restore SideStore 0.7.0-alpha controls and one-time Cinemana anisette defaults."""
 from pathlib import Path
 import sys
 
@@ -82,3 +82,64 @@ serverlist = (root / "AltStore/Settings/AnisetteServerList.swift").read_text(enc
 if "Enable Auto Rotation" not in serverlist:
     raise SystemExit("Official anisette UI changed; refusing build")
 print("Native anisette failover and server priority retained. No Cinemana guide added.")
+
+
+# Recommended defaults for new installations:
+# - On-Device Anisette: OFF
+# - Automatic server rotation: OFF (disableAnisetteRotation is inverted)
+# - Server: SideStore (New) at the address in the official server catalog
+# UserDefaults.register(defaults:) retains user overrides after setup.
+replace(
+    "SideStore/AppConstants.swift",
+    'public static let defaultServerURL     = "https://ani.sidestore.io"',
+    'public static let defaultServerURL     = "https://new.ani.sidestore.io"'
+)
+replace(
+    "AltStore/Core/Extensions/UserDefaults+AltStore.swift",
+    "#keyPath(UserDefaults.disableAnisetteRotation): false,\n            #keyPath(UserDefaults.useOnDeviceAnisette): true,",
+    "#keyPath(UserDefaults.disableAnisetteRotation): true,\n            #keyPath(UserDefaults.useOnDeviceAnisette): false,"
+)
+
+# Apply defaults ONCE on upgrades too. Do not override a user's choices
+# at every launch. The one-time provisioning reset must take place *after*
+# DatabaseManager.start(), because AuthManager.signOut touches the database.
+# Preserve signing certificates. Affected users will have to sign in again.
+replace(
+    "AltStore/AppDelegate.swift",
+    """        UserDefaults.registerDefaults()
+        syncMinimuxerBackendFromUserDefaults()
+""",
+    """        UserDefaults.registerDefaults()
+        // CINEMANA ANISETTE PRESET V1: executed only once per app data container.
+        let applyCinemanaAnisettePreset = !UserDefaults.standard.bool(forKey: "CinemanaAnisettePresetV1Applied")
+        if applyCinemanaAnisettePreset {
+            UserDefaults.standard.useOnDeviceAnisette = false
+            UserDefaults.standard.disableAnisetteRotation = true
+            UserDefaults.standard.menuAnisetteURL = AppConstants.Anisette.Servers.defaultServerURL
+        }
+        syncMinimuxerBackendFromUserDefaults()
+"""
+)
+replace(
+    "AltStore/AppDelegate.swift",
+    """                if isFirstLaunch
+                {
+                    AuthManager.shared.signOut()
+                }
+""",
+    """                if applyCinemanaAnisettePreset {
+                    // Reset adi.pb exactly once, not on each app launch.
+                    // This signs users out on upgrade, but keeps their signing certificate.
+                    AuthManager.shared.signOut(
+                        keepCertificate: true,
+                        keepAnisetteData: false,
+                        keepAnisetteHeaders: false
+                    )
+                    UserDefaults.standard.set(true, forKey: "CinemanaAnisettePresetV1Applied")
+                } else if isFirstLaunch {
+                    AuthManager.shared.signOut()
+                }
+"""
+)
+print("Preset verified: On-Device OFF, Auto-Rotate OFF, SideStore (New).")
+print("Provisioning: clear adi.pb and sign out ONCE after database startup.")
