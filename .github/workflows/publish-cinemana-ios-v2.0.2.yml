@@ -1,0 +1,79 @@
+name: Publish Cinemana iOS v2.0.2 stable (Build 26)
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/publish-cinemana-ios-v2.0.2.yml'
+  workflow_dispatch:
+permissions:
+  contents: write
+  actions: read
+jobs:
+  publish-approved-build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - name: Retrieve the exact approved Build 26 IPA
+        env:
+          GH_TOKEN: \${{ github.token }}
+        run: |
+          set -euo pipefail
+          mkdir -p dist
+          gh run download 42758670261 --repo "$GITHUB_REPOSITORY" \
+            --name "Cinemana-iOS-v2.0.2-beta.1-Unsigned" --dir dist
+          APPROVED="dist/Cinemana-iOS-v2.0.2-beta.1-Unsigned.ipa"
+          test -s "$APPROVED"
+          echo "19a0d161d764dc6b9ee8bcbc4eb028d64b8cc411610f4dc8ff9da9d9cde0a8b5  $APPROVED" | sha256sum -c -
+          unzip -tq "$APPROVED"
+          cp "$APPROVED" "dist/Cinemana-iOS-v2.0.2-Stable-Unsigned.ipa"
+          (cd dist && sha256sum Cinemana-iOS-v2.0.2-Stable-Unsigned.ipa > SHA256SUMS.txt)
+
+      - name: Publish permanent stable release without recompiling
+        env:
+          GH_TOKEN: \${{ github.token }}
+        run: |
+          set -euo pipefail
+          TAG="cinemana-ios-v2.0.2"
+          SOURCE_SHA="4df7319a69164f7830adbefd4ed0fee6c0f306ab"
+          if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "Stable release already exists; refusing to silently replace approved binaries."
+            exit 0
+          fi
+          cat > /tmp/cinemana-release-notes.md <<'RELEASE_NOTES'
+          ## Cinemana iOS v2.0.2 — Stable (Build 26)
+
+          This is the approved native iOS build, published unchanged from the successful iPhone build.
+
+          ### Highlights
+          - New compact Cinemana Hub Telegram card, in Arabic or English according to the app language, with QR code and opt-out
+          - Update prompts appear only if a newer published app build exists
+          - Downloads list real available qualities rather than a fixed set
+          - Fixed opening titles from Favorites and recovered missing first episodes when available
+          - Improved Arabic localization and episode/watch status labels
+          - Refined player menu and rotation controls
+
+          ### Install
+          Download Cinemana-iOS-v2.0.2-Stable-Unsigned.ipa and sign/install it using SideStore or a compatible sideloading tool.
+          This is the Cinemana iOS app, not a SideStore installer. The IPA is unsigned; iOS signing and regular refreshing remain necessary.
+
+          ### Build provenance
+          - Version: 2.0.2 · Build: 26
+          - Approved source commit: 4df7319a69164f7830adbefd4ed0fee6c0f306ab
+          - Successful iOS workflow: https://github.com/Subaru771/Cinemana-IOS/actions/runs/42758670261
+          - IPA SHA-256: 19a0d161d764dc6b9ee8bcbc4eb028d64b8cc411610f4dc8ff9da9d9cde0a8b5
+
+          ### العربية
+          سينمانا للآيفون — الإصدار المستقر 2.0.2 (البناء 26)
+
+          تتضمن هذه النسخة نافذة سينمانا هب الجديدة حسب لغة التطبيق، وإشعارات التحديثات الجديدة فقط، وجودات التنزيل المتاحة فعلياً، وإصلاح المفضلة والحلقة الأولى، وتحسينات الواجهة والترجمة العربية.
+
+          حمّل ملف IPA أعلاه وثبّته بعد توقيعه عبر SideStore. النسخة غير موقعة وتتطلب تجديد التوقيع حسب متطلبات iOS.
+          RELEASE_NOTES
+          gh release create "$TAG" \
+            "dist/Cinemana-iOS-v2.0.2-Stable-Unsigned.ipa" \
+            "dist/SHA256SUMS.txt" \
+            --repo "$GITHUB_REPOSITORY" \
+            --target "$SOURCE_SHA" \
+            --title "Cinemana iOS v2.0.2 — Stable (Build 26)" \
+            --notes-file /tmp/cinemana-release-notes.md \
+            --latest
