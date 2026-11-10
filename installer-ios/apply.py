@@ -52,6 +52,13 @@ def patch_source(upstream: Path) -> None:
         "Cinemana tab",
     )
     root_path.write_text(root, encoding="utf8")
+
+    # Keep LocalDevVPN/SideStore return links consistent with our registered URL scheme.
+    links_path = upstream / "ios-app" / "DeepLink.swift"
+    links = replacement(links_path.read_text(encoding="utf8"),
+                        'static let scheme = "sideinstaller"',
+                        'static let scheme = "cinemanasetup"', "callback URL scheme")
+    links_path.write_text(links, encoding="utf8")
     shutil.copy2(HERE / "CinemanaSetupView.swift",
                  upstream / "ios-app" / "CinemanaSetupView.swift")
 

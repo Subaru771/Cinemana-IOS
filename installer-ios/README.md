@@ -1,48 +1,36 @@
-# Cinemana Installer — native, phone-only workflow (experimental)
+# Cinemana Installer — simplified phone setup (experimental)
 
-**Goal:** One native iPhone interface that signs and installs **SideStore (Stable)** followed by the latest checksummed **Cinemana iOS IPA** with the user's own Apple Account. No Windows/Mac is required **after the installer itself is installed**.
+Start with [the short iPhone guide](PHONE-SETUP.md).
 
-This is **not** the Cinemana Web PWA and **not** a finished first-install bypass. A newly built iPhone IPA still requires a valid Apple signature before iOS can run it. We do not have an Apple-signed public build. No current public-certificate availability is assumed.
+The updated flow is **get two App Store apps + one artifact ZIP → paste one command → approve Apple's prompts → Start setup**. Preparation no longer requires separate mount, list, rename, extract, dependency, script download, or signer-build commands.
 
-## Architecture
+The bootstrap validates the installer bundle, handles the Actions ZIP directly, checks supplied checksums, verifies pinned signing scripts, caches preparation, and builds the signer without a second confirmation. It does not change the upstream Apple authentication, provisioning or certificate-revocation decisions.
 
-- `CinemanaSetupView.swift` adds the branded bilingual first tab to a pinned source checkout of the noncommercial SideInstaller project by FrizzleM.
-- The existing SideInstaller engine performs iOS 27+ on-device pairing, Apple account signing/provisioning, installation and SideStore pairing-file handoff. We do **not** edit its Apple-account authentication, certificate handling or Rust internals.
-- After the first installation reports success, the app reads Cinemana's `landing/release.json` from GitHub, validates the repository release link and IPA byte size and SHA-256, imports the verified IPA and invokes the same on-device installer for Cinemana.
-- The remaining native Install/Tools tabs are available for account, VPN, pairing and certificate troubleshooting. SideStore must be opened and refreshed once after installation.
-- `apply.py` verifies the **exact** upstream commit before patching, replaces the display name/icon and URL scheme and disables upstream update checks so our custom app won't offer to replace itself with SideInstaller.
-- The app never asks for, stores or sends Apple credentials to Cinemana services. The underlying SideInstaller engine handles Apple authentication locally, according to upstream; that upstream privacy claim has not been independently audited.
+The native screen opens account settings directly, can continue after SideStore succeeds, and links to SideStore for its mandatory first refresh. The adaptation now keeps `DeepLink.scheme` consistent with the registered `cinemanasetup` scheme so LocalDevVPN and SideStore callbacks return to this app.
+
+**Still unverified:** iSH first signing/delivery on a physical iPhone, native 0.2 build until its CI completes, two-app device installation and automatic renewal. An unsigned artifact is not installable directly in Safari. iOS trust, authentication, Developer Mode, VPN and pairing approvals remain manual. No public unsigned installer release is assumed.
+
+## Build and verification
+
+[Build workflow](../.github/workflows/cinemana-native-installer.yml) compiles the pinned upstream source as unsigned installer 0.2 and packages one flat Actions ZIP with the IPA, checksum, helper, guide and license. The phone file helper is covered by filesystem/ZIP/checksum regression tests. Run:
+
+```sh
+python3 -m unittest discover -s tests -p test_phone_setup.py -v
+sh -n installer-ios/phone-bootstrap.sh
+```
 
 ## Source rights
 
-SideInstaller source by FrizzleM is used under its custom, **noncommercial, attribution-required, source-distribution** terms. See [UPSTREAM-LICENSE.md](UPSTREAM-LICENSE.md) and [upstream](https://github.com/FrizzleM/SideInstaller). This project supplies its own source additions; the workflow clones **source**, never official compiled SideInstaller IPAs. Do not publish or monetize a derivative binary without ensuring permission under the upstream license.
+SideInstaller by FrizzleM is used under its noncommercial, attribution-required, source-distribution terms. See [UPSTREAM-LICENSE.md](UPSTREAM-LICENSE.md) and [upstream](https://github.com/FrizzleM/SideInstaller). This project adapts source from the exact recorded revision, not official compiled SideInstaller IPAs. Review the terms before any public derivative binary distribution.
 
-## Build on GitHub (no personal PC)
+## Device checks still required
 
-GitHub Actions → **Build Cinemana Installer (unsigned IPA)** uses a hosted Xcode 27 runner and creates an unsigned IPA test artifact. It does not install anything on an iPhone or upload Apple credentials. The unsigned IPA is **not installable directly from Safari**.
-
-## Experimental iPhone-only bootstrap (no PC)
-
-The published upstream [iSH bootstrap](https://github.com/FrizzleM/SideInstaller/blob/main/ish/README.md) accepts a local IPA with `--ipa`, not just SideInstaller's own release. A possible *untested* path is:
-
-1. Install [iSH](https://apps.apple.com/app/ish-shell/id1436902243) from the App Store.
-2. Download the **Cinemana-Installer-UNSIGNED** artifact generated by your workflow on the iPhone, extract the ZIP in Files and move the IPA to iSH's accessible folder.
-3. In iSH, download and **inspect** upstream `ish/install.sh` and `ish/sideinstaller.py`. The scripts handle Apple Account credentials; do not run unreviewed forks or enter credentials into websites.
-4. Invoke the upstream wrapper with your IPA using `sh install.sh -- --ipa /path/to/Cinemana-Installer-Unsigned.ipa` and follow its own UDID, certificate and Safari local-HTTPS installation prompts.
-5. If the bootstrap actually succeeds, open the installed **Cinemana Installer**, connect LocalDevVPN, complete on-device pairing and Apple account sign-in, then tap **Install SideStore + Cinemana**.
-
-**Critical:** upstream explicitly says the iSH live sign-in, zsign on iSH and final Safari/local-certificate installation have **not been verified end to end on a physical iPhone**. This method can fail, and the generated root certificate creates a trust-sensitive step. Do not claim a verified first-install solution yet.
-
-## Testing checklist
-
-- [ ] GitHub hosted Xcode 27 source build and unsigned IPA artifact succeed.
-- [ ] SideInstaller engine source pin and patch checks pass.
-- [ ] On a real iOS 27+ iPhone, verify bootstrap signing and installation from iSH with an Apple account.
-- [ ] Verify SideStore Stable installs, opens, receives pairing and refreshes correctly.
-- [ ] Verify the published Cinemana IPA checksum and install succeeds.
-- [ ] Verify a failed Cinemana download never reuses an old IPA.
-- [ ] Verify retry-Cinemana-only without reinstalling SideStore.
-- [ ] Verify apps remain after signing refresh and the seven-day renewal period.
-- [ ] Review project license and permissions before sharing an installer IPA publicly.
-
-This is a **source implementation and experimental build pipeline**, not a verified one-tap publicly distributable installer.
+- [ ] Source patch and hosted Xcode build succeed.
+- [ ] First signing and local HTTPS delivery work in iSH on a real iPhone.
+- [ ] LocalDevVPN and SideStore return to `cinemanasetup://`.
+- [ ] Account settings return to the requested setup step.
+- [ ] SideStore installs, receives pairing and refreshes.
+- [ ] Failed Cinemana install can resume without reinstalling SideStore.
+- [ ] Changing account or removing SideStore prevents a stale checkpoint from skipping its installation.
+- [ ] Cinemana's catalog IPA is accessible and its size/hash verify before signing.
+- [ ] Renewal works through the free-account signing period.

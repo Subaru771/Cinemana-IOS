@@ -3,11 +3,13 @@ on:
   pull_request:
     paths:
       - 'installer-ios/**'
+      - 'tests/test_phone_setup.py'
       - '.github/workflows/cinemana-native-installer.yml'
   push:
     branches: [main]
     paths:
       - 'installer-ios/**'
+      - 'tests/test_phone_setup.py'
       - '.github/workflows/cinemana-native-installer.yml'
   workflow_dispatch:
 permissions:
@@ -18,7 +20,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - run: python3 -m py_compile installer-ios/apply.py
+      - run: python3 -m py_compile installer-ios/apply.py installer-ios/phone_files.py
+      - run: sh -n installer-ios/phone-bootstrap.sh
+      - run: python3 -m unittest discover -s tests -p 'test_phone_setup.py' -v
       - name: Check security and release references
         run: |
           python3 - <<'PY'
@@ -76,20 +80,29 @@ jobs:
         shell: bash
         env:
           BUNDLE_ID: com.subaru771.cinemanainstaller
-          VERSION: 0.1.0
-          BUILD_NUMBER: 1
+          VERSION: 0.2.0
+          BUILD_NUMBER: 2
           OUTPUT: ${{ runner.temp }}/Cinemana-Installer-Unsigned.ipa
           DERIVED_DATA: ${{ runner.temp }}/CinemanaDerivedData
         run: |
           set -euo pipefail
           bash upstream/scripts/build-ipa.sh
           shasum -a 256 "$OUTPUT" > "${OUTPUT}.sha256"
+      - name: Package the phone setup bundle
+        shell: bash
+        run: |
+          set -euo pipefail
+          setup="${{ runner.temp }}/Cinemana-Phone-Setup"
+          mkdir -p "$setup"
+          cp "${{ runner.temp }}/Cinemana-Installer-Unsigned.ipa" "$setup/"
+          cp "${{ runner.temp }}/Cinemana-Installer-Unsigned.ipa.sha256" "$setup/"
+          cp installer-ios/phone-bootstrap.sh installer-ios/phone_files.py "$setup/"
+          cp installer-ios/PHONE-SETUP.md "$setup/START-HERE.md"
+          cp installer-ios/UPSTREAM-LICENSE.md "$setup/UPSTREAM-LICENSE.md"
       - name: Archive for personal device signing (not a signed public release)
         uses: actions/upload-artifact@v4
         with:
           name: Cinemana-Installer-UNSIGNED
-          path: |
-            ${{ runner.temp }}/Cinemana-Installer-Unsigned.ipa
-            ${{ runner.temp }}/Cinemana-Installer-Unsigned.ipa.sha256
+          path: ${{ runner.temp }}/Cinemana-Phone-Setup/
           retention-days: 7
           if-no-files-found: error

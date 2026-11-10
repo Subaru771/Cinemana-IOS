@@ -1,6 +1,7 @@
 import SwiftUI
 import Foundation
 import CryptoKit
+import UIKit
 
 // Noncommercial adaptation of SideInstaller by FrizzleM.
 // All pairing, signing and installation are handled by its local engine.
@@ -12,6 +13,22 @@ struct CinemanaSetupView: View {
     private enum Phase: Equatable { case idle, sideStore, download, cinemana, done, failed }
     @State private var phase: Phase = .idle
     @State private var message = ""
+    @AppStorage("cinemanaSideStoreCompletedAccount") private var completedAccount = ""
+    @State private var showSettings = false
+    @State private var continueAfterAccount = false
+    @State private var pendingCinemanaOnly = false
+    @State private var runningAccountKey = ""
+
+    private var accountKey: String {
+        let email = engine.appleID.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        guard !email.isEmpty else { return "" }
+        return SHA256.hash(data: Data(email.utf8)).map { String(format: "%02x", $0) }.joined()
+    }
+    private var accountReady: Bool { !accountKey.isEmpty && !engine.applePassword.isEmpty }
+    private var sideStoreReady: Bool {
+        !accountKey.isEmpty && completedAccount == accountKey &&
+        UIApplication.shared.canOpenURL(URL(string: "sidestore://")!)
+    }
 
     private func t(_ en: String, _ ar: String) -> String { arabic ? ar : en }
     private var busy: Bool { [.sideStore, .download, .cinemana].contains(phase) }
@@ -41,7 +58,7 @@ struct CinemanaSetupView: View {
                     .foregroundStyle(.white)
                     VStack(alignment: .leading, spacing: 15) {
                         step(1, "SideStore", phase == .sideStore,
-                             phase == .download || phase == .cinemana || phase == .done)
+                             sideStoreReady || phase == .download || phase == .cinemana || phase == .done)
                         Divider().overlay(.white.opacity(0.2))
                         step(2, "Cinemana", phase == .download || phase == .cinemana,
                              phase == .done)
@@ -49,8 +66,8 @@ struct CinemanaSetupView: View {
                     .padding(20)
                     .background(.white.opacity(0.07), in: RoundedRectangle(cornerRadius: 18))
                     if busy {
-                        ProgressView(value: phase == .download ? 0.05 : max(0.05, engine.overallProgress))
-                            .tint(.mint)
+                        if phase == .download { ProgressView().tint(.mint) }
+                        else { ProgressView(value: max(0.05, engine.overallProgress)).tint(.mint) }
                         Text(t("Follow Apple Account, VPN and pairing prompts if shown.",
                                "اتبع تعليمات حساب Apple والـ VPN والاقتران إن ظهرت."))
                             .font(.footnote).foregroundStyle(.white.opacity(0.7))
@@ -59,19 +76,23 @@ struct CinemanaSetupView: View {
                         Text(message).font(.subheadline)
                             .foregroundStyle(phase == .failed ? .orange : .green)
                     }
-                    Button(action: startBoth) {
-                        Label(t("Install SideStore + Cinemana", "ثبّت سايدستور + سينمانا"),
+                    Button { beginSetup() } label: {
+                        Label(phase == .done ? t("Open SideStore to finish", "افتح سايدستور للإكمال") :
+                              sideStoreReady ? t("Continue with Cinemana", "تابع تثبيت سينمانا") :
+                              t("Start setup", "ابدأ الإعداد"),
                               systemImage: "arrow.down.app.fill")
                             .frame(maxWidth: .infinity).padding(14).font(.headline)
                     }
                     .buttonStyle(.borderedProminent).tint(.mint)
                     .disabled(busy || engine.isRunning)
-                    Button(action: installCinemanaOnly) {
+                    Button { beginSetup(cinemanaOnly: true) } label: {
                         Text(t("SideStore already installed? Install Cinemana only",
                                "سايدستور موجود؟ ثبّت سينمانا فقط"))
                             .frame(maxWidth: .infinity)
                     }
                     .buttonStyle(.bordered).disabled(busy || engine.isRunning)
+                    Button(t("Account and settings", "الحساب والإعدادات")) { showSettings = true }
+                        .buttonStyle(.borderless).disabled(busy || engine.isRunning)
                     Button {
                         openURL(URL(string: "https://apps.apple.com/app/id6755608044")!)
                     } label: {
@@ -90,6 +111,12 @@ struct CinemanaSetupView: View {
                 .padding(20).frame(maxWidth: 600).frame(maxWidth: .infinity)
             }
         }
+        .sheet(isPresented: $showSettings, onDismiss: {
+            guard continueAfterAccount else { return }
+            continueAfterAccount = false
+            if accountReady { beginSetup(cinemanaOnly: pendingCinemanaOnly) }
+            else { message = t("Add your Apple Account to continue.", "أضف حساب Apple للمتابعة.") }
+        }) { SettingsView() }
         .onChange(of: engine.isRunning) { was, running in
             if was && !running { onRunCompleted() }
         }
@@ -105,8 +132,25 @@ struct CinemanaSetupView: View {
         }
     }
 
+    private func beginSetup(cinemanaOnly: Bool = false) {
+        guard !busy && !engine.isRunning else { return }
+        if phase == .done && !cinemanaOnly {
+            openURL(URL(string: "sidestore://")!)
+            return
+        }
+        guard accountReady else {
+            pendingCinemanaOnly = cinemanaOnly
+            continueAfterAccount = true
+            showSettings = true
+            return
+        }
+        if cinemanaOnly || sideStoreReady { installCinemanaOnly() }
+        else { startBoth() }
+    }
+
     private func startBoth() {
         guard !busy && !engine.isRunning else { return }
+        runningAccountKey = accountKey
         phase = .sideStore; message = ""
         engine.installSource = .sideStore
         engine.releaseChannel = .stable
@@ -116,6 +160,7 @@ struct CinemanaSetupView: View {
 
     private func installCinemanaOnly() {
         guard !busy && !engine.isRunning else { return }
+        runningAccountKey = accountKey
         phase = .download; message = ""
         Task { await downloadAndInstall() }
     }
@@ -132,12 +177,17 @@ struct CinemanaSetupView: View {
     }
 
     private func onRunCompleted() {
+        guard runningAccountKey == accountKey else {
+            fail(t("Account changed. Start setup again.", "تغيّر الحساب. ابدأ الإعداد مجدداً."))
+            return
+        }
         switch phase {
         case .sideStore:
             guard engine.finished else {
                 fail(engine.lastError ?? "SideStore installation failed.")
                 return
             }
+            completedAccount = accountKey
             phase = .download
             Task { await downloadAndInstall() }
         case .cinemana:
@@ -192,7 +242,10 @@ struct CinemanaSetupView: View {
 
             let (downloadedFile, response) = try await URLSession.shared.download(from: url)
             guard (response as? HTTPURLResponse)?.statusCode == 200 else {
-                throw SetupError.problem("Cinemana IPA download failed.")
+                let code = (response as? HTTPURLResponse)?.statusCode ?? 0
+                throw SetupError.problem(code == 404 ?
+                    "The Cinemana download is not available. Its release may still be private or a draft." :
+                    "Cinemana IPA download failed (HTTP \(code)).")
             }
             let contents = try Data(contentsOf: downloadedFile, options: .mappedIfSafe)
             guard contents.count == catalog.size else {
