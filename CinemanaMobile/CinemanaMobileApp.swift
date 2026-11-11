@@ -29,6 +29,14 @@ struct CinemanaMobileApp: App {
     @AppStorage("cinemana-app-language") private var appLanguage = "system"
 
     init() {
+        UserDefaults.standard.register(defaults: [
+            "cinemana-community-markers": true,
+            "cinemana-auto-skip": true,
+            "cinemana-next-episode-preload": true,
+            "cinemana-background-downloads": true,
+            "cinemana-playback-quality-cap": 0,
+            "cinemana-subtitle-language": "auto"
+        ])
         // The default image cache is tiny, so posters reloaded while scrolling flicker.
         URLCache.shared = URLCache(memoryCapacity: 64 * 1024 * 1024,
                                    diskCapacity: 300 * 1024 * 1024)
@@ -86,10 +94,13 @@ struct CinemanaMobileApp: App {
                 announceUpdateIfNeeded()
             }
             .onChange(of: scenePhase) { phase in
-                guard phase == .active else { return }
-                Task {
-                    await releaseMonitor.refresh()
-                    announceUpdateIfNeeded()
+                if phase == .background { DownloadCenter.shared.setForeground(false) }
+                if phase == .active {
+                    DownloadCenter.shared.setForeground(true)
+                    Task {
+                        await releaseMonitor.refresh()
+                        announceUpdateIfNeeded()
+                    }
                 }
             }
             .onChange(of: releaseMonitor.latestRevision) { _ in announceUpdateIfNeeded() }
@@ -1197,6 +1208,12 @@ struct AboutView: View {
     @AppStorage(MatureContentFilter.preferenceKey) private var hideMatureContent = false
     @AppStorage("cinemana-auto-landscape") private var autoLandscape = true
     @AppStorage("cinemana-app-language") private var appLanguage = "system"
+    @AppStorage("cinemana-community-markers") private var communityMarkers = true
+    @AppStorage("cinemana-auto-skip") private var autoSkip = true
+    @AppStorage("cinemana-next-episode-preload") private var preloadNext = true
+    @AppStorage("cinemana-background-downloads") private var backgroundDownloads = true
+    @AppStorage("cinemana-playback-quality-cap") private var qualityCap = 0
+    @AppStorage("cinemana-subtitle-language") private var subtitleLanguage = "auto"
     @State private var confirmHistory = false
     @State private var confirmWatchlist = false
     @State private var cacheCleared = false
@@ -1228,7 +1245,41 @@ struct AboutView: View {
                 Text("Filters tagged titles; does not skip scenes.")
                     .font(.caption).foregroundStyle(.secondary)
             }
+            Section(CinemanaLocale.isArabic ? "التشغيل الذكي" : "Smart playback") {
+                Toggle(CinemanaLocale.isArabic ? "علامات المقدمة والملخص المجتمعية" : "Community intro/recap markers",
+                       isOn: $communityMarkers)
+                Toggle(CinemanaLocale.isArabic ? "تخطي المقدمة والملخص تلقائياً" : "Automatically skip intro and recap",
+                       isOn: $autoSkip)
+                    .disabled(!communityMarkers)
+                Toggle(CinemanaLocale.isArabic ? "تحميل الحلقة التالية مسبقاً" : "Preload next episode",
+                       isOn: $preloadNext)
+                Picker(CinemanaLocale.isArabic ? "الحد الأقصى لجودة التشغيل" : "Playback quality limit",
+                       selection: $qualityCap) {
+                    Text("Auto").tag(0)
+                    Text("4K").tag(2160)
+                    Text("1080p").tag(1080)
+                    Text("720p").tag(720)
+                    Text("480p").tag(480)
+                }
+                Picker(CinemanaLocale.isArabic ? "لغة الترجمة المفضلة" : "Preferred subtitle language",
+                       selection: $subtitleLanguage) {
+                    Text("Auto").tag("auto")
+                    Text("العربية").tag("ar")
+                    Text("English").tag("en")
+                    Text(CinemanaLocale.isArabic ? "إيقاف" : "Off").tag("off")
+                }
+                Text(CinemanaLocale.isArabic
+                    ? "التخطي يعتمد على توقيتات متوافقة؛ لا يتم التخطي عند غيابها."
+                    : "Skip markers must match the stream. Missing timestamps never trigger guessing.")
+                    .font(.caption).foregroundStyle(.secondary)
+            }
             Section("Offline downloads") {
+                Toggle(CinemanaLocale.isArabic ? "متابعة التنزيل في الخلفية" : "Continue downloads in background",
+                       isOn: $backgroundDownloads)
+                Text(CinemanaLocale.isArabic
+                    ? "يتحكم iOS بمواعيد التنزيل وقد يؤخرها."
+                    : "iOS controls background scheduling and may pause transfers.")
+                    .font(.caption).foregroundStyle(.secondary)
                 NavigationLink { DownloadsView() } label: {
                     Label("Manage downloads", systemImage: "arrow.down.to.line.compact")
                 }
