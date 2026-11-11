@@ -18,6 +18,13 @@ struct CoreSmokeTests {
         let marked = Video(json: ["id": "marked", "title": "Marker sample",
                                    "imdb_id": "tt0123456"])!
         precondition(marked.imdbID == "tt0123456")
+        let inherited = Video(json: ["id": "episode", "title": "Pilot"])!.inheritingIMDb(marked.imdbID)
+        precondition(inherited.imdbID == "tt0123456")
+        let embedded = CinemanaAPI.decodeEpisodes([
+            "imdb_id": "tt0123456",
+            "episodes": [["id": "episode-1", "title": "Pilot", "episodeNumber": 1]]
+        ], seriesID: "series")
+        precondition(embedded.first?.imdbID == "tt0123456")
         precondition(CommunityMarkerService.validated("intro", 20, 75, 0.95,
                                                        2400, "test")?.autoEligible == true)
         precondition(CommunityMarkerService.validated("intro", 20, 750, 0.95,
