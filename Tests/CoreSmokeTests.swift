@@ -13,6 +13,24 @@ struct CoreSmokeTests {
         precondition(movie.title == "A Test Film")
         precondition(movie.rating == 8.5)
         precondition(movie.poster?.host == "example.org")
+        // New 1.0 features: metadata is only trusted when a genuine IMDb ID is supplied.
+        precondition(movie.imdbID == nil)
+        let marked = Video(json: ["id": "marked", "title": "Marker sample",
+                                   "imdb_id": "tt0123456"])!
+        precondition(marked.imdbID == "tt0123456")
+        precondition(CommunityMarkerService.validated("intro", 20, 75, 0.95,
+                                                       2400, "test")?.autoEligible == true)
+        precondition(CommunityMarkerService.validated("intro", 20, 750, 0.95,
+                                                       2400, "test") == nil)
+        precondition(CommunityMarkerService.validated("recap", -1, 55, 0.95,
+                                                       2400, "test") == nil)
+        let streams = [
+            Stream(url: URL(string: "https://example.org/1080.mp4")!, quality: 1080),
+            Stream(url: URL(string: "https://example.org/720.mp4")!, quality: 720)
+        ]
+        precondition(PlaybackPlanner.globalPreferred(from: streams, cap: 720)?.quality == 720)
+        precondition(PlaybackPlanner.globalPreferred(from: streams, cap: 480) == nil)
+
         // The app-language selector must favor Arabic metadata without
         // deleting original titles or breaking Codable snapshots.
         let multi = Video(json: ["id": "multilingual", "en_title": "Example",
