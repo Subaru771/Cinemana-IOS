@@ -1,3 +1,18 @@
+## Cinemana iOS v1.0 (Build 27)
+
+- Separate English and Arabic Telegram invitation cards on iPhone (portrait) and iPad (landscape layout); opt-out never disables independent new-release notifications.
+- Community intro/recap timecodes from SkipDB and TheIntroDB, only when the provider returns a valid IMDb ID and duration; confidence/duration checks avoid inventing skips.
+- Automatic intro/recap skipping when a validated eligible segment exists, plus manual on-screen skip buttons.
+- Global video quality ceiling (Auto, 4K, 1080p, 720p, 480p) including preferredMaximumResolution for HLS; an unavailable capped stream fails instead of silently exceeding the cap.
+- Preferred Arabic/English/Auto/Off subtitles, checking provider and built-in tracks.
+- Next-episode metadata preloading near the end of an episode; this speeds URL resolution, **not full video segment prebuffering**.
+- Continue/stop native iOS URLSession background downloads via Settings. iOS schedules transfers; there is no promise of unrestricted background activity.
+- Version reset requested for app branding: **1.0**, with build number **27** so installations retain increasing build identifiers.
+
+> This source still requires a successful macOS GitHub Actions build and physical-device playback testing before publication as a verified stable app. The unsigned IPA must be signed for sideloading.
+
+---
+
 ### v2.0.2 beta fixes
 - Series detail screens now always show **Episodes** when opened from the Series tab, and report errors with Retry if the provider cannot return a list.
 - In Settings or in the fullscreen player menu choose **Hide Mature Content**. This uses provider tags/classification only; it cannot skip or censor individual scenes.
