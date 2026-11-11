@@ -129,6 +129,10 @@ struct CinemaPlayerScreen: View {
     @AppStorage("cinemana-sub-scale") private var subtitleScale = 1.0
     @AppStorage("cinemana-sub-background") private var captionBackdrop = true
     @AppStorage(MatureContentFilter.preferenceKey) private var hideMatureContent = false
+    @AppStorage("cinemana-community-markers") private var communityEnabled = true
+    @AppStorage("cinemana-auto-skip") private var autoSkipEnabled = true
+    @AppStorage("cinemana-next-episode-preload") private var preloadingEnabled = true
+    @AppStorage("cinemana-subtitle-language") private var subtitleLanguage = "auto"
 
     private var isPad: Bool { UIDevice.current.userInterfaceIdiom == .pad }
     private var blockedByFilter: Bool {
@@ -170,6 +174,10 @@ struct CinemaPlayerScreen: View {
     @State private var showDiagnostics = false
     @State private var importingSubtitles = false
     @State private var showEpisodePicker = false
+    @State private var communitySegments: [CommunitySegment] = []
+    @State private var markerLookupKey = ""
+    @State private var lastAutoSkipKey = ""
+    @State private var preloadRequestedID: String?
 
     private let playlist: [Video]
 
@@ -342,7 +350,8 @@ struct CinemaPlayerScreen: View {
         } catch { /* Playback may still work with the previous audio session. */ }
         let id = current.id
         Task { await subtitles.load(for: id) }
-        await session.load(video: current, library: library)
+        let prefetched = await NextEpisodePreloader.shared.take(id)
+        await session.load(video: current, library: library, prefetched: prefetched)
         if session.player != nil { showControls() }
         refreshNowPlaying()
     }
@@ -368,6 +377,9 @@ struct CinemaPlayerScreen: View {
         hudTask?.cancel()
         flashTask?.cancel()
         session.close(library: library)
+        communitySegments = []
+        markerLookupKey = ""
+        lastAutoSkipKey = ""
         subtitles.reset()
         pip.stop()
         NowPlayingBridge.shared.deactivate()
@@ -458,7 +470,12 @@ struct CinemaPlayerScreen: View {
                 Spacer()
                 HStack {
                     Spacer()
-                    if ViewingPlanner.shouldOfferSkip(position: currentTime, end: markers.recapEndsAt, duration: duration) {
+                    if communityEnabled, let community = communitySegments.first(where: { $0.contains(currentTime) }) {
+                        Button(community.kind == "intro" ? "Skip intro" : "Skip recap") {
+                            seek(to: community.end)
+                        }
+                        .buttonStyle(.borderedProminent).tint(cinemaAccent)
+                    } else if ViewingPlanner.shouldOfferSkip(position: currentTime, end: markers.recapEndsAt, duration: duration) {
                         Button("Skip recap") { seek(to: markers.recapEndsAt ?? 0) }
                             .buttonStyle(.borderedProminent).tint(cinemaAccent)
                     } else if ViewingPlanner.shouldOfferSkip(position: currentTime, end: markers.introEndsAt, duration: duration) {
@@ -1030,6 +1047,44 @@ struct CinemaPlayerScreen: View {
             else { hideTask?.cancel(); showsControls = true }
         }
         waiting = player.timeControlStatus == .waitingToPlayAtSpecifiedRate
+        requestCommunityMarkersIfNeeded()
+        applyAutoSkipIfNeeded()
+        warmNextEpisodeIfNeeded()
+    }
+
+    private func requestCommunityMarkersIfNeeded() {
+        guard communityEnabled, duration >= 60, current.imdbID != nil else { return }
+        let key = "\(current.id)-\(Int(duration.rounded()))"
+        guard markerLookupKey != key else { return }
+        markerLookupKey = key
+        let video = current
+        let runtime = duration
+        Task {
+            let found = await CommunityMarkerService.shared.segments(for: video, duration: runtime)
+            guard current.id == video.id, markerLookupKey == key else { return }
+            communitySegments = found
+        }
+    }
+
+    private func applyAutoSkipIfNeeded() {
+        guard communityEnabled, autoSkipEnabled, playing, scenePhase == .active,
+              !isScrubbing, !seekInFlight, !locked else { return }
+        for segment in communitySegments where segment.autoEligible && segment.contains(currentTime) {
+            let key = "\(current.id)-\(segment.kind)-\(Int(segment.start))"
+            guard key != lastAutoSkipKey else { continue }
+            lastAutoSkipKey = key
+            seek(to: segment.end)
+            flashMessage(segment.kind == "intro" ? "Intro skipped" : "Recap skipped")
+            break
+        }
+    }
+
+    private func warmNextEpisodeIfNeeded() {
+        guard preloadingEnabled, scenePhase == .active, duration > 0,
+              duration - currentTime <= 90, duration - currentTime >= 0,
+              let next = nextEpisode, preloadRequestedID != next.id else { return }
+        preloadRequestedID = next.id
+        Task { await NextEpisodePreloader.shared.warm(next) }
     }
 
     private func seek(to value: Double) {
@@ -1095,6 +1150,10 @@ struct CinemaPlayerScreen: View {
         audioTracks = []
         selectedCaption = nil
         selectedAudio = nil
+        communitySegments = []
+        markerLookupKey = ""
+        lastAutoSkipKey = ""
+        preloadRequestedID = nil
         current = next
         showControls()
     }
@@ -1190,6 +1249,21 @@ struct CinemaPlayerScreen: View {
         audioGroup = audible
         captions = caption?.options ?? []
         audioTracks = audible?.options ?? []
+        if subtitleLanguage == "off" {
+            if let caption { item.select(nil, in: caption) }
+            selectedCaption = nil
+            await subtitles.select(nil, remember: false)
+        } else if (subtitleLanguage == "ar" || subtitleLanguage == "en"),
+                  subtitles.selected == nil, let caption {
+            let matched = caption.options.first(where: { option in
+                option.locale?.languageCode == subtitleLanguage ||
+                SubtitleController.matchesLanguage(option.displayName, subtitleLanguage)
+            })
+            if let matched {
+                item.select(matched, in: caption)
+                selectedCaption = matched
+            }
+        }
     }
 
     /// Selects a built-in subtitle (or turns every subtitle off when `option` is nil).
