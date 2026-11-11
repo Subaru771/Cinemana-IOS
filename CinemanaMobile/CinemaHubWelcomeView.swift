@@ -194,11 +194,11 @@ struct CinemaHubWelcomeView: View {
         HStack(alignment: .center, spacing: 34) {
             VStack(spacing: 12) {
                 brand
-                Text("Cinemana")
+                Text(verbatim: "Cinemana")
                     .font(.system(size: 26, weight: .heavy, design: .rounded))
                 qrCode
                     .padding(.top, 5)
-                Text("t.me/CinemanaHub")
+                Text(verbatim: "t.me/CinemanaHub")
                     .font(.subheadline.weight(.semibold))
                     .foregroundStyle(.white.opacity(0.8))
             }
