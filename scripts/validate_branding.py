@@ -45,7 +45,7 @@ assert "Use preferred quality" not in menu
 print("Full-resolution icon and provider-supplied download qualities validated.")
 
 # The approved v1.6.13 iOS icon is RGB, opaque and exactly 1024px.
-assert "CFBundleShortVersionString: '2.0.2'" in project
+assert "CFBundleShortVersionString: '1.0'" in project
 assert splash.stat().st_size > 500_000, "Full-resolution approved startup asset missing"
 assert icon.stat().st_size > 500_000, "Full-resolution approved Home Screen icon missing"
 manifest = root / "Branding/v1.6.13-assets-manifest.json"
