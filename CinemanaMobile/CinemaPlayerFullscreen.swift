@@ -261,6 +261,13 @@ struct CinemaPlayerScreen: View {
         .onChange(of: session.selected?.id) { _ in
             Task { await loadTracks() }
         }
+        .onChange(of: subtitles.selected?.id) { _ in
+            // A provider or imported subtitle must not render over a built-in track.
+            if subtitles.selected != nil, let captionGroup {
+                session.player?.currentItem?.select(nil, in: captionGroup)
+                selectedCaption = nil
+            }
+        }
         .onChange(of: playing) { _ in refreshNowPlaying() }
         .onChange(of: duration > 0) { _ in refreshNowPlaying() }
         .onChange(of: scenePhase) { phase in
