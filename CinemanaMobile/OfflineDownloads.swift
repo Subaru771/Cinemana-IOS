@@ -28,6 +28,7 @@ final class DownloadCenter: NSObject, ObservableObject, URLSessionDownloadDelega
     private var hlsDestinations: [String: URL] = [:]
     private var attempts: [String: Int] = [:]
     private var retryAfter: [String: Date] = [:]
+    private var pausedForBackground = Set<String>()
     private var samples: [String: (time: Double, bytes: Int64, rate: Double)] = [:]
     private var persistWork: DispatchWorkItem?
     /// Last time a progress change was pushed to the UI, so lists are not redrawn many times a second.
@@ -110,6 +111,21 @@ final class DownloadCenter: NSObject, ObservableObject, URLSessionDownloadDelega
     var freeBytes: Int64? {
         let values = try? root.resourceValues(forKeys: [.volumeAvailableCapacityForImportantUsageKey])
         return values?.volumeAvailableCapacityForImportantUsage
+    }
+
+    /// File/HLS transfers already use background URLSession. When opted out, stop
+    /// only transfers that were active at the moment the app entered background.
+    /// Restore just those transfers on foreground, not manually paused items.
+    func setForeground(_ foreground: Bool) {
+        if foreground {
+            let ids = pausedForBackground
+            pausedForBackground.removeAll()
+            for id in ids where entry(for: id)?.status == .paused { resume(id) }
+        } else if !UserDefaults.standard.bool(forKey: "cinemana-background-downloads") {
+            let ids = items.filter { $0.isActive && $0.status != .paused }.map(\.id)
+            pausedForBackground.formUnion(ids)
+            for id in ids { pause(id) }
+        }
     }
 
     // MARK: - Public actions
