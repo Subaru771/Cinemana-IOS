@@ -1,7 +1,7 @@
 name: Cinemana CEE Android TV APK
 on:
   push:
-    branches: [cee-ios-v0.2.0]
+    branches: [cee-ios-v0.1.0]
     paths:
       - 'cee-android/**'
       - '.github/workflows/android-cee.yml'
