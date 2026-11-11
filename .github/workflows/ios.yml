@@ -1,162 +1,64 @@
-name: Cinemana iOS — unsigned build
+name: Cinemana CEE iOS — unsigned IPA
 on:
-  workflow_dispatch:
   push:
-    branches: [main]
-    paths:
-      - 'CinemanaMobile/**'
-      - 'project.yml'
-      - '.github/workflows/ios.yml'
-      - 'scripts/**'
-      - 'Tests/**'
+    branches: [cee-ios-v0.1.0]
+    paths: ['CinemanaMobile/**', 'project.yml', '.github/workflows/ios.yml']
+  workflow_dispatch:
 permissions:
   contents: write
-concurrency:
-  group: cinemana-ios-${{ github.ref_name }}
-  cancel-in-progress: true
 jobs:
   build:
-    runs-on: macos-26-intel
+    runs-on: macos-15
     timeout-minutes: 45
     steps:
-      - name: Check out complete, versioned source tree
-        uses: actions/checkout@v4
-      - name: Prepare Retina splash without cropping approved design
+      - uses: actions/checkout@v4
+      - name: Verify independent CEE app entry point
         run: |
-          sips -s format png --resampleHeightWidth 5016 2823 \
-            CinemanaMobile/Assets.xcassets/CinemanaSplash.imageset/CinemanaSplash.jpg \
-            --out CinemanaMobile/Assets.xcassets/CinemanaSplash.imageset/CinemanaSplash-3x.png
-      - name: Verify version, artwork, download UI and localization
+          set -eux
+          grep -q 'struct CinemanaCEEApplication: App' CinemanaMobile/CEEApplication.swift
+          grep -q 'app.cinemana.cee.ios' project.yml
+          test "$(grep -rl '@main' CinemanaMobile --include='*.swift' | wc -l | tr -d ' ')" = "1"
+          swiftc -frontend -parse CinemanaMobile/CEEApplication.swift
+      - name: Prepare original Cinemana assets
         run: |
-          grep -q "CFBundleShortVersionString: '1.0'" project.yml
-          python3 scripts/validate_branding.py
-          python3 scripts/check_download_menu.py
-          python3 scripts/check_landing_locales.py
-          python3 scripts/check_launch_autoplay.py
-          python3 scripts/check_ios_localizations.py
-          plutil -lint CinemanaMobile/en.lproj/Localizable.strings
-          plutil -lint CinemanaMobile/ar.lproj/Localizable.strings
-      - name: Verify included app icon source
-        run: swift scripts/make_app_icon.swift
-      - name: Run portable model / quality / subtitle / local-data tests
-        run: |
-          swiftc -o "$RUNNER_TEMP/cinemana-tests" \
-            CinemanaMobile/Models.swift \
-            CinemanaMobile/CinemanaAPI.swift \
-            CinemanaMobile/PlaybackPlanner.swift \
-            CinemanaMobile/OfflineModels.swift \
-            CinemanaMobile/Subtitles.swift \
-            CinemanaMobile/HLSQuality.swift \
-            CinemanaMobile/Personalization.swift \
-            CinemanaMobile/MatureContentFilter.swift \
-            CinemanaMobile/CommunityMarkers.swift \
-            Tests/CoreSmokeTests.swift
-          "$RUNNER_TEMP/cinemana-tests"
+          swift scripts/make_app_icon.swift
       - name: Install XcodeGen
         run: brew install xcodegen
-      - name: Build for physical iOS devices without developer signing
+      - name: Build iOS device application (unsigned)
         run: |
+          set -eux
           xcodegen generate
-          xcodebuild \
-            -project CinemanaMobile.xcodeproj \
-            -scheme CinemanaMobile \
-            -configuration Release \
-            -sdk iphoneos \
-            -destination 'generic/platform=iOS' \
-            -derivedDataPath build \
-            CODE_SIGNING_ALLOWED=NO \
-            build
-      - name: Verify bundle metadata and package real unsigned IPA
+          xcodebuild -project CinemanaMobile.xcodeproj -scheme CinemanaMobile -configuration Release -sdk iphoneos -destination 'generic/platform=iOS' -derivedDataPath build CODE_SIGNING_ALLOWED=NO build
+      - name: Package and verify real compiled IPA
         run: |
-          set -eu
+          set -eux
           APP=build/Build/Products/Release-iphoneos/CinemanaMobile.app
           test -d "$APP"
-          plutil -replace CinemanaBuildRevision -string "$GITHUB_SHA" "$APP/Info.plist"
-          test "$(plutil -extract CinemanaBuildRevision raw "$APP/Info.plist")" = "$GITHUB_SHA"
-          test "$(plutil -extract CFBundleShortVersionString raw "$APP/Info.plist")" = '1.0'
-          test "$(plutil -extract CFBundleDisplayName raw "$APP/Info.plist")" = 'Cinemana iOS'
-          test -s "$APP/Assets.car"
+          test "$(plutil -extract CFBundleIdentifier raw "$APP/Info.plist")" = 'app.cinemana.cee.ios'
+          test "$(plutil -extract CFBundleDisplayName raw "$APP/Info.plist")" = 'Cinemana CEE'
           mkdir -p dist/Payload
-          cp -R "$APP" dist/Payload/
-          (cd dist && zip -q -r Cinemana-iOS-v1.0-Unsigned.ipa Payload)
-          unzip -tq dist/Cinemana-iOS-v1.0-Unsigned.ipa
-          shasum -a 256 dist/Cinemana-iOS-v1.0-Unsigned.ipa > dist/SHA256SUMS.txt
-      - name: Upload real IPA and checksum
-        uses: actions/upload-artifact@v4
+          ditto "$APP" dist/Payload/CinemanaMobile.app
+          (cd dist && zip -q -r Cinemana-CEE-iOS-v0.1.0-Unsigned.ipa Payload)
+          unzip -tq dist/Cinemana-CEE-iOS-v0.1.0-Unsigned.ipa
+          shasum -a 256 dist/Cinemana-CEE-iOS-v0.1.0-Unsigned.ipa > dist/SHA256SUMS.txt
+      - uses: actions/upload-artifact@v4
         with:
-          name: Cinemana-iOS-v1.0-Unsigned
+          name: Cinemana-CEE-iOS-v0.1.0-Unsigned
           path: |
-            dist/Cinemana-iOS-v1.0-Unsigned.ipa
+            dist/Cinemana-CEE-iOS-v0.1.0-Unsigned.ipa
             dist/SHA256SUMS.txt
           if-no-files-found: error
-          retention-days: 3
-      - name: Publish direct-download IPA on GitHub Releases
-        if: github.ref == 'refs/heads/main'
-        continue-on-error: true
+          retention-days: 30
+      - name: Publish separate CEE prerelease
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          # Workflow concurrency cancels superseded iOS builds. Changes to
-          # SideStore or other unrelated projects must not suppress this IPA.
-          TAG=cinemana-ios-latest-unsigned
-          IPA=dist/Cinemana-iOS-v1.0-Unsigned.ipa
-          CHECKSUM=dist/SHA256SUMS.txt
+          TAG=cinemana-cee-ios-v0.1.0-unsigned
+          IPA=dist/Cinemana-CEE-iOS-v0.1.0-Unsigned.ipa
+          SHA=dist/SHA256SUMS.txt
           if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
-            gh release upload "$TAG" "$IPA" "$CHECKSUM" --repo "$GITHUB_REPOSITORY" --clobber
-            gh release edit "$TAG" --repo "$GITHUB_REPOSITORY" --notes "Unsigned Cinemana iOS IPA rebuilt from main. Source commit: ${GITHUB_SHA}. Sign with SideStore before installing."
+            gh release upload "$TAG" "$IPA" "$SHA" --repo "$GITHUB_REPOSITORY" --clobber
           else
-            gh release create "$TAG" "$IPA" "$CHECKSUM" --repo "$GITHUB_REPOSITORY" \
-              --target "$GITHUB_SHA" \
-              --title "Cinemana iOS — Latest unsigned IPA" \
-              --notes "Unsigned Cinemana iOS IPA built from main. Source commit: ${GITHUB_SHA}. Sign with SideStore before installing." \
-              --prerelease --latest=false
+            gh release create "$TAG" "$IPA" "$SHA" --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --title "Cinemana CEE iOS v0.1.0 — Unsigned IPA" --notes "Experimental CEE version: website playback fallback, native poster discovery subject to CEE page structure. Unsigned IPA; sign with SideStore to install." --prerelease --latest=false
           fi
-
-      - name: Publish numbered Cinemana iOS v1.0 release
-        if: github.ref == 'refs/heads/main'
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          set -euo pipefail
-          TAG=cinemana-ios-v1.0
-          IPA=dist/Cinemana-iOS-v1.0-Unsigned.ipa
-          CHECKSUM=dist/SHA256SUMS.txt
-          test -s "$IPA"
-          test -s "$CHECKSUM"
-          if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
-            echo "Numbered release already exists; refusing to replace it silently."
-            exit 1
-          fi
-          cat > /tmp/cinemana-v1.0-notes.md <<'RELEASE_NOTES'
-          # Cinemana iOS v1.0 — Build 27
-
-          New in this iOS release:
-          - English/Arabic Cinemana Hub Telegram invitation with compact iPhone portrait and wide iPad landscape layouts.
-          - Separate new-update prompt; dismissing the Telegram card never disables update checks.
-          - Community intro/recap markers, using verified IMDb IDs and timecode validation, with optional automatic skipping.
-          - Global playback quality preference and preferred Arabic/English subtitle selection.
-          - Next-episode stream prefetch and configurable continued background downloads.
-
-          Community marker coverage depends on the availability and accuracy of public timestamps.
-          For adaptive HLS, the chosen quality ceiling is a preference, not a guaranteed hard cap.
-          iOS controls when background transfers run. iPhone/iPad device playback QA is still required.
-
-          ## Install
-          Download the **unsigned IPA**, then sign/install with SideStore or another compatible sideloading tool.
-          Regular signature refreshing is still necessary.
-
-          ## العربية
-          نسخة سينمانا للآيفون والآيباد 1.0 (البناء 27)، مع بطاقات تلغرام بلغتين،
-          وخيارات تخطي المقدمة والملخص، والجودة والترجمة، وتحميل الحلقة التالية مسبقاً،
-          والتنزيل بالخلفية حسب قيود iOS.
-
-          هذا ملف IPA غير موقّع ويتطلب التوقيع والتجديد عبر SideStore أو أداة مناسبة.
-          RELEASE_NOTES
-          printf '\nSource commit: %s\n' "$GITHUB_SHA" >> /tmp/cinemana-v1.0-notes.md
-          gh release create "$TAG" "$IPA" "$CHECKSUM" \
-            --repo "$GITHUB_REPOSITORY" \
-            --target "$GITHUB_SHA" \
-            --title "Cinemana iOS v1.0 (Build 27) — Unsigned" \
-            --notes-file /tmp/cinemana-v1.0-notes.md \
-            --latest
