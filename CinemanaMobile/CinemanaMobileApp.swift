@@ -917,7 +917,7 @@ final class PlaybackSession: ObservableObject {
     @Published private(set) var lastRecoveryReason: String?
     private var video: Video?
 
-    func load(video: Video, library: LibraryStore) async {
+    func load(video: Video, library: LibraryStore, prefetched: [Stream]? = nil) async {
         close(library: library)
         self.video = video
         self.loading = true
@@ -934,11 +934,19 @@ final class PlaybackSession: ObservableObject {
             return
         }
         do {
-            let found = try await CinemanaAPI.shared.streams(video.id)
+            let found: [Stream]
+            if let prefetched, !prefetched.isEmpty {
+                found = prefetched
+            } else {
+                found = try await CinemanaAPI.shared.streams(video.id)
+            }
             guard !Task.isCancelled, self.video?.id == video.id else { return }
             self.streams = found
-            guard let preferred = PlaybackPlanner.adaptivePreferred(from: found) else {
-                throw CinemanaAPI.APIError.noStream
+            let cap = UserDefaults.standard.integer(forKey: "cinemana-playback-quality-cap")
+            guard let preferred = PlaybackPlanner.globalPreferred(from: found, cap: cap) else {
+                throw NSError(domain: "Cinemana", code: 107,
+                              userInfo: [NSLocalizedDescriptionKey:
+                                "No playable quality is available within the selected limit. Change it in Settings."])
             }
             select(preferred, video: video, library: library)
         } catch {
@@ -950,6 +958,11 @@ final class PlaybackSession: ObservableObject {
     }
 
     func select(_ stream: Stream, video: Video, library: LibraryStore) {
+        let cap = UserDefaults.standard.integer(forKey: "cinemana-playback-quality-cap")
+        if cap > 0 && stream.quality > cap {
+            notice = "This quality exceeds the limit in Settings."
+            return
+        }
         attempted = [stream.id]
         stallRestarted = false
         notice = nil
@@ -968,6 +981,11 @@ final class PlaybackSession: ObservableObject {
         self.error = nil
 
         let item = AVPlayerItem(url: stream.url)
+        let resolutionCap = UserDefaults.standard.integer(forKey: "cinemana-playback-quality-cap")
+        if resolutionCap > 0 {
+            item.preferredMaximumResolution = CGSize(width: CGFloat(resolutionCap) * 16 / 9,
+                                                      height: CGFloat(resolutionCap))
+        }
         // Limit needless forward prebuffering on slow links while keeping enough
         // data for stable playback. The player still follows iOS buffering policy.
         item.preferredForwardBufferDuration = 2
@@ -1013,12 +1031,18 @@ final class PlaybackSession: ObservableObject {
         }
     }
 
+    private func cappedStreams() -> [Stream] {
+        let cap = UserDefaults.standard.integer(forKey: "cinemana-playback-quality-cap")
+        guard cap > 0 else { return streams }
+        return streams.filter { $0.quality == 0 || ($0.quality > 0 && $0.quality <= cap) }
+    }
+
     /// Called only for a ready-to-play item that has been stalled long enough.
     /// Bound recovery attempts; never loop indefinitely or treat a 403 as a retryable stall.
     func recoverFromStall(library: LibraryStore) {
         guard let video, let current = selected, let item = player?.currentItem,
               item.status == .readyToPlay else { return }
-        if let fallback = PlaybackPlanner.fallback(from: streams, failed: current, tried: attempted) {
+        if let fallback = PlaybackPlanner.fallback(from: cappedStreams(), failed: current, tried: attempted) {
             attempted.insert(fallback.id)
             recoveryCount += 1
             lastRecoveryReason = "Slow stream: switched from \(current.label) to \(fallback.label)"
@@ -1037,7 +1061,7 @@ final class PlaybackSession: ObservableObject {
 
     func failed(item: AVPlayerItem, library: LibraryStore, reason: String?) {
         guard player?.currentItem === item, let failedStream = selected, let video else { return }
-        if let fallback = PlaybackPlanner.fallback(from: streams, failed: failedStream, tried: attempted) {
+        if let fallback = PlaybackPlanner.fallback(from: cappedStreams(), failed: failedStream, tried: attempted) {
             attempted.insert(fallback.id)
             notice = "\(failedStream.label) unavailable. Trying \(fallback.label)…"
             start(fallback, video: video, library: library)
