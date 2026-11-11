@@ -215,7 +215,6 @@ private enum CEETab: String, CaseIterable, Identifiable {
     }
 }
 
-@main
 struct CinemanaCEEApplication: App {
     var body: some Scene {
         WindowGroup { CEEMainScreen().preferredColorScheme(.dark) }
