@@ -80,75 +80,20 @@ struct CinemanaAPI: Sendable {
     }
 
     func catalog(_ kind: Int? = nil) async throws -> [CatalogRow] {
-        let kinds = kind.map { [$0] } ?? [1, 2]
-        let (rows, failures, restriction) = await withTaskGroup(of: Result<(String, [Video]), Error>.self) { group in
-            for k in kinds {
-                for (sort, heading) in [("views_desc", "Trending"), ("desc", "New")] {
-                    let title = "\(heading) \(k == 1 ? "Movies" : "Series")"
-                    group.addTask {
-                        do {
-                            let json = try await fetch("video/videoKind/\(k)/categoryNb/0/langNb/0/sortParam/\(sort)/itemsPerPage/20/searchTextValue/-/pageNumber/0")
-                            return .success((title, videos(fetchOrThrow: json, kind: String(k))))
-                        } catch { return .failure(error) }
-                    }
-                }
-            }
-            var rows = [CatalogRow]()
-            var failures = 0
-            var restriction: APIError?
-            for await awaitResult in group {
-                switch awaitResult {
-                case .success(let (title, items)):
-                    if !items.isEmpty { rows.append(CatalogRow(title: title, videos: items)) }
-                case .failure(let error):
-                    failures += 1
-                    if let reason = error as? APIError {
-                        switch reason {
-                        case .unauthorized, .providerRestricted: restriction = reason
-                        default: break
-                        }
-                    }
-                }
-            }
-            return (rows, failures, restriction)
+        let all = try await CEESite.shared.awaitTitles()
+        if kind == 2 {
+            // CEE does not expose a verified type or season API. Do not relabel movies as shows.
+            return []
         }
-        if rows.isEmpty && failures == kinds.count * 2 { throw restriction ?? APIError.unreachable }
-        let order = ["Trending Movies", "New Movies", "Trending Series", "New Series"]
-        return rows.sorted { (order.firstIndex(of: $0.title) ?? 99) < (order.firstIndex(of: $1.title) ?? 99) }
+        let first = Array(all.prefix(40))
+        let rest = Array(all.dropFirst(40).prefix(40))
+        var rows = [CatalogRow(title: "Trending Movies", videos: first)]
+        if !rest.isEmpty { rows.append(CatalogRow(title: "New Movies", videos: rest)) }
+        return rows
     }
 
     func search(_ text: String) async throws -> [Video] {
-        let query = Data(text.utf8).base64EncodedString().replacingOccurrences(of: "=", with: "")
-        let (output, success, restriction) = await withTaskGroup(of: Result<[Video], Error>.self) { group in
-            for kind in [1, 2] {
-                group.addTask {
-                    do {
-                        let path = "video/V/2/videoKind/\(kind)/itemsPerPage/20/video_title_search/\(segment(query))"
-                        let json = try await fetch(path)
-                        return .success(videos(fetchOrThrow: json, kind: String(kind)))
-                    } catch { return .failure(error) }
-                }
-            }
-            var output = [Video]()
-            var success = 0
-            var restriction: APIError?
-            for await result in group {
-                switch result {
-                case .success(let items): output += items; success += 1
-                case .failure(let error):
-                    if let reason = error as? APIError {
-                        switch reason {
-                        case .unauthorized, .providerRestricted: restriction = reason
-                        default: break
-                        }
-                    }
-                }
-            }
-            return (output, success, restriction)
-        }
-        if success == 0 { throw restriction ?? APIError.unreachable }
-        var seen = Set<String>()
-        return output.filter { seen.insert($0.id).inserted }
+        return await CEESite.shared.search(text)
     }
 
     private func videos(fetchOrThrow json: Any, kind: String) -> [Video] {
