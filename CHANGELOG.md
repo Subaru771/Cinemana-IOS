@@ -1,3 +1,11 @@
+## 1.0 — 2026-11-11
+- App version branded 1.0 (build 27) while preserving the existing iOS app identifier and saved data.
+- Native, language-specific Cinemana Hub startup card: compact iPhone portrait layout or wide iPad landscape layout.
+- Validated community intro and recap markers (provider IMDb ID required), including optional automatic skipping and manual on-screen controls.
+- Playback quality preference with HLS preferredMaximumResolution, global subtitle language, and next-episode stream prefetch.
+- Background URLSession download continuation toggle. iOS controls actual background scheduling.
+- Existing GitHub-based release checks remain independent of Telegram opt-out.
+
 ## v2.0.2-beta.1 — Series episodes, mature filter in player, iPad and branding fixes
 - Repair Series tab routing so a series opens the episode browser even if a provider response omits its kind.
 - Parse nested season/episode arrays; show real provider/network errors and explicit retry instead of playing the series root.
