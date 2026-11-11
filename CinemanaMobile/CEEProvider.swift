@@ -253,3 +253,17 @@ struct CEEVideoDetail: View {
         .fullScreenCover(isPresented:$showPlayer) { CEEWebsiteView(startVideo:video) }
     }
 }
+
+/// Switch destinations without changing any of the original Cinemana navigation,
+/// poster cards, saved list, or tab structure.
+struct CEEDestination: View {
+    let video: Video
+    var seriesContext: Bool = false
+    @ViewBuilder var body: some View {
+        if video.id.hasPrefix("cee:") {
+            CEEVideoDetail(video: video)
+        } else {
+            MovieDetailView(video: video, seriesContext: seriesContext)
+        }
+    }
+}
