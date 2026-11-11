@@ -161,6 +161,36 @@ struct CatalogView: View {
         guard !library.snapshot.favorites.isEmpty || !library.snapshot.recent.isEmpty else { return [] }
         return library.recommendations(from: all)
     }
+    private var discoveryRows: [CatalogRow] {
+        var seen = Set<String>()
+        let videos = visibleRows.flatMap(\.videos).filter { seen.insert($0.id).inserted }
+            .filter { kind == 1 ? !$0.isSeries : kind == 2 ? $0.isSeries : true }
+        let latest = videos.sorted { (Int($0.year) ?? 0) > (Int($1.year) ?? 0) }
+        let rated = videos.filter { $0.rating != nil }.sorted { ($0.rating ?? 0) > ($1.rating ?? 0) }
+        var groups: [(String, [Video])] = [
+            ("Recently Released", Array(latest.filter { (Int($0.year) ?? 0) >= 2024 }.prefix(20))),
+            ("Top Rated", Array(rated.filter { ($0.rating ?? 0) >= 7 }.prefix(20)))
+        ]
+        let genres: [(String, [String])] = [
+            ("Action & Adventure", ["Action", "Adventure"]),
+            ("Comedy", ["Comedy"]),
+            ("Crime & Mystery", ["Crime", "Mystery"]),
+            ("Drama", ["Drama"]),
+            ("Sci-Fi & Fantasy", ["Science Fiction", "Sci-Fi", "Fantasy"]),
+            ("Horror & Thriller", ["Horror", "Thriller"]),
+            ("Animation & Family", ["Animation", "Family", "Kids"]),
+            ("Documentaries", ["Documentary"])
+        ]
+        for (title, tags) in genres {
+            let matches = videos.filter { video in
+                video.genres.contains { genre in tags.contains { $0.caseInsensitiveCompare(genre) == .orderedSame } }
+            }
+            groups.append((title, Array(matches.prefix(20))))
+        }
+        return groups.compactMap { title, items in
+            items.count >= 3 ? CatalogRow(title: title, videos: items) : nil
+        }
+    }
     private var isPad: Bool { UIDevice.current.userInterfaceIdiom == .pad }
 
     var body: some View {
@@ -215,7 +245,7 @@ struct CatalogView: View {
                             }
                         }
                     }
-                    ForEach(visibleRows.filter { row in
+                    ForEach((visibleRows + discoveryRows).filter { row in
                         let name = row.title.lowercased()
                         if kind == nil && !showTrending && name.contains("trending") { return false }
                         if kind == nil && !showNew && name.contains("new") { return false }
