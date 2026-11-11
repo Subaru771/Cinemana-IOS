@@ -2,7 +2,7 @@ name: Cinemana iOS — unsigned build
 on:
   workflow_dispatch:
   push:
-    branches: [main, ios-v1.0-feature-parity]
+    branches: [main]
     paths:
       - 'CinemanaMobile/**'
       - 'project.yml'
@@ -112,3 +112,51 @@ jobs:
               --notes "Unsigned Cinemana iOS IPA built from main. Source commit: ${GITHUB_SHA}. Sign with SideStore before installing." \
               --prerelease --latest=false
           fi
+
+      - name: Publish numbered Cinemana iOS v1.0 release
+        if: github.ref == 'refs/heads/main'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          TAG=cinemana-ios-v1.0
+          IPA=dist/Cinemana-iOS-v1.0-Unsigned.ipa
+          CHECKSUM=dist/SHA256SUMS.txt
+          test -s "$IPA"
+          test -s "$CHECKSUM"
+          if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "Numbered release already exists; refusing to replace it silently."
+            exit 1
+          fi
+          cat > /tmp/cinemana-v1.0-notes.md <<'RELEASE_NOTES'
+          # Cinemana iOS v1.0 — Build 27
+
+          New in this iOS release:
+          - English/Arabic Cinemana Hub Telegram invitation with compact iPhone portrait and wide iPad landscape layouts.
+          - Separate new-update prompt; dismissing the Telegram card never disables update checks.
+          - Community intro/recap markers, using verified IMDb IDs and timecode validation, with optional automatic skipping.
+          - Global playback quality preference and preferred Arabic/English subtitle selection.
+          - Next-episode stream prefetch and configurable continued background downloads.
+
+          Community marker coverage depends on the availability and accuracy of public timestamps.
+          For adaptive HLS, the chosen quality ceiling is a preference, not a guaranteed hard cap.
+          iOS controls when background transfers run. iPhone/iPad device playback QA is still required.
+
+          ## Install
+          Download the **unsigned IPA**, then sign/install with SideStore or another compatible sideloading tool.
+          Regular signature refreshing is still necessary.
+
+          ## العربية
+          نسخة سينمانا للآيفون والآيباد 1.0 (البناء 27)، مع بطاقات تلغرام بلغتين،
+          وخيارات تخطي المقدمة والملخص، والجودة والترجمة، وتحميل الحلقة التالية مسبقاً،
+          والتنزيل بالخلفية حسب قيود iOS.
+
+          هذا ملف IPA غير موقّع ويتطلب التوقيع والتجديد عبر SideStore أو أداة مناسبة.
+          RELEASE_NOTES
+          printf '\nSource commit: %s\n' "$GITHUB_SHA" >> /tmp/cinemana-v1.0-notes.md
+          gh release create "$TAG" "$IPA" "$CHECKSUM" \
+            --repo "$GITHUB_REPOSITORY" \
+            --target "$GITHUB_SHA" \
+            --title "Cinemana iOS v1.0 (Build 27) — Unsigned" \
+            --notes-file /tmp/cinemana-v1.0-notes.md \
+            --latest
