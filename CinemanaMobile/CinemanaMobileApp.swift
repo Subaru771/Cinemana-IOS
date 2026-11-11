@@ -617,9 +617,10 @@ struct FeaturedPoster: View {
                         if value.id == video.id &&
                            (value.kind.isEmpty || value.kind == video.kind) {
                             detail = value
+                            episodes = episodes.map { $0.inheritingIMDb(value.imdbID ?? video.imdbID) }
                         }
                     case .episodes(.ready(let list)):
-                        episodes = list
+                        episodes = list.map { $0.inheritingIMDb((detail ?? video).imdbID) }
                         episodeError = nil
                         selectedSeason = list.first?.season ?? 1
                         loadingEpisodes = false
@@ -646,7 +647,7 @@ struct FeaturedPoster: View {
         do {
             let list = try await CinemanaAPI.shared.episodesDetailed(video.id)
             if !Task.isCancelled {
-                episodes = list
+                episodes = list.map { $0.inheritingIMDb((detail ?? video).imdbID) }
                 selectedSeason = list.first?.season ?? 1
             }
         } catch {
