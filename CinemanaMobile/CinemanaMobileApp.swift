@@ -14,7 +14,6 @@ final class CinemanaAppDelegate: NSObject, UIApplicationDelegate {
     }
 }
 
-@main
 struct CinemanaMobileApp: App {
     @UIApplicationDelegateAdaptor(CinemanaAppDelegate.self) private var appDelegate
     @StateObject private var library = LibraryStore()
