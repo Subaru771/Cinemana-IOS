@@ -10,6 +10,18 @@ enum PlaybackPlanner {
             ?? playable.min(by: { $0.quality < $1.quality })
     }
 
+    /// Explicit qualities never exceed the cap. For HLS Auto, the player also applies
+    /// a preferredMaximumResolution limit. If no stream fits, report unavailable.
+    static func globalPreferred(from streams: [Stream], cap: Int) -> Stream? {
+        if cap == 0 { return adaptivePreferred(from: streams) }
+        let playable = streams.filter(\.playableOnIOS)
+        if let chosen = playable.filter({ $0.quality > 0 && $0.quality <= cap })
+            .max(by: { $0.quality < $1.quality }) { return chosen }
+        return playable.first(where: {
+            $0.quality == 0 && $0.url.pathExtension.lowercased() == "m3u8"
+        })
+    }
+
     /// Prefer a genuine HLS master with adaptive bitrate, not an unknown progressive file.
     static func adaptivePreferred(from streams: [Stream]) -> Stream? {
         streams.first { $0.playableOnIOS && $0.quality == 0 &&
