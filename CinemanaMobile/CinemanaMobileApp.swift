@@ -1280,10 +1280,10 @@ struct AboutView: View {
                 Picker(CinemanaLocale.isArabic ? "الحد الأقصى لجودة التشغيل" : "Playback quality limit",
                        selection: $qualityCap) {
                     Text("Auto").tag(0)
-                    Text("4K").tag(2160)
-                    Text("1080p").tag(1080)
-                    Text("720p").tag(720)
-                    Text("480p").tag(480)
+                    Text(verbatim: "4K").tag(2160)
+                    Text(verbatim: "1080p").tag(1080)
+                    Text(verbatim: "720p").tag(720)
+                    Text(verbatim: "480p").tag(480)
                 }
                 Picker(CinemanaLocale.isArabic ? "لغة الترجمة المفضلة" : "Preferred subtitle language",
                        selection: $subtitleLanguage) {
