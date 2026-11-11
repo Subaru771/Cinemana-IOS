@@ -3,7 +3,7 @@
 - Separate English and Arabic Telegram invitation cards on iPhone (portrait) and iPad (landscape layout); opt-out never disables independent new-release notifications.
 - Community intro/recap timecodes from SkipDB and TheIntroDB, only when the provider returns a valid IMDb ID and duration; confidence/duration checks avoid inventing skips.
 - Automatic intro/recap skipping when a validated eligible segment exists, plus manual on-screen skip buttons.
-- Global video quality ceiling (Auto, 4K, 1080p, 720p, 480p) including preferredMaximumResolution for HLS; an unavailable capped stream fails instead of silently exceeding the cap.
+- Global playback quality preference (Auto, 4K, 1080p, 720p, 480p): explicit sources over the limit are rejected, while HLS adaptive masters receive Apple's preferredMaximumResolution hint (not a guaranteed hard HLS limit).
 - Preferred Arabic/English/Auto/Off subtitles, checking provider and built-in tracks.
 - Next-episode metadata preloading near the end of an episode; this speeds URL resolution, **not full video segment prebuffering**.
 - Continue/stop native iOS URLSession background downloads via Settings. iOS schedules transfers; there is no promise of unrestricted background activity.
