@@ -2,7 +2,7 @@ name: Cinemana iOS — unsigned build
 on:
   workflow_dispatch:
   push:
-    branches: [main]
+    branches: [main, ios-v1.0-feature-parity]
     paths:
       - 'CinemanaMobile/**'
       - 'project.yml'
@@ -12,7 +12,7 @@ on:
 permissions:
   contents: write
 concurrency:
-  group: cinemana-ios-latest-main
+  group: cinemana-ios-${{ github.ref_name }}
   cancel-in-progress: true
 jobs:
   build:
@@ -91,6 +91,7 @@ jobs:
           if-no-files-found: error
           retention-days: 3
       - name: Publish direct-download IPA on GitHub Releases
+        if: github.ref == 'refs/heads/main'
         continue-on-error: true
         env:
           GH_TOKEN: ${{ github.token }}
