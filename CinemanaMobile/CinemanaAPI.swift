@@ -172,6 +172,7 @@ struct CinemanaAPI: Sendable {
             "episodeNummer": String(video.episode), "categories": video.genres]
         if let rating = video.ageRating { fields["ageRating"] = rating }
         if let adult = video.adultFlag { fields["adult"] = adult }
+        if let imdb = video.imdbID { fields["imdb_id"] = imdb }
         return fields
     }
 
@@ -193,16 +194,20 @@ struct CinemanaAPI: Sendable {
             if let string = input as? String { return Int(string) }
             return nil
         }
-        func walk(_ entry: Any, season: Int, episodeIndex: Int?, insideList: Bool, depth: Int) {
+        func walk(_ entry: Any, season: Int, episodeIndex: Int?, insideList: Bool,
+                  depth: Int, inheritedIMDb: String?) {
             guard depth <= 10, found.count < 1500 else { return }
             if let items = entry as? [Any] {
                 for (index, child) in items.enumerated() {
                     walk(child, season: season, episodeIndex: index + 1,
-                         insideList: insideList, depth: depth + 1)
+                         insideList: insideList, depth: depth + 1, inheritedIMDb: inheritedIMDb)
                 }
                 return
             }
             guard let object = entry as? [String: Any] else { return }
+            let ownIMDb = ["imdb_id", "imdbId", "imdbID", "imdb", "imdb_code"]
+                .compactMap { object[$0] as? String }.first
+            let currentIMDb = ownIMDb ?? inheritedIMDb
             let seasonNumber = numeric(object["seasonNumber"]) ?? numeric(object["season_number"])
                 ?? numeric(object["seasonNummer"]) ?? numeric(object["seasonNb"])
                 ?? numeric(object["season"]) ?? season
@@ -220,6 +225,7 @@ struct CinemanaAPI: Sendable {
                 fields["episodeNummer"] = ordinal
                 fields["season"] = seasonNumber
                 fields["kind"] = "2"
+                if fields["imdb_id"] == nil, let currentIMDb { fields["imdb_id"] = currentIMDb }
                 if let video = Video(json: fields),
                    (video.id != seriesID || episodeIndex != nil),
                    seen.insert(video.id).inserted { found.append(video) }
@@ -228,10 +234,11 @@ struct CinemanaAPI: Sendable {
                 guard let child = object[key] else { continue }
                 let isEpisodeList = ["episodes", "episodeList", "videos", "videoList", "items"].contains(key)
                 walk(child, season: seasonNumber, episodeIndex: nil,
-                     insideList: isEpisodeList, depth: depth + 1)
+                     insideList: isEpisodeList, depth: depth + 1, inheritedIMDb: currentIMDb)
             }
         }
-        walk(raw, season: 1, episodeIndex: nil, insideList: true, depth: 0)
+        walk(raw, season: 1, episodeIndex: nil, insideList: true, depth: 0,
+             inheritedIMDb: nil)
         return found.sorted { ($0.season, $0.episode, $0.id) < ($1.season, $1.episode, $1.id) }
     }
 
