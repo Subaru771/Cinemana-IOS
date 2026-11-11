@@ -1,7 +1,7 @@
 name: Cinemana CEE Android TV APK
 on:
   push:
-    branches: [cee-ios-v0.1.0]
+    branches: [cee-ios-v0.2.0]
     paths:
       - 'cee-android/**'
       - '.github/workflows/android-cee.yml'
@@ -36,15 +36,15 @@ jobs:
         run: |
           set -eux
           mkdir -p dist
-          cp cee-android/app/build/outputs/apk/debug/app-debug.apk dist/Cinemana-CEE-TV-v0.1.0-Test-Signed.apk
-          test -s dist/Cinemana-CEE-TV-v0.1.0-Test-Signed.apk
-          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose dist/Cinemana-CEE-TV-v0.1.0-Test-Signed.apk
-          (cd dist && sha256sum Cinemana-CEE-TV-v0.1.0-Test-Signed.apk > SHA256SUMS.txt)
+          cp cee-android/app/build/outputs/apk/debug/app-debug.apk dist/Cinemana-CEE-TV-v0.2.0-Test-Signed.apk
+          test -s dist/Cinemana-CEE-TV-v0.2.0-Test-Signed.apk
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose dist/Cinemana-CEE-TV-v0.2.0-Test-Signed.apk
+          (cd dist && sha256sum Cinemana-CEE-TV-v0.2.0-Test-Signed.apk > SHA256SUMS.txt)
       - uses: actions/upload-artifact@v4
         with:
-          name: Cinemana-CEE-TV-v0.1.0-Test-Signed-APK
+          name: Cinemana-CEE-TV-v0.2.0-Test-Signed-APK
           path: |
-            dist/Cinemana-CEE-TV-v0.1.0-Test-Signed.apk
+            dist/Cinemana-CEE-TV-v0.2.0-Test-Signed.apk
             dist/SHA256SUMS.txt
           if-no-files-found: error
           retention-days: 30
@@ -53,11 +53,11 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          TAG=cinemana-cee-tv-v0.1.0-test
-          APK=dist/Cinemana-CEE-TV-v0.1.0-Test-Signed.apk
+          TAG=cinemana-cee-tv-v0.2.0-test
+          APK=dist/Cinemana-CEE-TV-v0.2.0-Test-Signed.apk
           SHA=dist/SHA256SUMS.txt
           if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
             gh release upload "$TAG" "$APK" "$SHA" --repo "$GITHUB_REPOSITORY" --clobber
           else
-            gh release create "$TAG" "$APK" "$SHA" --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --title "Cinemana CEE Android TV v0.1.0 — Test APK" --notes "Separate experimental CEE edition. Web player fallback; native poster grid is website-dependent. TEST/DEBUG-SIGNED APK, NOT a production release. The original CinemanaTV app is unaffected." --prerelease --latest=false
+            gh release create "$TAG" "$APK" "$SHA" --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --title "Cinemana CEE Android TV v0.2.0 — Test APK" --notes "Separate experimental CEE edition. Web player fallback; native poster grid is website-dependent. TEST/DEBUG-SIGNED APK, NOT a production release. The original CinemanaTV app is unaffected." --prerelease --latest=false
           fi
