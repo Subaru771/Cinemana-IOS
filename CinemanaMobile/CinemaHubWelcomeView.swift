@@ -29,7 +29,7 @@ struct CinemaHubWelcomeView: View {
                     VStack(spacing: 0) {
                         Spacer(minLength: 16)
                         Group {
-                            if isPad && geometry.size.width >= 710 {
+                            if isPad && geometry.size.width > geometry.size.height && geometry.size.width >= 710 {
                                 landscapeCard
                                     .frame(maxWidth: 1040)
                             } else {
