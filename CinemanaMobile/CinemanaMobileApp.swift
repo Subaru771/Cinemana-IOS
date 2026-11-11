@@ -14,6 +14,7 @@ final class CinemanaAppDelegate: NSObject, UIApplicationDelegate {
     }
 }
 
+@main
 struct CinemanaMobileApp: App {
     @UIApplicationDelegateAdaptor(CinemanaAppDelegate.self) private var appDelegate
     @StateObject private var library = LibraryStore()
@@ -86,26 +87,20 @@ struct CinemanaMobileApp: App {
                 try? await Task.sleep(for: .milliseconds(560))
                 guard !Task.isCancelled else { return }
                 withAnimation(.easeOut(duration: 0.18)) { showBrandSplash = false }
-                if !telegramHidden {
-                    showTelegramPrompt = true
-                }
-                await releaseMonitor.refresh()
-                announceUpdateIfNeeded()
+                // The CEE edition must not offer the original Cinemana update feed.
+                CEESite.shared.start()
             }
             .onChange(of: scenePhase) { phase in
                 if phase == .background { DownloadCenter.shared.setForeground(false) }
                 if phase == .active {
                     DownloadCenter.shared.setForeground(true)
                     Task {
-                        await releaseMonitor.refresh()
-                        announceUpdateIfNeeded()
+                        CEESite.shared.scan()
                     }
                 }
             }
-            .onChange(of: releaseMonitor.latestRevision) { _ in announceUpdateIfNeeded() }
-            .onChange(of: showTelegramPrompt) { showing in
-                if !showing { announceUpdateIfNeeded() }
-            }
+            // Provider-specific release notifications are not configured for this fork.
+            // Cinemana Hub promotion does not apply to the separate CEE edition.
             .overlay {
                 if showTelegramPrompt && !showBrandSplash {
                     CinemaHubWelcomeView {
@@ -115,7 +110,7 @@ struct CinemanaMobileApp: App {
                     .zIndex(2)
                 }
             }
-            .alert("New update available", isPresented: $showUpdatePrompt) {
+            .alert("New update available", isPresented: .constant(false)) {
                 Button("Download IPA") {
                     if let url = releaseMonitor.downloadURL { UIApplication.shared.open(url) }
                 }
@@ -125,6 +120,7 @@ struct CinemanaMobileApp: App {
             }
             .tint(mint)
             .preferredColorScheme(.dark)
+            .background { CEESharedBrowser(site: CEESite.shared).opacity(0.01) }
         }
     }
 
@@ -146,6 +142,7 @@ struct CatalogView: View {
     @State private var error: String?
     @EnvironmentObject private var library: LibraryStore
     @EnvironmentObject private var startup: CinemanaStartupState
+    @State private var showCEEWebsite = false
     @AppStorage("cinemana-home-featured") private var showFeatured = true
     @AppStorage("cinemana-home-for-you") private var showForYou = true
     @AppStorage("cinemana-home-trending") private var showTrending = true
@@ -254,6 +251,10 @@ struct CatalogView: View {
                         CinemanaLogo(compact: true)
                     }
                     ToolbarItem(placement: .topBarTrailing) {
+                        Button { showCEEWebsite = true } label: { Image(systemName: "globe") }
+                            .accessibilityLabel("CEE Website")
+                    }
+                    ToolbarItem(placement: .topBarTrailing) {
                         NavigationLink {
                             AboutView()
                         } label: {
@@ -264,11 +265,12 @@ struct CatalogView: View {
                 }
             }
             .navigationDestination(for: Video.self) { selected in
-                MovieDetailView(video: selected, seriesContext: kind == 2 ||
+                CEEDestination(video: selected, seriesContext: kind == 2 ||
                     (kind == nil && rows.contains { row in
                         row.title.localizedCaseInsensitiveContains("Series") && row.videos.contains(where: { $0.id == selected.id })
                     }))
             }
+            .sheet(isPresented: $showCEEWebsite) { CEEWebsiteView() }
             .refreshable { await refresh() }
             .task(id: kind) {
                 if rows.isEmpty, let cached = await CatalogCache.shared.read(kind: kind) {
@@ -583,7 +585,7 @@ struct FeaturedPoster: View {
         .frame(maxWidth: UIDevice.current.userInterfaceIdiom == .pad ? 1000 : .infinity)
         .frame(maxWidth: .infinity)
         .navigationBarTitleDisplayMode(.inline)
-        .navigationDestination(for: Video.self) { MovieDetailView(video: $0) }
+        .navigationDestination(for: Video.self) { CEEDestination(video: $0) }
         .fullScreenCover(item: $watch) { CinemaPlayerScreen(video: $0, playlist: episodes) }
 
         .task(id: video.id) {
@@ -784,7 +786,7 @@ struct SearchCatalogView: View {
             }
             .background(ink)
             .navigationTitle("Search")
-            .navigationDestination(for: Video.self) { MovieDetailView(video: $0) }
+            .navigationDestination(for: Video.self) { CEEDestination(video: $0) }
             .task(id: query) {
                 let submitted = query.trimmingCharacters(in: .whitespacesAndNewlines)
                 guard submitted.count >= 2 else {
@@ -1171,7 +1173,7 @@ struct LibraryView: View {
             .background(ink)
             .navigationTitle("My List")
             .toolbar { NavigationLink { AboutView() } label: { Image(systemName: "gearshape") } }
-            .navigationDestination(for: Video.self) { MovieDetailView(video: $0) }
+            .navigationDestination(for: Video.self) { CEEDestination(video: $0) }
         }
     }
 
