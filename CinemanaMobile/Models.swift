@@ -67,7 +67,7 @@ struct Video: Identifiable, Hashable, Codable, Sendable {
     /// Provider-supplied adult content flag, if present.
     let adultFlag: Bool?
     /// Provider IMDb identifier, when available; never inferred from the title.
-    let imdbID: String?
+    var imdbID: String?
     let season: Int
     let episode: Int
 
@@ -85,6 +85,17 @@ struct Video: Identifiable, Hashable, Codable, Sendable {
             return arabicOverview
         }
         return overview
+    }
+
+    /// Series detail may supply the IMDb ID while episode rows omit it.
+    /// Only inherit an explicitly validated identifier, never search by title.
+    func inheritingIMDb(_ identifier: String?) -> Video {
+        guard imdbID == nil, let identifier,
+              identifier.range(of: #"^tt[0-9]{7,10}$"#,
+                               options: .regularExpression) != nil else { return self }
+        var copy = self
+        copy.imdbID = identifier.lowercased()
+        return copy
     }
 
     static func == (a: Video, b: Video) -> Bool { a.id == b.id }
