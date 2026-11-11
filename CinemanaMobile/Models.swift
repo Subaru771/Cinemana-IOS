@@ -66,6 +66,8 @@ struct Video: Identifiable, Hashable, Codable, Sendable {
     let ageRating: String?
     /// Provider-supplied adult content flag, if present.
     let adultFlag: Bool?
+    /// Provider IMDb identifier, when available; never inferred from the title.
+    let imdbID: String?
     let season: Int
     let episode: Int
 
@@ -143,6 +145,9 @@ struct Video: Identifiable, Hashable, Codable, Sendable {
                      "is_mature", "explicit", "isExplicit", "is_explicit", "pornographic"]
             .compactMap { adultValue(json[$0]) }
         self.adultFlag = flags.contains(true) ? true : flags.first
+        let imdb = s("imdb_id", "imdbId", "imdbID", "imdb", "imdb_code")
+        self.imdbID = imdb.range(of: #"^tt[0-9]{7,10}$"#, options: .regularExpression) != nil
+            ? imdb.lowercased() : nil
     }
 }
 
