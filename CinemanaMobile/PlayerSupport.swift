@@ -60,17 +60,45 @@ final class SubtitleController: ObservableObject {
                 available = [Subtitle(name: "Saved offline subtitles", url: cached)]
             }
         }
-        // Show a stored local subtitle immediately; don't wait for provider/network calls.
-        if let local = available.first { await select(local, remember: false) }
+        let preferredLanguage = UserDefaults.standard.string(forKey: "cinemana-subtitle-language") ?? "auto"
+        // Off prevents every local and provider subtitle from auto-activating.
+        if preferredLanguage != "off", let local = available.first {
+            await select(local, remember: false)
+        }
         let found = await CinemanaAPI.shared.subtitles(id)
         guard videoID == id else { return }
         available = available + found.filter { subtitle in
             !available.contains(where: { $0.id == subtitle.id })
         }
-        let preferred = UserDefaults.standard.string(forKey: Self.preferenceKey) ?? ""
-        if !preferred.isEmpty, let match = available.first(where: { $0.name == preferred }) {
-            await select(match, remember: false)
+        guard preferredLanguage != "off" else {
+            await select(nil, remember: false)
+            return
         }
+        if preferredLanguage == "ar" || preferredLanguage == "en" {
+            if let match = available.first(where: {
+                Self.matchesLanguage($0.name, preferredLanguage)
+            }) {
+                await select(match, remember: false)
+            }
+        } else {
+            let preferred = UserDefaults.standard.string(forKey: Self.preferenceKey) ?? ""
+            if !preferred.isEmpty, let match = available.first(where: { $0.name == preferred }) {
+                await select(match, remember: false)
+            }
+        }
+    }
+
+    static func matchesLanguage(_ name: String, _ language: String) -> Bool {
+        let text = name.lowercased().trimmingCharacters(in: .whitespacesAndNewlines)
+        if language == "ar" {
+            return text.contains("arab") || text.contains("العرب") ||
+                text == "ar" || text.hasPrefix("ar-") || text.contains("(ar)")
+        }
+        if language == "en" {
+            return text.contains("english") || text == "en" ||
+                text.hasPrefix("en-") || text.contains("(en)")
+        }
+        return false
     }
 
     func importFile(_ externalURL: URL) async {
