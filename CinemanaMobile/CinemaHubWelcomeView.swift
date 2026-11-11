@@ -82,9 +82,16 @@ struct CinemaHubWelcomeView: View {
                 .multilineTextAlignment(.center)
                 .padding(.top, 7)
 
+            HStack(spacing: 6) {
+                feature("bell", arabic ? "تنبيهات التحديث" : "Updates")
+                feature("star", arabic ? "ميزات جديدة" : "New Features")
+                feature("megaphone", arabic ? "أخبار التطبيق" : "App News")
+            }
+            .padding(.top, 16)
+
             qrCode
-                .padding(.top, 23)
-                .padding(.bottom, 23)
+                .padding(.top, 16)
+                .padding(.bottom, 16)
 
             Button {
                 openURL(channel)
