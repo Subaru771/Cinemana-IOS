@@ -16,6 +16,7 @@ struct CinemaHubWelcomeView: View {
 
     private let channel = URL(string: "https://t.me/CinemanaHub")!
     private var arabic: Bool { CinemanaLocale.isArabic }
+    private var isPad: Bool { UIDevice.current.userInterfaceIdiom == .pad }
 
     var body: some View {
         GeometryReader { geometry in
@@ -27,9 +28,16 @@ struct CinemaHubWelcomeView: View {
                 ScrollView(showsIndicators: false) {
                     VStack(spacing: 0) {
                         Spacer(minLength: 16)
-                        card
-                            .frame(maxWidth: 405)
-                            .padding(.horizontal, 18)
+                        Group {
+                            if isPad && geometry.size.width >= 710 {
+                                landscapeCard
+                                    .frame(maxWidth: 1040)
+                            } else {
+                                card
+                                    .frame(maxWidth: 405)
+                            }
+                        }
+                        .padding(.horizontal, isPad ? 30 : 18)
                         Spacer(minLength: 16)
                     }
                     .frame(minHeight: geometry.size.height)
@@ -171,6 +179,125 @@ struct CinemaHubWelcomeView: View {
         }
         .clipShape(RoundedRectangle(cornerRadius: 26))
         .shadow(color: .black.opacity(0.55), radius: 25, y: 14)
+    }
+
+    /// Dedicated landscape layout for iPad. Phone uses the compact portrait card.
+    /// Both select their own English/Arabic copy from the app language setting.
+    private var landscapeCard: some View {
+        HStack(alignment: .center, spacing: 34) {
+            VStack(spacing: 12) {
+                brand
+                Text("Cinemana")
+                    .font(.system(size: 26, weight: .heavy, design: .rounded))
+                qrCode
+                    .padding(.top, 5)
+                Text("t.me/CinemanaHub")
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(.white.opacity(0.8))
+            }
+            .frame(maxWidth: .infinity)
+
+            VStack(alignment: .leading, spacing: 16) {
+                HStack {
+                    Text(arabic ? "انضم إلى قناتنا على تيليگرام" : "Join Our Telegram Channel")
+                        .font(.system(size: 32, weight: .bold, design: .rounded))
+                        .minimumScaleFactor(0.78)
+                        .lineLimit(2)
+                    Spacer()
+                    Button(action: finish) {
+                        Image(systemName: "xmark")
+                            .font(.headline)
+                            .frame(width: 42, height: 42)
+                            .background(.white.opacity(0.1), in: Circle())
+                    }
+                    .accessibilityLabel(arabic ? "إغلاق" : "Close")
+                }
+                Text(arabic
+                     ? "تابع آخر التحديثات والإصدارات الجديدة والأخبار المهمة لتطبيق سينمانا."
+                     : "Get the latest updates, new releases, and important news about Cinemana.")
+                    .font(.body)
+                    .foregroundStyle(.white.opacity(0.78))
+                    .fixedSize(horizontal: false, vertical: true)
+
+                HStack(spacing: 9) {
+                    feature("bell", arabic ? "تنبيهات التحديث" : "Updates")
+                    feature("star", arabic ? "ميزات جديدة" : "New Features")
+                    feature("megaphone", arabic ? "أخبار التطبيق" : "App News")
+                }
+                .padding(.vertical, 9)
+
+                Button {
+                    openURL(channel)
+                    finish()
+                } label: {
+                    Label(arabic ? "الانضمام إلى القناة" : "Join the Channel",
+                          systemImage: "paperplane.fill")
+                        .frame(maxWidth: .infinity, minHeight: 54)
+                        .font(.headline)
+                        .foregroundStyle(.white)
+                        .background(hubRed, in: RoundedRectangle(cornerRadius: 14))
+                }
+                .buttonStyle(.plain)
+                .accessibilityIdentifier("cinemana-hub-join")
+
+                Button(action: finish) {
+                    Text(arabic ? "ليس الآن" : "Not Now")
+                        .font(.headline)
+                        .frame(maxWidth: .infinity, minHeight: 48)
+                        .background(.white.opacity(0.09), in: RoundedRectangle(cornerRadius: 14))
+                        .overlay {
+                            RoundedRectangle(cornerRadius: 14)
+                                .strokeBorder(.white.opacity(0.14), lineWidth: 1)
+                        }
+                }
+                .buttonStyle(.plain)
+
+                Button { dontShowAgain.toggle() } label: {
+                    HStack(spacing: 10) {
+                        Image(systemName: dontShowAgain ? "checkmark.square.fill" : "square")
+                            .foregroundStyle(dontShowAgain ? hubRed : .white)
+                        Text(arabic ? "عدم إظهار هذه الرسالة مرة أخرى"
+                                    : "Don't show this again")
+                            .font(.subheadline)
+                    }
+                }
+                .buttonStyle(.plain)
+                .accessibilityIdentifier("cinemana-hub-opt-out")
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .foregroundStyle(.white)
+        .padding(32)
+        .background {
+            RoundedRectangle(cornerRadius: 26)
+                .fill(LinearGradient(colors: [
+                    Color(red: 0.30, green: 0.04, blue: 0.13),
+                    hubDark,
+                    Color(red: 0.12, green: 0.03, blue: 0.07)
+                ], startPoint: .topLeading, endPoint: .bottomTrailing))
+                .overlay {
+                    RoundedRectangle(cornerRadius: 26)
+                        .strokeBorder(hubRed.opacity(0.42), lineWidth: 1)
+                }
+        }
+        .clipShape(RoundedRectangle(cornerRadius: 26))
+        .shadow(color: .black.opacity(0.55), radius: 28, y: 14)
+    }
+
+    private func feature(_ symbol: String, _ title: String) -> some View {
+        VStack(spacing: 7) {
+            Image(systemName: symbol)
+                .font(.title2)
+                .foregroundStyle(hubRed)
+            Text(title)
+                .font(.caption.weight(.semibold))
+                .multilineTextAlignment(.center)
+                .lineLimit(2)
+                .minimumScaleFactor(0.75)
+        }
+        .frame(maxWidth: .infinity, minHeight: 75)
+        .padding(6)
+        .background(.white.opacity(0.045), in: RoundedRectangle(cornerRadius: 10))
     }
 
     private var brand: some View {
