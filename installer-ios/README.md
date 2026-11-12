@@ -1,4 +1,4 @@
-# Cinemana Installer — simplified phone setup (experimental)
+# Cinemana Installer — one-action native setup (source-only experiment)
 
 Start with [the short iPhone guide](PHONE-SETUP.md).
 
@@ -6,13 +6,15 @@ The updated flow is **get two App Store apps + one artifact ZIP → paste one co
 
 The bootstrap validates the installer bundle, handles the Actions ZIP directly, checks supplied checksums, verifies pinned signing scripts, caches preparation, and builds the signer without a second confirmation. It does not change the upstream Apple authentication, provisioning or certificate-revocation decisions.
 
-The native screen opens account settings directly, can continue after SideStore succeeds, and links to SideStore for its mandatory first refresh. The adaptation now keeps `DeepLink.scheme` consistent with the registered `cinemanasetup` scheme so LocalDevVPN and SideStore callbacks return to this app.
+The native screen now defaults to **Install Cinemana** only. It automatically retrieves and verifies the release IPA, imports it into SideInstaller's existing signing engine, enables automatic LocalDevVPN handoff, and uses the upstream engine's self-pairing (on iOS 27+), Apple sign-in, provisioning and installation flow. **Include SideStore** is an optional toggle for users who want the two-app sequence; a failed second install can retry without re-installing SideStore for the same account. iOS pairing approval, Developer Mode, Apple Account/2FA and trust remain user-controlled.
 
-**Still unverified:** iSH first signing/delivery on a physical iPhone, native 0.2 build until its CI completes, two-app device installation and automatic renewal. An unsigned artifact is not installable directly in Safari. iOS trust, authentication, Developer Mode, VPN and pairing approvals remain manual. No public unsigned installer release is assumed.
+The adaptation keeps `DeepLink.scheme` consistent with its registered `cinemanasetup` scheme so LocalDevVPN and SideStore callbacks return to this app.
+
+**Still unverified:** iSH first signing/delivery on a physical iPhone, native build until CI completes, direct Cinemana installation, optional two-app installation and automatic renewal. An unsigned artifact is not installable directly in Safari. iOS trust, authentication, Developer Mode, VPN and pairing approvals remain manual. No public unsigned installer release is assumed.
 
 ## Build and verification
 
-[Build workflow](../.github/workflows/cinemana-native-installer.yml) compiles the pinned upstream source as unsigned installer 0.2 and packages one flat Actions ZIP with the IPA, checksum, helper, guide and license. The phone file helper is covered by filesystem/ZIP/checksum regression tests. Run:
+[Build workflow](../.github/workflows/cinemana-native-installer.yml) compiles the pinned upstream source in CI to check that the source adaptation builds. Only a deliberate **manual workflow dispatch** packages an unsigned personal-testing Actions ZIP with the IPA, checksum, helper, guide and license; pull-request and push builds do not publish artifacts. The phone file helper is covered by filesystem/ZIP/checksum regression tests. Run:
 
 ```sh
 python3 -m unittest discover -s tests -p test_phone_setup.py -v
@@ -34,3 +36,7 @@ SideInstaller by FrizzleM is used under its noncommercial, attribution-required,
 - [ ] Changing account or removing SideStore prevents a stale checkpoint from skipping its installation.
 - [ ] Cinemana's catalog IPA is accessible and its size/hash verify before signing.
 - [ ] Renewal works through the free-account signing period.
+
+## Safety and distribution
+
+This is an **unmerged, source-only experiment**. SideInstaller's upstream license allows noncommercial modified-source redistribution with attribution, but restricts commercialization and redistribution of official binaries. Do **not** distribute a modified or re-signed SideInstaller IPA under the official name, or present unsigned Actions artifacts as a working public installation method. Before mass distribution, obtain written permission from FrizzleM and complete device testing. The code cannot silently install its own first app or bypass iOS approval dialogs.

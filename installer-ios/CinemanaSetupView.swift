@@ -10,13 +10,14 @@ struct CinemanaSetupView: View {
     @Environment(Engine.self) private var engine
     @Environment(\.openURL) private var openURL
     @AppStorage("cinemanaArabic") private var arabic = false
+    @AppStorage("cinemanaIncludeSideStore") private var includeSideStore = false
     private enum Phase: Equatable { case idle, sideStore, download, cinemana, done, failed }
     @State private var phase: Phase = .idle
     @State private var message = ""
     @AppStorage("cinemanaSideStoreCompletedAccount") private var completedAccount = ""
     @State private var showSettings = false
     @State private var continueAfterAccount = false
-    @State private var pendingCinemanaOnly = false
+    @State private var currentFlowIncludesSideStore = false
     @State private var runningAccountKey = ""
 
     private var accountKey: String {
@@ -49,19 +50,21 @@ struct CinemanaSetupView: View {
                     VStack(alignment: .leading, spacing: 10) {
                         Text(t("IPHONE INSTALLER", "التثبيت من الآيفون"))
                             .font(.caption.bold()).tracking(2).foregroundStyle(.mint)
-                        Text(t("SideStore + Cinemana", "سايدستور + سينمانا"))
+                        Text(t("Install Cinemana", "ثبّت سينمانا"))
                             .font(.system(size: 32, weight: .heavy, design: .rounded))
-                        Text(t("Sign and install both apps directly on your iPhone.",
-                               "وقّع وثبّت التطبيقين مباشرة من الآيفون."))
+                        Text(t("One action to download, verify, sign and install. We guide you through Apple’s required approvals.",
+                               "بخطوة واحدة: تنزيل وفحص وتوقيع وتثبيت سينمانا، مع إرشادك لتأكيدات Apple المطلوبة."))
                             .font(.subheadline).foregroundStyle(.white.opacity(0.75))
                     }
                     .foregroundStyle(.white)
                     VStack(alignment: .leading, spacing: 15) {
-                        step(1, "SideStore", phase == .sideStore,
-                             sideStoreReady || phase == .download || phase == .cinemana || phase == .done)
-                        Divider().overlay(.white.opacity(0.2))
-                        step(2, "Cinemana", phase == .download || phase == .cinemana,
-                             phase == .done)
+                        if includeSideStore {
+                            step(1, "SideStore", phase == .sideStore,
+                                 sideStoreReady || phase == .download || phase == .cinemana || phase == .done)
+                            Divider().overlay(.white.opacity(0.2))
+                        }
+                        step(includeSideStore ? 2 : 1, "Cinemana",
+                             phase == .download || phase == .cinemana, phase == .done)
                     }
                     .padding(20)
                     .background(.white.opacity(0.07), in: RoundedRectangle(cornerRadius: 18))
@@ -76,21 +79,28 @@ struct CinemanaSetupView: View {
                         Text(message).font(.subheadline)
                             .foregroundStyle(phase == .failed ? .orange : .green)
                     }
+                    Toggle(isOn: $includeSideStore) {
+                        VStack(alignment: .leading, spacing: 3) {
+                            Text(t("Also install SideStore", "ثبّت SideStore أيضًا"))
+                                .font(.subheadline.weight(.semibold))
+                            Text(t("Optional: helps manage self-refresh; requires extra setup.",
+                                   "اختياري للتجديد الذاتي، لكنه يحتاج خطوات إضافية."))
+                                .font(.caption).foregroundStyle(.white.opacity(0.65))
+                        }
+                    }
+                    .tint(.mint)
+                    .disabled(busy || engine.isRunning)
                     Button { beginSetup() } label: {
-                        Label(phase == .done ? t("Open SideStore to finish", "افتح سايدستور للإكمال") :
-                              sideStoreReady ? t("Continue with Cinemana", "تابع تثبيت سينمانا") :
-                              t("Start setup", "ابدأ الإعداد"),
+                        Label(phase == .done && currentFlowIncludesSideStore
+                                ? t("Open SideStore to finish", "افتح SideStore للإكمال")
+                                : includeSideStore
+                                    ? t("Set up SideStore + Cinemana", "إعداد SideStore وسينمانا")
+                                    : t("Install Cinemana", "تثبيت سينمانا"),
                               systemImage: "arrow.down.app.fill")
                             .frame(maxWidth: .infinity).padding(14).font(.headline)
                     }
                     .buttonStyle(.borderedProminent).tint(.mint)
                     .disabled(busy || engine.isRunning)
-                    Button { beginSetup(cinemanaOnly: true) } label: {
-                        Text(t("SideStore already installed? Install Cinemana only",
-                               "سايدستور موجود؟ ثبّت سينمانا فقط"))
-                            .frame(maxWidth: .infinity)
-                    }
-                    .buttonStyle(.bordered).disabled(busy || engine.isRunning)
                     Button(t("Account and settings", "الحساب والإعدادات")) { showSettings = true }
                         .buttonStyle(.borderless).disabled(busy || engine.isRunning)
                     Button {
@@ -99,12 +109,14 @@ struct CinemanaSetupView: View {
                         Label("LocalDevVPN", systemImage: "network.badge.shield.half.filled")
                     }
                     .buttonStyle(.borderless).foregroundStyle(.mint)
-                    Text(t("Requires iOS 27+, Wi-Fi, Developer Mode, LocalDevVPN and your own Apple Account. Free signatures expire after 7 days. This installer itself must be signed before iOS can run it.",
-                           "يتطلب iOS 27 أو أحدث وWi-Fi ونمط المطور وLocalDevVPN وحساب Apple. ينتهي التوقيع المجاني بعد 7 أيام. يجب توقيع أداة التثبيت نفسها أولاً."))
+                    Text(t("iOS 27+ can self-pair. Earlier supported iOS versions need a pairing file from a computer. The first installation of this installer requires a valid signature; it cannot install itself. Apple Account, Developer Mode and pairing approvals remain manual. Free-account signatures usually expire after 7 days.",
+                           "يمكن الإقران على iOS 27+ من نفس الهاتف. الإصدارات الأقدم المدعومة تحتاج ملف اقتران من كمبيوتر. أداة التثبيت نفسها تحتاج توقيعًا صالحًا ولا يمكنها تثبيت نفسها. تأكيدات Apple ونمط المطور والاقتران يدوية. ينتهي التوقيع المجاني عادةً خلال ٧ أيام."))
                         .font(.footnote).foregroundStyle(.white.opacity(0.7))
-                    Text(t("After installation, open SideStore and refresh it once.",
-                           "بعد التثبيت افتح سايدستور وجدّده مرة واحدة."))
-                        .font(.footnote).foregroundStyle(.white.opacity(0.7))
+                    if includeSideStore {
+                        Text(t("After setup, open SideStore and refresh it once. Do not assume renewal is automatic without testing.",
+                               "بعد الإعداد افتح SideStore وجدّده مرة واحدة. التجديد التلقائي يحتاج اختبارًا."))
+                            .font(.footnote).foregroundStyle(.white.opacity(0.7))
+                    }
                     Text("SideInstaller by FrizzleM · noncommercial source adaptation")
                         .font(.caption2).foregroundStyle(.white.opacity(0.5))
                 }
@@ -114,7 +126,7 @@ struct CinemanaSetupView: View {
         .sheet(isPresented: $showSettings, onDismiss: {
             guard continueAfterAccount else { return }
             continueAfterAccount = false
-            if accountReady { beginSetup(cinemanaOnly: pendingCinemanaOnly) }
+            if accountReady { beginSetup() }
             else { message = t("Add your Apple Account to continue.", "أضف حساب Apple للمتابعة.") }
         }) { SettingsView() }
         .onChange(of: engine.isRunning) { was, running in
@@ -132,20 +144,51 @@ struct CinemanaSetupView: View {
         }
     }
 
-    private func beginSetup(cinemanaOnly: Bool = false) {
+    private func beginSetup() {
         guard !busy && !engine.isRunning else { return }
-        if phase == .done && !cinemanaOnly {
+        if phase == .done && currentFlowIncludesSideStore {
             openURL(URL(string: "sidestore://")!)
             return
         }
+
+        // Let the upstream one-click engine handle the VPN, pairing,
+        // 2FA, signing and installation; never attempt to approve Apple prompts.
+        engine.refreshNetworkStatus()
+        guard engine.osSupported else {
+            fail(t("This iOS version is not supported by the signing engine.",
+                   "هذا الإصدار من iOS غير مدعوم من أداة التوقيع."))
+            return
+        }
+        guard engine.canSelfPair || engine.hasPairingFile else {
+            fail(t("This iOS version needs a pairing file created on a computer. iOS 27+ can pair on-device.",
+                   "هذا الإصدار يحتاج ملف اقتران من كمبيوتر. iOS 27+ يقدر يقترن من نفس الهاتف."))
+            return
+        }
+        if engine.needsFreshPairing && !engine.wifiConnected {
+            fail(t("Connect Wi-Fi to create a pairing file, then tap Install again.",
+                   "شغّل Wi-Fi لإنشاء ملف الاقتران، ثم حاول التثبيت مجددًا."))
+            return
+        }
+        if engine.needsFreshPairing && Engine.developerModeIsOn == false {
+            fail(t("Enable Developer Mode in iPhone Settings → Privacy & Security, restart if requested, then return here.",
+                   "فعّل نمط المطور من إعدادات الآيفون ← الخصوصية والأمان، وأعد التشغيل إذا طُلب منك."))
+            return
+        }
+        guard engine.vpnConnected || engine.localDevVPNInstalled else {
+            fail(t("Install LocalDevVPN using the link below, then return here.",
+                   "ثبّت LocalDevVPN من الرابط أدناه ثم ارجع هنا."))
+            return
+        }
         guard accountReady else {
-            pendingCinemanaOnly = cinemanaOnly
             continueAfterAccount = true
             showSettings = true
             return
         }
-        if cinemanaOnly || sideStoreReady { installCinemanaOnly() }
-        else { startBoth() }
+        // The engine can open LocalDevVPN automatically when a tunnel is needed.
+        engine.autoStartVPN = true
+        currentFlowIncludesSideStore = includeSideStore
+        if includeSideStore && !sideStoreReady { startBoth() }
+        else { installCinemanaOnly() }
     }
 
     private func startBoth() {
@@ -168,7 +211,7 @@ struct CinemanaSetupView: View {
     // SideInstaller may perform a short asynchronous network probe first.
     private func checkStart(_ expected: Phase) {
         Task { @MainActor in
-            try? await Task.sleep(for: .seconds(2))
+            try? await Task.sleep(for: .seconds(5))
             if phase == expected && !engine.isRunning {
                 fail(engine.lastError ?? t("Open the Install tab to complete account, pairing and VPN setup.",
                                           "افتح تبويب Install لإكمال إعداد الحساب والاقتران والـ VPN."))
@@ -196,8 +239,11 @@ struct CinemanaSetupView: View {
                 return
             }
             phase = .done
-            message = t("Both apps installed. Open SideStore and refresh it once. Renew signatures before seven days.",
-                        "تم تثبيت التطبيقين. افتح سايدستور وجدّده مرة واحدة. جدّد التوقيع قبل سبعة أيام.")
+            message = currentFlowIncludesSideStore
+                ? t("Both apps installed. Open SideStore and refresh it once. Renew signatures before seven days.",
+                    "تم تثبيت التطبيقين. افتح SideStore وجدّده مرة واحدة. جدّد التوقيع قبل سبعة أيام.")
+                : t("Cinemana installed. Keep this installer signed and renew Cinemana before seven days.",
+                    "تم تثبيت سينمانا. حافظ على توقيع أداة التثبيت وجدّد سينمانا قبل سبعة أيام.")
         default:
             break
         }
