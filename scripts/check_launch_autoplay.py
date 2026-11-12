@@ -26,7 +26,14 @@ assert 'if let target = playTarget { watch = target }' in app
 assert 'Button { watch = ep }' in app
 assert '.fullScreenCover(item: $watch) { CinemaPlayerScreen(video: $0, playlist: episodes) }' in app
 assert '.task(id: current.id) { await startPlayback() }' in player
-assert 'await session.load(video: current, library: library)' in player
+assert 'await session.load(video: current, library: library, prefetched: prefetched)' in player
+assert 'showsPlayerSettings' in player and '.popover(isPresented: $showsPlayerSettings)' in player
+assert 'playing && !isScrubbing && !showsPlayerSettings' in player
+assert 'PlayerOrientation.restoreAfterPlayer()' in player
+support = (root / 'CinemanaMobile/PlayerSupport.swift').read_text()
+assert 'supportedMask = mask' in support and 'requestGeometryUpdate' in support
+assert 'supportedInterfaceOrientationsFor window: UIWindow?' in app
 assert 'case .readyToPlay:' in app
 assert 'next.play()' in app
+assert 'Queue playback immediately' in app
 print('PASS: stable details-first navigation, parallel metadata, and reliable AVPlayer autostart')
