@@ -1,4 +1,4 @@
-# Cinemana Installer — shorter iPhone setup
+# Cinemana Installer — one-action flow (experimental)
 
 **Status:** preparation is automated; first installation through iSH is still experimental. The unsigned IPA cannot be installed by tapping it in Safari. No Apple credentials go into this guide, a website, or chat.
 
@@ -46,13 +46,15 @@ The local certificate adds trust to your phone. Only approve it if you trust the
 
 **If Safari rejects the app or iSH is suspended, this remains an unresolved phone-only bootstrap limitation. More automation cannot force iOS to accept it.**
 
-## 4. Tap Start setup in Cinemana Installer
+## 4. Tap Install Cinemana in the adapted app
 
-The updated installer opens account settings directly if needed. After you finish that screen, it continues with SideStore and then Cinemana, using the existing engine's automatic LocalDevVPN handoff where available. Approve VPN and pairing prompts when iOS shows them.
+The native screen defaults to **Install Cinemana**. It checks whether your iOS supports pairing, requests Wi-Fi for a first pairing, checks Developer Mode if readable, verifies LocalDevVPN is available, and opens the account Settings screen when needed. Then it automatically downloads the published Cinemana IPA, checks its size and SHA-256, and calls the original local one-click engine for on-device VPN handoff, pairing, Apple sign-in, provisioning, signing and installation.
 
-If SideStore succeeds but Cinemana fails, **Continue with Cinemana** skips reinstalling SideStore for the same account while SideStore is still present. **Install Cinemana only** remains available for an existing SideStore installation.
+You still approve pairing in iOS Settings, sign in with your own Apple Account, answer 2FA and trust the app when iOS requests it. The pairing code appears through SideInstaller's original pairing UI/notification fallback. **There is no silent iOS approval bypass.**
 
-When complete, tap **Open SideStore to finish**, sign in there using the same account if needed, and refresh SideStore once. Automatic renewal of Cinemana through SideStore remains unverified; free signing generally needs renewal before seven days.
+To install **SideStore + Cinemana**, enable the optional toggle *before* tapping the main button. The existing two-app pipeline runs SideStore first and Cinemana second, and skips a completed SideStore installation for the same account when it detects SideStore. Open SideStore and perform its first self-refresh afterward; that part remains unverified.
+
+**Critical:** This modified build itself is *not* the official SideInstaller. Its initial installation using iSH remains experimental, and the unsigned artifact cannot be installed simply by tapping Safari. For most users, the simpler supported option is to install the official SideInstaller from its official site and use Cinemana's direct installation link, without installing this modified app.
 
 ## What remains manual, and why
 
