@@ -9,6 +9,16 @@ struct CoreSmokeTests {
             "imgMediumThumbObjUrl": "https://example.org/poster.jpg"
         ]
         guard let movie = Video(json: raw) else { fatalError("Parsing failed") }
+        // Build numbers keep increasing even when the public app version resets.
+        precondition(CinemanaUpdateVersion.isNewer(installedBuild: "27", publishedBuild: "28"))
+        precondition(CinemanaUpdateVersion.isNewer(installedBuild: "26", publishedBuild: "28"))
+        precondition(!CinemanaUpdateVersion.isNewer(installedBuild: "28", publishedBuild: "28"))
+        precondition(!CinemanaUpdateVersion.isNewer(installedBuild: "28", publishedBuild: "27"))
+        precondition(!CinemanaUpdateVersion.isNewer(installedBuild: "invalid", publishedBuild: "28"))
+        precondition(CinemanaUpdateVersion.supports(
+            minimumOS: "16.0", systemOS: OperatingSystemVersion(majorVersion: 18, minorVersion: 0, patchVersion: 0)))
+        precondition(!CinemanaUpdateVersion.supports(
+            minimumOS: "27.0", systemOS: OperatingSystemVersion(majorVersion: 18, minorVersion: 0, patchVersion: 0)))
         precondition(movie.id == "123")
         precondition(movie.title == "A Test Film")
         precondition(movie.rating == 8.5)
