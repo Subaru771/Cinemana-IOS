@@ -91,7 +91,8 @@ jobs:
           set -euo pipefail
           bash upstream/scripts/build-ipa.sh
           shasum -a 256 "$OUTPUT" > "${OUTPUT}.sha256"
-      - name: Package the phone setup bundle
+      - name: Package the phone setup bundle (manual test only)
+        if: github.event_name == 'workflow_dispatch'
         shell: bash
         run: |
           set -euo pipefail
@@ -103,6 +104,7 @@ jobs:
           cp installer-ios/PHONE-SETUP.md "$setup/START-HERE.md"
           cp installer-ios/UPSTREAM-LICENSE.md "$setup/UPSTREAM-LICENSE.md"
       - name: Archive for personal device signing (not a signed public release)
+        if: github.event_name == 'workflow_dispatch'
         uses: actions/upload-artifact@v4
         with:
           name: Cinemana-Installer-UNSIGNED
