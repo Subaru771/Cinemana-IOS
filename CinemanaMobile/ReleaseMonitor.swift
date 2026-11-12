@@ -104,7 +104,7 @@ final class CinemanaReleaseMonitor: ObservableObject {
     }
 
     private static func validatedURL(for release: UpdateManifest) -> URL? {
-        guard release.version.range(of: #"^[0-9]+(?:\\.[0-9]+){0,3}$"#,
+        guard release.version.range(of: #"^[0-9]+(?:\.[0-9]+){0,3}$"#,
                                     options: .regularExpression) != nil,
               release.build >= 1,
               release.sha256.range(of: #"^[a-fA-F0-9]{64}$"#,
@@ -117,7 +117,7 @@ final class CinemanaReleaseMonitor: ObservableObject {
               url.port == nil, url.query == nil, url.fragment == nil,
               url.pathComponents.count == 2,
               url.lastPathComponent.range(
-                  of: #"^[A-Za-z0-9][A-Za-z0-9._-]{0,120}\\.ipa$"#,
+                  of: #"^[A-Za-z0-9][A-Za-z0-9._-]{0,120}\.ipa$"#,
                   options: .regularExpression) != nil,
               !url.lastPathComponent.contains("..") else { return nil }
         return url
