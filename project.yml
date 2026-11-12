@@ -23,7 +23,7 @@ targets:
       properties:
         CFBundleDisplayName: Cinemana iOS
         CFBundleShortVersionString: '1.0'
-        CFBundleVersion: '27'
+        CFBundleVersion: '28'
         CinemanaBuildRevision: development
         CFBundleLocalizations:
           - en
