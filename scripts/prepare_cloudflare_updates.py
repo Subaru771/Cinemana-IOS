@@ -2,7 +2,7 @@
 """Prepare a same-origin Cloudflare Pages OTA feed from the freshly built IPA.
 
 The public iPhone app never contacts GitHub. The Pages project hosts both
-latest.json and the real IPA, so neither app checks nor downloads redirect.
+updates.json (preserving TV metadata) and a same-origin IPA.
 This script validates packaging, not Apple code signing or device playback.
 """
 from __future__ import annotations
@@ -19,9 +19,10 @@ from pathlib import Path
 # Cloudflare Pages accepts files up to 25 MiB per asset.
 MAX_PAGES_ASSET = 25 * 1024 * 1024
 EXPECTED_BUNDLE = "app.cinemana.mobile.ios"
+UPDATE_HOST = "https://cinemana-updates-e8l.pages.dev"
 
 
-def prepare(ipa: Path, output: Path) -> dict:
+def prepare(ipa: Path, output: Path, existing_manifest: Path) -> dict:
     if not ipa.is_file() or not 100_000 < ipa.stat().st_size <= MAX_PAGES_ASSET:
         raise ValueError("Missing IPA or IPA exceeds the Cloudflare Pages per-file limit")
     with zipfile.ZipFile(ipa) as archive:
@@ -63,22 +64,31 @@ def prepare(ipa: Path, output: Path) -> dict:
     with destination.open("rb") as stream:
         for chunk in iter(lambda: stream.read(1024 * 1024), b""):
             digest.update(chunk)
-    metadata = {
+    existing = json.loads(existing_manifest.read_text(encoding="utf-8"))
+    if (not isinstance(existing, dict) or existing.get("schema") != 1
+            or not isinstance(existing.get("tv"), dict)
+            or not isinstance(existing.get("ios"), dict)):
+        raise ValueError("Expected the existing combined TV/iOS schema-1 manifest")
+    ios = existing["ios"].copy()
+    ios.update({
+        "enabled": False,
         "version": version,
-        "build": build,
+        "build": int(build),
         "minOSVersion": minimum,
-        "ipa": name,
+        "downloadUrl": f"{UPDATE_HOST}/{name}",
         "size": destination.stat().st_size,
         "sha256": digest.hexdigest(),
-    }
-    (output / "latest.json").write_text(
-        json.dumps(metadata, indent=2) + "\n", encoding="utf-8")
-    return metadata
+    })
+    existing["ios"] = ios
+    (output / "updates.json").write_text(
+        json.dumps(existing, indent=2) + "\n", encoding="utf-8")
+    return existing
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("ipa", type=Path)
     parser.add_argument("output", type=Path)
+    parser.add_argument("existing_manifest", type=Path, help="Existing combined updates.json")
     args = parser.parse_args()
-    print(json.dumps(prepare(args.ipa, args.output), indent=2))
+    print(json.dumps(prepare(args.ipa, args.output, args.existing_manifest), indent=2))
