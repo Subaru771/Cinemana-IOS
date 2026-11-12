@@ -1,0 +1,29 @@
+name: Validate phone-only SideStore bootstrap
+
+on:
+  pull_request:
+    paths:
+      - 'installer-ios/direct-sidestore/**'
+      - '.github/workflows/direct-sidestore-bootstrap.yml'
+  push:
+    paths:
+      - 'installer-ios/direct-sidestore/**'
+      - '.github/workflows/direct-sidestore-bootstrap.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  offline-bootstrap-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Check shell syntax
+        run: sh -n installer-ios/direct-sidestore/install.sh
+      - name: Run isolated bootstrap tests
+        run: python3 -m unittest discover -s installer-ios/direct-sidestore/tests -v
