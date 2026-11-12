@@ -26,12 +26,16 @@
 <p class="lead">Start here to find the shortest setup for your phone. Apple requires a valid signature before any app can open.</p>
 <div class="status">Native installation is not device-verified. This website cannot sign an IPA or bypass Apple's installation rules.</div>
 <section class="release" id="supported">
-<h2>Start with a supported option</h2>
-<p>Free, without a computer: open Cinemana Web in Safari, then Share → Add to Home Screen. This is a web app, separate from the native iPhone app. Catalog access and playback depend on the provider allowing browser access and still need iPhone testing.</p>
-<a class="button primary" href="web/index.html">Try Cinemana Web</a>
-<h3>Want the native app?</h3>
-<p>A reviewed TestFlight invitation is the recommended beta route: no pairing files or weekly signing. No invitation is available yet. Builds last up to 90 days; the publisher must provide updates. App Store distribution is the long-term goal.</p>
-<a class="button" href="#setup">Existing installers &amp; IPA downloads ↓</a>
+<h2>Install Cinemana on your iPhone</h2>
+<p>Already have SideInstaller installed and paired? Open our published IPA directly in SideInstaller — no manual IPA download, SideStore or LiveContainer required.</p>
+<div class="actions">
+<a id="quick-install" class="button primary" hidden>Install Cinemana</a>
+<a class="button" href="https://sideinstaller.net/">Get SideInstaller (official)</a>
+<a class="button alt" href="#setup">New here? 3-step guide ↓</a>
+</div>
+<p id="quick-status" role="status" aria-live="polite">Checking the published IPA…</p>
+<p>Phone-only first-time pairing requires iOS 27+. Earlier versions normally need a pairing file made with a computer. Public signing certificates can stop working at any time. Only use the official SideInstaller website, and keep Apple credentials inside its app.</p>
+<p class="warning">Native Cinemana is an unsigned development beta. Its installation and playback have not been verified on a physical iPhone. The website never signs apps or collects account credentials.</p>
 </section>
  <section id="setup">
 <h2>Choose your iPhone setup</h2>
@@ -50,14 +54,14 @@
 <div class="warning">Choose a version above. There is no universal free one-tap website installation for an unsigned iOS app.</div>
 </section>
  <section data-path="modern">
-<h2>Advanced setup · iOS 27+</h2>
-<p>This requires a legitimately installed signer, local pairing and recurring renewal. It does not meet a no-pairing, no-refresh installation goal.</p>
+<h2>First-time setup · iOS 27+ (3 steps)</h2>
+<p>This is the native, phone-only route. Once SideInstaller is installed, it can sign Cinemana directly. Apple still requires pairing approval, sign-in and periodic renewal.</p>
 <div class="steps">
 <div class="step">
 <span class="no">1</span>
 <div>
 <h3>Get SideInstaller once</h3>
-<p>Continue only if you already have SideInstaller installed legitimately, or can sign it with your own authorized development certificate. Shared public certificates and DNS anti-revocation profiles are not a supported installation route here.</p>
+<p>Open the official site in Safari. Follow its instructions and choose a certificate marked Valid, if one is available. If a listed certificate is revoked or installation fails, there may be no working phone-only bootstrap; use a computer or wait for an official working option. Never use unofficial signed copies.</p>
 <a class="button" href="https://sideinstaller.net/">Get official SideInstaller</a>
 </div>
 </div>
@@ -65,7 +69,7 @@
 <span class="no">2</span>
 <div>
 <h3>Complete setup on this iPhone</h3>
-<p>Open SideInstaller and follow its iOS 27 pairing prompts. Enable Developer Mode and restart if asked. Connect LocalDevVPN and sign in with your own Apple Account inside SideInstaller. You do not need to install SideStore.</p>
+<p>Connect LocalDevVPN, then start pairing in SideInstaller. Open iPhone Settings → Privacy &amp; Security → Developer Mode → Pair with SideInstaller. The 6-digit code appears in SideInstaller’s pairing popup, Live Activity or notification. If no banner arrives, switch back to SideInstaller to read its PIN, then return to Settings. Complete pairing and sign in using your own Apple Account inside the app. SideStore is not needed to install Cinemana.</p>
 <a class="button" href="https://apps.apple.com/app/id6755608044">Get LocalDevVPN</a>
 </div>
 </div>
