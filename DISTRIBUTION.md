@@ -48,6 +48,10 @@ Replace the path with your own certificate, provisioning profile, or `.p8`. **Do
 - Uploading a build is **not** approval, invitation creation, App Store publication or legal clearance.
 - This signing workflow cannot be fully tested without your actual Apple Developer credentials; do not claim it has succeeded until a real run passes.
 
+## Optional private Ad Hoc tool
+
+The uploaded prototype is now audited and adapted as a preview-first packaging tool for registered devices. See [prototype findings](docs/DIRECT-BETA-PROTOTYPE-AUDIT.md) and [publisher instructions](docs/ADHOC-OTA.md). It does not replace TestFlight or enable public installation of unsigned releases.
+
 ## Public-facing website
 
 The `landing/` folder contains bilingual, mobile-first installation pages with supported web/TestFlight guidance, plus advanced SideInstaller and AltLoad alternatives for existing users, version selection and fallbacks. `release.json` supplies validated unsigned IPA metadata; `source.json` supports compatible installer update discovery. The scheduled release validator refreshes both files after checking the downloaded IPA and published checksum. Deploy the complete directory. No website signing or credential collection is provided, and real-device installation remains unverified. See [installation research, operations and device checklist](docs/IOS-INSTALLATION.md).

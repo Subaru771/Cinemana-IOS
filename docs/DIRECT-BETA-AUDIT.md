@@ -6,7 +6,7 @@ Use **TestFlight for a native public beta, then App Store for general release**.
 
 For a free-to-publish route without native signing, the repository already contains Cinemana Web. Its Home Screen shell works in browser tests. **Provider CORS, network access and physical-iPhone playback are unverified**, so it is an option to test, not a proven native replacement. An authorized provider web player, if supplied, may be simpler still. Do not invent a public player URL or deploy an unauthorized CORS relay.
 
-Audited repository baseline: `cbc7180f56c802fe8314f52d0f3a7e1cc0859c76`. **No prototype ZIP was available in the conversation or workspace. Its generator, signing implementation and OTA manifest have not been audited.** This report covers the repository and distribution feasibility; obtain the ZIP before declaring the prototype reviewed.
+Audited repository baseline: `cbc7180f56c802fe8314f52d0f3a7e1cc0859c76`. **Follow-up:** the ZIP has now been supplied and reviewed. See [uploaded prototype audit](DIRECT-BETA-PROTOTYPE-AUDIT.md) for reproduced issues, the hardened optional generator, tests and remaining device gates. The original repository audit below predates that attachment.
 
 ## Findings and implemented changes
 
@@ -53,7 +53,7 @@ Primary references: [TestFlight](https://developer.apple.com/testflight/), [90-d
 
 ## OTA / signing acceptance gate for the missing prototype
 
-There is no Cinemana OTA manifest generator in the inspected repository. Before accepting one from the ZIP:
+The initial repository snapshot had no Cinemana OTA generator. The follow-up adds an optional hardened utility; the following remain relevant acceptance gates:
 
 - Inspect the actual signed app and every nested executable/extension on macOS with Apple's signing tools. Validate expected team, bundle, entitlements, certificate chain and expiry; check distribution authority and revocation separately. Merely finding `_CodeSignature` or decoding a profile is insufficient.
 - For Ad Hoc, require a distribution profile covering the recipient's registered UDID, correct app identifier and allowed entitlements. App Store provisioning does not authorize arbitrary `itms-services` installation. Enterprise authorization is internal-use only.
@@ -61,7 +61,7 @@ There is no Cinemana OTA manifest generator in the inspected repository. Before 
 - Reject arbitrary fetch destinations, path traversal, ZIP bombs, duplicate archive entries, injected HTML/XML and secret-bearing logs. Do not expose profiles containing tester UDIDs in public diagnostics. A checksum cannot replace Apple signature validation.
 - Test install, launch, update/data retention, unsupported OS/device, offline behavior, expired/revoked profiles and registration failures on an actual eligible iPhone. Local root-certificate trust does not grant Apple app-signing authority.
 
-These are unresolved prototype acceptance checks, not claims that its code passed them.
+See the follow-up for source checks now implemented; device and real-signature acceptance checks remain unresolved.
 
 ## Validation and remaining release gates
 
@@ -69,4 +69,4 @@ Executed locally: all **23 Python tests**, 9 installation tests with `python -O`
 
 Branding validation initially failed because its CI-generated `CinemanaSplash-3x.png` was absent from the clean checkout. Generated the same 2823×5016 PNG locally; branding checks then passed. Removed this temporary generated asset afterward. Xcode, Swift compiler and Apple SDKs are unavailable on this Linux executor, so native compilation/export/upload cannot be verified locally. Existing macOS workflows remain the native build authority; no signing workflow was invoked.
 
-Still required: missing ZIP review; physical-iPhone Safari/Home Screen tests on exact iOS 27 build; provider-authorized catalog/playback; Apple profile/certificate validation and signed export; reviewed TestFlight invitation and expiration/update testing. No signed native public install link is enabled. No website deployment, App Store submission or merge is part of this change.
+Still required: real-signature and device acceptance after the now-completed ZIP source review; physical-iPhone Safari/Home Screen tests on exact iOS 27 build; provider-authorized catalog/playback; Apple profile/certificate validation and signed export; reviewed TestFlight invitation and expiration/update testing. No signed native public install link is enabled. No website deployment, App Store submission or merge is part of this change.
