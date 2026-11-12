@@ -141,6 +141,7 @@ struct CinemaPlayerScreen: View {
 
     @State private var current: Video
     @State private var showsControls = true
+    @State private var showsPlayerSettings = false
     @State private var isScrubbing = false
     @State private var seekPreview = 0.0
     @State private var seekInFlight = false
@@ -269,6 +270,14 @@ struct CinemaPlayerScreen: View {
             }
         }
         .onChange(of: playing) { _ in refreshNowPlaying() }
+        .onChange(of: showsPlayerSettings) { presented in
+            if presented {
+                hideTask?.cancel()
+                showsControls = true
+            } else {
+                scheduleAutoHide()
+            }
+        }
         .onChange(of: duration > 0) { _ in refreshNowPlaying() }
         .onChange(of: scenePhase) { phase in
             if phase != .active { session.save(library: library) }
@@ -359,7 +368,12 @@ struct CinemaPlayerScreen: View {
         Task { await subtitles.load(for: id) }
         let prefetched = await NextEpisodePreloader.shared.take(id)
         await session.load(video: current, library: library, prefetched: prefetched)
-        if session.player != nil { showControls() }
+        if let player = session.player {
+            // Loading a stream is itself a Play action; the first frame must
+            // not require a second tap on the on-screen pause/play button.
+            player.play()
+            showControls()
+        }
         refreshNowPlaying()
     }
 
@@ -392,7 +406,7 @@ struct CinemaPlayerScreen: View {
         NowPlayingBridge.shared.deactivate()
         UIApplication.shared.isIdleTimerDisabled = false
         UIScreen.main.brightness = originalBrightness
-        if autoLandscape && !isPad { PlayerOrientation.request(.portrait) }
+        if !isPad { PlayerOrientation.restoreAfterPlayer() }
     }
 
     // MARK: Gestures
@@ -780,50 +794,14 @@ struct CinemaPlayerScreen: View {
 
     // Keep the initial menu short in portrait. Advanced actions stay in More,
     // instead of creating a tall scrolling popover over the film.
+    // Present settings separately from the transient playback chrome.
+    // SwiftUI Menu was destroyed by the four-second auto-hide timer while
+    // the user was browsing submenus. A popover/sheet stays visible until
+    // explicitly dismissed, without keeping the pause controls on screen.
     private var optionsMenu: some View {
-        Menu {
-            speedMenu
-            if !isDownloaded && !session.streams.isEmpty { qualityMenu }
-            subtitleMenu
-
-            Menu("Display") {
-                if !isPad {
-                    Button {
-                        PlayerOrientation.request(.landscapeRight) { _ in
-                            flashMessage("Rotate iPhone or turn off Portrait Orientation Lock")
-                        }
-                    } label: {
-                        Label("Landscape", systemImage: "rectangle.landscape")
-                    }
-                    Button {
-                        PlayerOrientation.request(.portrait)
-                    } label: {
-                        Label("Portrait", systemImage: "rectangle.portrait")
-                    }
-                }
-                Button { cropVideo.toggle() } label: {
-                    Label(LocalizedStringKey(cropVideo ? "Fit video" : "Fill screen"), systemImage: "arrow.up.left.and.arrow.down.right")
-                }
-            }
-
-            Menu("More") {
-                audioMenu
-                chapterMenu
-                Toggle("Hide Mature Content", isOn: $hideMatureContent)
-                Button { locked = true; showControls() } label: {
-                    Label("Lock controls", systemImage: "lock")
-                }
-                Button { library.markWatched(current, watched: !library.isWatched(current.id)) } label: {
-                    Label(LocalizedStringKey(library.isWatched(current.id) ? "Unmark watched" : "Mark watched"),
-                          systemImage: "checkmark.circle")
-                }
-                Button {
-                    showDiagnostics = true
-                    showControls()
-                } label: {
-                    Label("Playback diagnostics", systemImage: "waveform.path.ecg")
-                }
-            }
+        Button {
+            hideTask?.cancel()
+            showsPlayerSettings = true
         } label: {
             Image(systemName: "gearshape.fill")
                 .font(.system(size: 20, weight: .medium))
@@ -831,6 +809,83 @@ struct CinemaPlayerScreen: View {
                 .frame(width: 44, height: 44)
         }
         .accessibilityLabel("Player settings")
+        .popover(isPresented: $showsPlayerSettings) {
+            NavigationStack {
+                List {
+                    Section("Playback") {
+                        speedMenu
+                        if !isDownloaded && !session.streams.isEmpty { qualityMenu }
+                        subtitleMenu
+                    }
+
+                    Section("Display") {
+                        if !isPad {
+                            Button {
+                                showsPlayerSettings = false
+                                Task { @MainActor in
+                                    try? await Task.sleep(for: .milliseconds(350))
+                                    PlayerOrientation.request(.landscapeRight) { _ in
+                                        flashMessage("Rotate iPhone or turn off Portrait Orientation Lock")
+                                    }
+                                }
+                            } label: {
+                                Label("Landscape", systemImage: "rectangle.landscape")
+                            }
+                            Button {
+                                showsPlayerSettings = false
+                                Task { @MainActor in
+                                    try? await Task.sleep(for: .milliseconds(350))
+                                    PlayerOrientation.request(.portrait)
+                                }
+                            } label: {
+                                Label("Portrait", systemImage: "rectangle.portrait")
+                            }
+                        }
+                        Button { cropVideo.toggle() } label: {
+                            Label(LocalizedStringKey(cropVideo ? "Fit video" : "Fill screen"),
+                                  systemImage: "arrow.up.left.and.arrow.down.right")
+                        }
+                    }
+
+                    Section("More") {
+                        audioMenu
+                        chapterMenu
+                        Toggle("Hide Mature Content", isOn: $hideMatureContent)
+                        Button {
+                            locked = true
+                            showsPlayerSettings = false
+                            showControls()
+                        } label: {
+                            Label("Lock controls", systemImage: "lock")
+                        }
+                        Button {
+                            library.markWatched(current, watched: !library.isWatched(current.id))
+                        } label: {
+                            Label(LocalizedStringKey(library.isWatched(current.id) ? "Unmark watched" : "Mark watched"),
+                                  systemImage: "checkmark.circle")
+                        }
+                        Button {
+                            showsPlayerSettings = false
+                            showDiagnostics = true
+                            showControls()
+                        } label: {
+                            Label("Playback diagnostics", systemImage: "waveform.path.ecg")
+                        }
+                    }
+                }
+                .listStyle(.insetGrouped)
+                .navigationTitle("Player settings")
+                .navigationBarTitleDisplayMode(.inline)
+                .toolbar {
+                    ToolbarItem(placement: .confirmationAction) {
+                        Button("Done") { showsPlayerSettings = false }
+                    }
+                }
+            }
+            .frame(minWidth: isPad ? 360 : nil, minHeight: isPad ? 440 : nil)
+            .presentationDetents([.medium, .large])
+            .presentationDragIndicator(.visible)
+        }
     }
 
     private var speedMenu: some View {
@@ -1201,7 +1256,7 @@ struct CinemaPlayerScreen: View {
 
     private func scheduleAutoHide() {
         hideTask?.cancel()
-        guard playing && !isScrubbing else { return }
+        guard playing && !isScrubbing && !showsPlayerSettings else { return }
         hideTask = Task { @MainActor in
             try? await Task.sleep(for: .seconds(4))
             guard !Task.isCancelled else { return }
