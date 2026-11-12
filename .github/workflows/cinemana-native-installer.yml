@@ -32,10 +32,13 @@ jobs:
           assert "CryptoKit" in s and "SHA256.hash" in s
           assert "engine.installSource = .sideStore" in s
           assert "engine.installSource = .custom" in s
+          assert "Toggle(isOn: $includeSideStore)" in s
+          assert "engine.autoStartVPN = true" in s
+          assert "engine.canSelfPair || engine.hasPairingFile" in s
           assert "raw.githubusercontent.com/Subaru771/Cinemana-IOS/main/landing/release.json" in s
           assert "FrizzleM" in s and "PINNED_UPSTREAM" in p
           assert "https://github.com" not in s or "github.com" in s
-          print("PASS: two-app native installer source and checksums present")
+          print("PASS: one-action native setup, optional SideStore and checksums present")
           PY
   build:
     name: Compile unsigned native IPA
