@@ -24,10 +24,15 @@
 <span>A clearer way to install.</span>
 </h1>
 <p class="lead">Start here to find the shortest setup for your phone. Apple requires a valid signature before any app can open.</p>
-<div class="status">Real iPhone installation has not been verified. Phone-only setup is conditional; public certificates can stop working at any time.</div>
-<p>
-<a class="button primary" href="#setup">Install Cinemana ↓</a>
-</p>
+<div class="status">Native installation is not device-verified. This website cannot sign an IPA or bypass Apple's installation rules.</div>
+<section class="release" id="supported">
+<h2>Start with a supported option</h2>
+<p>Free, without a computer: open Cinemana Web in Safari, then Share → Add to Home Screen. This is a web app, separate from the native iPhone app. Catalog access and playback depend on the provider allowing browser access and still need iPhone testing.</p>
+<a class="button primary" href="web/index.html">Try Cinemana Web</a>
+<h3>Want the native app?</h3>
+<p>A reviewed TestFlight invitation is the recommended beta route: no pairing files or weekly signing. No invitation is available yet. Builds last up to 90 days; the publisher must provide updates. App Store distribution is the long-term goal.</p>
+<a class="button" href="#setup">Existing installers &amp; IPA downloads ↓</a>
+</section>
  <section id="setup">
 <h2>Choose your iPhone setup</h2>
 <label for="method">iOS version or existing installer</label>
@@ -45,14 +50,14 @@
 <div class="warning">Choose a version above. There is no universal free one-tap website installation for an unsigned iOS app.</div>
 </section>
  <section data-path="modern">
-<h2>Shortest setup · iOS 27+</h2>
-<p>One installer, then a Cinemana button. No manual IPA download, SideStore or LiveContainer.</p>
+<h2>Advanced setup · iOS 27+</h2>
+<p>This requires a legitimately installed signer, local pairing and recurring renewal. It does not meet a no-pairing, no-refresh installation goal.</p>
 <div class="steps">
 <div class="step">
 <span class="no">1</span>
 <div>
 <h3>Get SideInstaller once</h3>
-<p>Use its official site in Safari and follow its signed installation instructions. Review any DNS profile before installing it, then trust the developer if prompted. If its public certificate is unavailable or revoked, this route cannot start; do not keep adding profiles.</p>
+<p>Continue only if you already have SideInstaller installed legitimately, or can sign it with your own authorized development certificate. Shared public certificates and DNS anti-revocation profiles are not a supported installation route here.</p>
 <a class="button" href="https://sideinstaller.net/">Get official SideInstaller</a>
 </div>
 </div>
@@ -82,7 +87,7 @@
 <span class="no">1</span>
 <div>
 <h3>Get the official AltLoad app</h3>
-<p>Open the official site in Safari. Its signed install may require a DNS profile and trusting a developer in Settings → General → VPN &amp; Device Management. Review the profile and its provider first: DNS changes affect your connections. If certificates are unavailable or revoked, stop and use the fallback below.</p>
+<p>Use an already legitimately installed copy or your own authorized signing method. Do not rely on shared certificates or DNS anti-revocation profiles. This route still requires pairing and renewal.</p>
 <a class="button" href="https://mirazbakis.github.io/AltLoad/">Open official AltLoad site</a>
 </div>
 </div>

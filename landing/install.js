@@ -18,13 +18,18 @@ if (match) {
   selectPath('unknown');
 }
 function validRelease(data) {
+  if (!data || typeof data !== 'object') return false;
   const base = 'https://github.com/Subaru771/Cinemana-IOS/releases/';
+  const download = new URL(data.downloadURL);
+  const release = new URL(data.releaseURL);
   return data.signing === 'unsigned' && data.deviceTested === false &&
-    typeof data.downloadURL === 'string' && data.downloadURL.startsWith(base + 'download/') &&
-    /^Cinemana-iOS-.+-Unsigned\.ipa$/.test(decodeURIComponent(data.downloadURL.split('/').pop())) &&
-    typeof data.releaseURL === 'string' && data.releaseURL.startsWith(base + 'tag/') &&
-    /^[a-f0-9]{64}$/.test(data.sha256) && Number.isSafeInteger(data.size) && data.size > 0 &&
-    [data.version, data.build, data.minOSVersion, data.date].every(v => typeof v === 'string');
+    download.origin === 'https://github.com' && !download.search && !download.hash &&
+    download.href.startsWith(base + 'download/') &&
+    /^Cinemana-iOS-.+-Unsigned\.ipa$/.test(decodeURIComponent(download.pathname.split('/').pop())) &&
+    release.href.startsWith(base + 'tag/') && !release.search && !release.hash &&
+    /^[a-f0-9]{64}$/.test(data.sha256) && Number.isSafeInteger(data.size) && data.size > 0 && data.size <= 200000000 &&
+    [data.version, data.build, data.minOSVersion].every(v => typeof v === 'string' && /^[0-9]+(?:\.[0-9]+)*$/.test(v)) &&
+    typeof data.date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(data.date);
 }
 async function loadRelease() {
   const status = document.getElementById('release-status');

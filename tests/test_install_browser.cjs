@@ -9,6 +9,8 @@ const assert=require('node:assert/strict');
    await page.goto((process.env.INSTALL_BASE_URL || 'http://127.0.0.1:8080/')+'install'+(lang==='ar'?'-ar':'')+'.html');
    await page.locator('#ipa').waitFor({state:'visible'});
    assert.equal(await page.locator('#method').inputValue(),'modern');
+   assert.equal(await page.locator('#supported a.primary').getAttribute('href'), 'web/index.html');
+   assert.equal(await page.locator('#supported').isVisible(), true);
    const installURL = new URL(await page.locator('#direct-install').getAttribute('href'));
    assert.equal(installURL.origin, 'https://sideinstaller.net');
    assert.equal(installURL.pathname, '/open.html');
@@ -35,6 +37,16 @@ const assert=require('node:assert/strict');
  assert.equal(await page.locator('#direct-install').getAttribute('href'),null);
  assert.equal(await page.locator('#method').inputValue(),'unknown');
  await page.unroute('**/release.json');
+ const catalog=require('../landing/release.json');
+ for (const invalid of [null, {...catalog, downloadURL:catalog.downloadURL+'?token=private'}, {...catalog, size:200000001}, {...catalog, minOSVersion:'invalid'}]) {
+  await page.route('**/release.json',r=>r.fulfill({status:200,body:JSON.stringify(invalid)}));
+  await page.reload();
+  await page.waitForFunction(()=>document.querySelector('#release-status').textContent.includes('could not'));
+  assert.equal(await page.locator('#ipa').getAttribute('href'),null);
+  assert.equal(await page.locator('#sideinstaller').getAttribute('href'),null);
+  await page.unroute('**/release.json');
+ }
+
  await page.route('**/release.json',r=>r.abort());
  await page.reload();
  await page.waitForFunction(()=>document.querySelector('#release-status').textContent.includes('could not'));
