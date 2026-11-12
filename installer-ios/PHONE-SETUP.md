@@ -1,5 +1,8 @@
 # Cinemana Installer — shorter iPhone setup
 
+For the new iOS 27 rootshell/Open Minis preparation launchers, see [automated command preparation](AUTOMATED-PHONE-SETUP.md). It reduces terminal work; it does not automate iOS approvals, account sign-in, SideStore UI or renewal. The iSH investigation below remains unchanged.
+
+
 **Status:** preparation is automated; first installation through iSH is still experimental. The unsigned IPA cannot be installed by tapping it in Safari. No Apple credentials go into this guide, a website, or chat.
 
 These instructions apply to the updated **0.2** installer/helper after this change is merged and its native build succeeds. An older downloaded IPA will not gain the new native setup screen just because the helper changed.
