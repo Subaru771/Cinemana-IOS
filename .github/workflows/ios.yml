@@ -125,8 +125,8 @@ jobs:
           test -s "$IPA"
           test -s "$CHECKSUM"
           if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
-            echo "Numbered release already exists; refusing to replace it silently."
-            exit 1
+            echo "Numbered v1.0 release already exists; preserving it. The latest unsigned release above contains this build."
+            exit 0
           fi
           cat > /tmp/cinemana-v1.0-notes.md <<'RELEASE_NOTES'
           # Cinemana iOS v1.0 — Build 27
