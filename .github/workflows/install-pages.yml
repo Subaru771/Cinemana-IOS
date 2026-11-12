@@ -1,9 +1,9 @@
 name: Validate installation pages and published IPA
 on:
   pull_request:
-    paths: ['landing/**', 'scripts/*install*', 'scripts/sync_install_release.py', 'scripts/check_appstore_profile.py', '.github/workflows/testflight.yml', 'tests/*install*', 'tests/test_web*', '.github/workflows/install-pages.yml']
+    paths: ['landing/**', 'scripts/*install*', 'scripts/sync_install_release.py', 'scripts/check_appstore_profile.py', 'scripts/build_adhoc_ota.py', '.github/workflows/testflight.yml', 'tests/*install*', 'tests/test_web*', '.github/workflows/install-pages.yml']
   push:
-    paths: ['landing/**', 'scripts/*install*', 'scripts/sync_install_release.py', 'scripts/check_appstore_profile.py', '.github/workflows/testflight.yml', 'tests/*install*', '.github/workflows/install-pages.yml']
+    paths: ['landing/**', 'scripts/*install*', 'scripts/sync_install_release.py', 'scripts/check_appstore_profile.py', 'scripts/build_adhoc_ota.py', '.github/workflows/testflight.yml', 'tests/*install*', '.github/workflows/install-pages.yml']
   workflow_dispatch:
   release:
     types: [published]
@@ -41,6 +41,7 @@ jobs:
           done
           NODE_PATH="$RUNNER_TEMP/cinemana-browser/node_modules" node tests/test_install_browser.cjs
           NODE_PATH="$RUNNER_TEMP/cinemana-browser/node_modules" node tests/test_web_browser.cjs
+          NODE_PATH="$RUNNER_TEMP/cinemana-browser/node_modules" node tests/test_install_adhoc_browser.cjs
       - name: Verify current public IPA and generate catalog
         if: github.event_name != 'pull_request'
         run: python3 scripts/sync_install_release.py
