@@ -7,7 +7,7 @@ These instructions apply to the updated **0.2** installer/helper after this chan
 ## 1. Get the apps and the installer file
 
 - Install [iSH](https://apps.apple.com/app/ish-shell/id1436902243) and [LocalDevVPN](https://apps.apple.com/app/id6755608044) from the App Store.
-- Open [Cinemana Installer builds](https://github.com/Subaru771/Cinemana-IOS/actions/workflows/cinemana-native-installer.yml), choose the latest successful run containing this update, and save **Cinemana-Installer-UNSIGNED.zip** to Downloads in Files. GitHub may require sign-in to download an Actions artifact. No public installer release is assumed.
+- This guide is for **personal noncommercial source testing** only. The owner must manually dispatch [Cinemana Installer builds](https://github.com/Subaru771/Cinemana-IOS/actions/workflows/cinemana-native-installer.yml) after reviewing permissions and licensing, then download the successful manual run's **Cinemana-Installer-UNSIGNED.zip** to Downloads in Files. Normal PR/push builds do not publish this artifact. Do not redistribute the modified compiled app; no public installer release is assumed.
 
 **Leave the ZIP as it is. No renaming, extraction or opening the IPA is necessary.**
 
