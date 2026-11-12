@@ -3,7 +3,7 @@ import Foundation
 import CryptoKit
 
 /// Checks the Cinemana-owned Cloudflare update feed. The iPhone does not
-/// contact GitHub, open GitHub URLs or follow redirects off the update host.
+/// contact third-party code hosting or follow redirects off the update host.
 /// Hosting is configured separately; unsigned IPAs still need a valid signer.
 @MainActor
 final class CinemanaReleaseMonitor: ObservableObject {
@@ -70,7 +70,7 @@ final class CinemanaReleaseMonitor: ObservableObject {
     }
 
     /// Download in-app, verify checksum and length, then return a local IPA to
-    /// share with SideStore/Files. Never sends the user to a GitHub page.
+    /// share with SideStore/Files. Never sends the user to an external update site.
     func downloadLatest() async throws -> URL {
         guard let release = pendingRelease,
               let link = Self.validatedURL(for: release) else {
@@ -175,7 +175,7 @@ private final class RejectAllRedirects: NSObject, URLSessionTaskDelegate {
                     willPerformHTTPRedirection response: HTTPURLResponse,
                     newRequest request: URLRequest,
                     completionHandler: @escaping (URLRequest?) -> Void) {
-        // Prevent a CDN or server misconfiguration from ever redirecting to GitHub.
+        // Reject every redirect to prevent leaving the configured update origin.
         completionHandler(nil)
     }
 }
