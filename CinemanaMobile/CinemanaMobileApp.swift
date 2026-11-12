@@ -32,8 +32,11 @@ struct CinemanaMobileApp: App {
     @Environment(\.scenePhase) private var scenePhase
     @State private var showTelegramPrompt = false
     @State private var showUpdatePrompt = false
+    @State private var downloadingUpdate = false
+    @State private var sharedUpdateIPA: CinemanaIPAFile?
+    @State private var updateDownloadError: String?
     @AppStorage("cinemana-hub-promo-hidden") private var telegramHidden = false
-    @AppStorage("cinemana-update-announced-revision") private var announcedRevision = ""
+    @AppStorage("cinemana-update-announced-build") private var announcedRevision = ""
     @AppStorage("cinemana-app-language") private var appLanguage = "system"
 
     init() {
@@ -126,14 +129,44 @@ struct CinemanaMobileApp: App {
             }
             .alert("New update available", isPresented: $showUpdatePrompt) {
                 Button("Download IPA") {
-                    if let url = releaseMonitor.downloadURL { UIApplication.shared.open(url) }
+                    Task { await downloadUpdateIPA() }
                 }
                 Button("Later", role: .cancel) {}
             } message: {
-                Text("Download the new IPA and sign it with SideStore.")
+                Text("Cinemana \(releaseMonitor.latestVersion ?? "update") is available. Download directly in the app, then share the IPA to SideStore for signing.")
+            }
+            .sheet(item: $sharedUpdateIPA) { file in
+                CinemanaIPAShareSheet(fileURL: file.url)
+            }
+            .alert("Download failed", isPresented: Binding(
+                get: { updateDownloadError != nil },
+                set: { if !$0 { updateDownloadError = nil } }
+            )) {
+                Button("OK", role: .cancel) {}
+            } message: {
+                Text(updateDownloadError ?? "Unknown error")
+            }
+            .overlay(alignment: .bottom) {
+                if downloadingUpdate {
+                    ProgressView("Downloading Cinemana update…")
+                        .padding(14)
+                        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 12))
+                        .padding()
+                }
             }
             .tint(mint)
             .preferredColorScheme(.dark)
+        }
+    }
+
+    private func downloadUpdateIPA() async {
+        guard !downloadingUpdate else { return }
+        downloadingUpdate = true
+        defer { downloadingUpdate = false }
+        do {
+            sharedUpdateIPA = CinemanaIPAFile(url: try await releaseMonitor.downloadLatest())
+        } catch {
+            updateDownloadError = error.localizedDescription
         }
     }
 
@@ -1286,6 +1319,9 @@ struct AboutView: View {
     @State private var cacheCleared = false
     @State private var eraseAll = false
     @State private var exportURL: URL?
+    @State private var sharedUpdateIPA: CinemanaIPAFile?
+    @State private var downloadingUpdate = false
+    @State private var updateDownloadError: String?
     @AppStorage("cinemana-home-featured") private var showFeatured = true
     @AppStorage("cinemana-home-for-you") private var showForYou = true
     @AppStorage("cinemana-home-trending") private var showTrending = true
@@ -1401,10 +1437,17 @@ struct AboutView: View {
                          (releaseMonitor.latestRevision == nil ? "Up to date" : "Update available")))
                         .font(.footnote).foregroundStyle(.secondary)
                 }
-                if let url = releaseMonitor.downloadURL {
-                    Link(destination: url) {
-                        Label("Download latest IPA", systemImage: "arrow.down.circle")
+                if releaseMonitor.downloadURL != nil {
+                    Button {
+                        Task { await downloadUpdateIPA() }
+                    } label: {
+                        if downloadingUpdate {
+                            ProgressView("Downloading update…")
+                        } else {
+                            Label("Download latest IPA", systemImage: "arrow.down.circle")
+                        }
                     }
+                    .disabled(downloadingUpdate)
                 }
                 Link(destination: CinemanaReleaseMonitor.telegramURL) {
                     Label("Cinemana Hub on Telegram", systemImage: "paperplane.fill")
@@ -1412,6 +1455,17 @@ struct AboutView: View {
             }
         }
         .navigationTitle("Settings")
+        .sheet(item: $sharedUpdateIPA) { file in
+            CinemanaIPAShareSheet(fileURL: file.url)
+        }
+        .alert("Download failed", isPresented: Binding(
+            get: { updateDownloadError != nil },
+            set: { if !$0 { updateDownloadError = nil } }
+        )) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text(updateDownloadError ?? "Unknown error")
+        }
         .confirmationDialog("Remove all Continue Watching progress?", isPresented: $confirmHistory) {
             Button("Clear playback progress", role: .destructive) { library.clearHistory() }
             Button("Cancel", role: .cancel) { }
@@ -1425,6 +1479,32 @@ struct AboutView: View {
             Button("Cancel", role: .cancel) { }
         }
     }
+
+    private func downloadUpdateIPA() async {
+        guard !downloadingUpdate else { return }
+        downloadingUpdate = true
+        defer { downloadingUpdate = false }
+        do {
+            sharedUpdateIPA = CinemanaIPAFile(url: try await releaseMonitor.downloadLatest())
+        } catch {
+            updateDownloadError = error.localizedDescription
+        }
+    }
+}
+
+private struct CinemanaIPAFile: Identifiable {
+    let id = UUID()
+    let url: URL
+}
+
+private struct CinemanaIPAShareSheet: UIViewControllerRepresentable {
+    let fileURL: URL
+
+    func makeUIViewController(context: Context) -> UIActivityViewController {
+        UIActivityViewController(activityItems: [fileURL], applicationActivities: nil)
+    }
+
+    func updateUIViewController(_ controller: UIActivityViewController, context: Context) {}
 }
 
 struct EmptyStateView: View {
