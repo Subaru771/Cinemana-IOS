@@ -46,17 +46,17 @@ final class CinemanaReleaseMonitor: ObservableObject {
                 return
             }
             let release = manifest.ios
-            guard let url = Self.validatedURL(for: release) else {
-                throw UpdateError.invalidMetadata
-            }
             let installedBuild = Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? ""
             let supported = CinemanaUpdateVersion.supports(
-                minimumOS: release.minOSVersion,
+                minimumOS: release.minOSVersion ?? "16.0",
                 systemOS: ProcessInfo.processInfo.operatingSystemVersion)
             guard supported, CinemanaUpdateVersion.isNewer(
                 installedBuild: installedBuild, publishedBuild: String(release.build)) else {
                 error = false
                 return
+            }
+            guard let url = Self.validatedURL(for: release) else {
+                throw UpdateError.invalidMetadata
             }
 
             pendingRelease = release
@@ -88,7 +88,8 @@ final class CinemanaReleaseMonitor: ObservableObject {
         }
         let digest = SHA256.hash(data: try Data(contentsOf: temporary, options: .mappedIfSafe))
             .map { String(format: "%02x", $0) }.joined()
-        guard digest == release.sha256.lowercased() else {
+        guard let checksum = release.sha256,
+              digest == checksum.lowercased() else {
             throw UpdateError.checksumMismatch
         }
 
@@ -104,13 +105,15 @@ final class CinemanaReleaseMonitor: ObservableObject {
     }
 
     private static func validatedURL(for release: UpdateManifest) -> URL? {
-        guard release.version.range(of: #"^[0-9]+(?:\.[0-9]+){0,3}$"#,
+        guard let checksum = release.sha256, let bytes = release.size,
+              let releaseLink = release.downloadUrl,
+              release.version.range(of: #"^[0-9]+(?:\.[0-9]+){0,3}$"#,
                                     options: .regularExpression) != nil,
               release.build >= 1,
-              release.sha256.range(of: #"^[a-fA-F0-9]{64}$"#,
+              checksum.range(of: #"^[a-fA-F0-9]{64}$"#,
                                       options: .regularExpression) != nil,
-              release.size > 100_000, release.size <= maxIPABytes,
-              let url = URL(string: release.downloadUrl),
+              bytes > 100_000, bytes <= maxIPABytes,
+              let url = URL(string: releaseLink),
               url.scheme == "https",
               url.host == updateFeedURL.host,
               url.user == nil, url.password == nil,
@@ -147,10 +150,10 @@ final class CinemanaReleaseMonitor: ObservableObject {
         let enabled: Bool
         let version: String
         let build: Int
-        let minOSVersion: String
-        let downloadUrl: String
-        let size: Int
-        let sha256: String
+        let minOSVersion: String?
+        let downloadUrl: String?
+        let size: Int?
+        let sha256: String?
     }
 
     private enum UpdateError: LocalizedError {
