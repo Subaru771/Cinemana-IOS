@@ -8,6 +8,14 @@ private let tile = Color(red: 0.13, green: 0.06, blue: 0.075)
 
 final class CinemanaAppDelegate: NSObject, UIApplicationDelegate {
     func application(_ application: UIApplication,
+                     supportedInterfaceOrientationsFor window: UIWindow?) -> UIInterfaceOrientationMask {
+        // Without this, the scene can reject landscape requests even though
+        // the Info.plist lists landscape as a supported orientation.
+        if UIDevice.current.userInterfaceIdiom == .pad { return .all }
+        return PlayerOrientation.supportedMask ?? .allButUpsideDown
+    }
+
+    func application(_ application: UIApplication,
                      handleEventsForBackgroundURLSession identifier: String,
                      completionHandler: @escaping () -> Void) {
         DownloadCenter.shared.registerCompletion(identifier, handler: completionHandler)
@@ -1052,6 +1060,10 @@ final class PlaybackSession: ObservableObject {
                 }
             }
         }
+        // Queue playback immediately rather than waiting for an AVPlayerItem
+        // status callback, which may arrive after the player is displayed.
+        // The readyToPlay observer above remains a fallback for delayed streams.
+        next.play()
         timeObserver = next.addPeriodicTimeObserver(
             forInterval: CMTime(seconds: 5, preferredTimescale: 600), queue: .main
         ) { [weak self, weak next] _ in
