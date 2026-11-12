@@ -116,6 +116,21 @@ class PhoneSetupTests(unittest.TestCase):
         (self.root / "linked").symlink_to(deep, target_is_directory=True)
         self.assertEqual(2, len(files.candidates(self.root)))
 
+    def test_one_action_native_flow_is_present_and_side_store_is_optional(self):
+        view = (ROOT / "installer-ios/CinemanaSetupView.swift").read_text()
+        self.assertIn('Text(t("Install Cinemana",', view)
+        self.assertIn('Toggle(isOn: $includeSideStore)', view)
+        self.assertIn('engine.autoStartVPN = true', view)
+        self.assertIn('if includeSideStore && !sideStoreReady', view)
+        self.assertIn('else { installCinemanaOnly() }', view)
+        self.assertIn('engine.canSelfPair || engine.hasPairingFile', view)
+        self.assertIn('Engine.developerModeIsOn == false', view)
+        self.assertIn('engine.runOneClick()', view)
+        self.assertIn('catalog.sha256.lowercased()', view)
+        self.assertIn('case .sideStore:', view)
+        self.assertIn('case .cinemana:', view)
+        self.assertNotIn('pendingCinemanaOnly', view)
+
     def test_noninteractive_help_and_shell_syntax(self):
         script = ROOT / "installer-ios/phone-bootstrap.sh"
         subprocess.run(["sh", "-n", str(script)], check=True)
