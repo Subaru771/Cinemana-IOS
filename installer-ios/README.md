@@ -1,5 +1,8 @@
 # Cinemana Installer — simplified phone setup (experimental)
 
+For the new iOS 27 rootshell/Open Minis preparation launchers, see [automated command preparation](AUTOMATED-PHONE-SETUP.md). It reduces terminal work; it does not automate iOS approvals, account sign-in, SideStore UI or renewal. The iSH investigation below remains unchanged.
+
+
 Start with [the short iPhone guide](PHONE-SETUP.md).
 
 The updated flow is **get two App Store apps + one artifact ZIP → paste one command → approve Apple's prompts → Start setup**. Preparation no longer requires separate mount, list, rename, extract, dependency, script download, or signer-build commands.
