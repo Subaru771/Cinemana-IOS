@@ -1,9 +1,9 @@
 name: Validate installation pages and published IPA
 on:
   pull_request:
-    paths: ['landing/**', 'scripts/*install*', 'tests/*install*', 'tests/test_web*', '.github/workflows/install-pages.yml']
+    paths: ['landing/**', 'scripts/*install*', 'scripts/sync_install_release.py', 'scripts/check_appstore_profile.py', '.github/workflows/testflight.yml', 'tests/*install*', 'tests/test_web*', '.github/workflows/install-pages.yml']
   push:
-    paths: ['landing/**', 'scripts/*install*', 'tests/*install*', '.github/workflows/install-pages.yml']
+    paths: ['landing/**', 'scripts/*install*', 'scripts/sync_install_release.py', 'scripts/check_appstore_profile.py', '.github/workflows/testflight.yml', 'tests/*install*', '.github/workflows/install-pages.yml']
   workflow_dispatch:
   release:
     types: [published]

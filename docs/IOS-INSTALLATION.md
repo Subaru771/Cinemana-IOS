@@ -4,6 +4,8 @@ Checked 10 November 2026. **No physical iPhone was available. None of the native
 
 ## Decision
 
+**Updated recommendation (12 November):** see [Direct Beta audit](DIRECT-BETA-AUDIT.md). Use TestFlight for supported native beta onboarding, then App Store. The SideInstaller flow below is an advanced historical investigation, not a no-pairing/no-refresh public installation solution. The installation pages now lead with the existing web app and explain its provider-access limitations.
+
 The shortest documented website handoff is **official SideInstaller → local setup → Install Cinemana button**, on iOS 27+. Unlike manual AltLoad import, the official `open.html?url=…` handoff downloads the IPA in the installer; no Files import, SideStore or LiveContainer is required. This is documented in [upstream's Links section](https://github.com/FrizzleM/SideInstaller#links). The button is populated only after validating the shared release catalog. Existing AltLoad instructions remain in a collapsed alternative.
 
 This is conditional, not a reliable universal first install: getting the installer onto an unprepared phone depends on an existing signer or a currently valid public signing certificate. Public certificates can be revoked, and DNS profiles do not make them permanent. The setup also requires LocalDevVPN, Developer Mode, an Apple Account and recurring signing. Never advertise it as one-tap first installation.

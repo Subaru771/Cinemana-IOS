@@ -1,5 +1,7 @@
 # Distributing Cinemana iOS to people
 
+See [Direct Beta audit and current recommendation](docs/DIRECT-BETA-AUDIT.md).
+
 ## Reality check
 
 The existing [Cinemana iOS Build](.github/workflows/ios.yml) job creates an **unsigned** IPA for compilation tests. An unsigned IPA is **not an installable public iPhone release**, even if GitHub Actions turns green.
@@ -48,7 +50,7 @@ Replace the path with your own certificate, provisioning profile, or `.p8`. **Do
 
 ## Public-facing website
 
-The `landing/` folder contains bilingual, mobile-first installation pages with a conditional direct SideInstaller route and an AltLoad alternative, version selection and fallbacks. `release.json` supplies validated unsigned IPA metadata; `source.json` supports compatible installer update discovery. The scheduled release validator refreshes both files after checking the downloaded IPA and published checksum. Deploy the complete directory. No website signing or credential collection is provided, and real-device installation remains unverified. See [installation research, operations and device checklist](docs/IOS-INSTALLATION.md).
+The `landing/` folder contains bilingual, mobile-first installation pages with supported web/TestFlight guidance, plus advanced SideInstaller and AltLoad alternatives for existing users, version selection and fallbacks. `release.json` supplies validated unsigned IPA metadata; `source.json` supports compatible installer update discovery. The scheduled release validator refreshes both files after checking the downloaded IPA and published checksum. Deploy the complete directory. No website signing or credential collection is provided, and real-device installation remains unverified. See [installation research, operations and device checklist](docs/IOS-INSTALLATION.md).
 
 Once TestFlight is approved, update the TestFlight placeholder in `landing/index.html` to the *actual* invitation URL. Until then, it must not display a functional "Install" claim. Keep the exact public Privacy Policy URL updated.
 

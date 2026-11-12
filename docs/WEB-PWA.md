@@ -1,13 +1,13 @@
 # Cinemana Web — phone-only Home Screen app
 
-This directory provides a **real installable web app** at \`landing/web/\` and does **not** install a native iOS IPA.
+This directory provides a **real installable web app** at `landing/web/` and does **not** install a native iOS IPA.
 
 ## Deploy
 
-1. Serve the entire \`landing/\` directory over HTTPS as the document root on a static host (for example Cloudflare Pages).
-2. Verify that \`/web/index.html\`, \`/web/app.mjs\`, \`/web/core.mjs\`, \`/web/style.css\`, \`/web/manifest.webmanifest\`, \`/web/sw.js\`, and \`/install-icon.png\` return HTTP 200 with appropriate MIME types. The service worker must be served from the same origin with \`application/javascript\`.
-3. Open \`https://YOUR-SITE/web/\` in Safari on iPhone. Choose Share → Add to Home Screen → Open as Web App → Add.
-4. Run \`node --test tests/test_web_core.mjs\` and \`NODE_PATH=/path/to/playwright/node_modules node tests/test_web_browser.cjs\` while serving \`landing\` at \`http://127.0.0.1:8080/\`.
+1. Serve the entire `landing/` directory over HTTPS as the document root on a static host (for example Cloudflare Pages).
+2. Verify that `/web/index.html`, `/web/app.mjs`, `/web/core.mjs`, `/web/style.css`, `/web/manifest.webmanifest`, `/web/sw.js`, and `/install-icon.png` return HTTP 200 with appropriate MIME types. The service worker must be served from the same origin with `application/javascript`.
+3. Open `https://YOUR-SITE/web/` in Safari on iPhone. Choose Share → Add to Home Screen → Open as Web App → Add.
+4. Run `node --test tests/test_web_core.mjs` and `NODE_PATH=/path/to/playwright/node_modules node tests/test_web_browser.cjs` while serving `landing` at `http://127.0.0.1:8080/`.
 
 This is a static web app; no signing server, Apple credentials, installer, provision profile, or backend credential handling is required. The service worker caches *only the app shell*, never remote catalog, stream metadata, videos or private credentials. Saved titles and selected language are stored locally in the browser's localStorage. Refreshes update the cache through a service-worker version change. Safari can remove website data; do not promise permanent storage.
 
@@ -29,7 +29,7 @@ The PWA is distinct from the unsigned native iOS IPA. Its installation is suppor
 
 ## User verification checklist
 
-- [ ] Open deployed \`/web/\` on Safari and add it as a Web App.
+- [ ] Open deployed `/web/` on Safari and add it as a Web App.
 - [ ] Confirm icon, standalone launch and preserved English/Arabic selection.
 - [ ] Confirm catalog loads on an authorized ISP/network, or records a clear restriction error.
 - [ ] Search Arabic and English titles; inspect any CORS errors in Safari Web Inspector.

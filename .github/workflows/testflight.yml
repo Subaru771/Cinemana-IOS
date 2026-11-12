@@ -69,11 +69,13 @@ jobs:
           security list-keychains -d user -s "$KEYCHAIN"
           security default-keychain -d user -s "$KEYCHAIN"
           security cms -D -i "$PROFILE" > "$RUNNER_TEMP/profile.plist"
+          python3 scripts/check_appstore_profile.py "$RUNNER_TEMP/profile.plist" "$APPLE_TEAM_ID"
           PROFILE_UUID=$(/usr/libexec/PlistBuddy -c 'Print :UUID' "$RUNNER_TEMP/profile.plist")
           PROFILE_NAME=$(/usr/libexec/PlistBuddy -c 'Print :Name' "$RUNNER_TEMP/profile.plist")
           PROFILE_TEAM=$(/usr/libexec/PlistBuddy -c 'Print :TeamIdentifier:0' "$RUNNER_TEMP/profile.plist")
           [[ "$PROFILE_TEAM" == "$APPLE_TEAM_ID" ]] || { echo "::error::Provisioning profile team does not match."; exit 1; }
           mkdir -p "$HOME/Library/MobileDevice/Provisioning Profiles"
+          echo "INSTALLED_PROFILE=$HOME/Library/MobileDevice/Provisioning Profiles/$PROFILE_UUID.mobileprovision" >> "$GITHUB_ENV"
           cp "$PROFILE" "$HOME/Library/MobileDevice/Provisioning Profiles/$PROFILE_UUID.mobileprovision"
           echo "PROFILE_NAME=$PROFILE_NAME" >> "$GITHUB_ENV"
           echo "SIGNING_KEYCHAIN=$KEYCHAIN" >> "$GITHUB_ENV"
@@ -140,6 +142,7 @@ jobs:
         if: always()
         shell: bash
         run: |
+          if [[ -n "${INSTALLED_PROFILE:-}" ]]; then rm -f "$INSTALLED_PROFILE"; fi
           rm -f "$RUNNER_TEMP/distribution.p12" "$RUNNER_TEMP/distribution.mobileprovision" "$RUNNER_TEMP/profile.plist"
           rm -rf "$HOME/.appstoreconnect/private_keys/AuthKey_$API_KEY_ID.p8"
           if [[ -n "$SIGNING_KEYCHAIN" ]]; then
