@@ -1,6 +1,7 @@
 """Offline tests for the GitHub-free Cloudflare update bundle."""
 import importlib.util
 import json
+import os
 import plistlib
 import tempfile
 import unittest
@@ -24,7 +25,7 @@ def ipa_fixture(path, *, build="28", bundle="app.cinemana.mobile.ios", executabl
     with zipfile.ZipFile(path, "w") as archive:
         archive.writestr("Payload/CinemanaMobile.app/Info.plist", plistlib.dumps(info))
         if executable:
-            archive.writestr("Payload/CinemanaMobile.app/CinemanaMobile", b"x" * 120_000)
+            archive.writestr("Payload/CinemanaMobile.app/CinemanaMobile", os.urandom(120_000))
 
 
 class UpdateBundleTests(unittest.TestCase):
@@ -62,14 +63,14 @@ class UpdateBundleTests(unittest.TestCase):
             root = Path(temporary)
             ipa_fixture(root / "x.ipa", executable=False)
             with self.assertRaises(ValueError):
-                module.prepare(root / "x.ipa", root / "out")
+                module.prepare(root / "x.ipa", root / "out", self.existing(root))
 
     def test_invalid_build_is_rejected(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
             ipa_fixture(root / "x.ipa", build="28-beta")
             with self.assertRaises(ValueError):
-                module.prepare(root / "x.ipa", root / "out")
+                module.prepare(root / "x.ipa", root / "out", self.existing(root))
 
 
 if __name__ == "__main__":
