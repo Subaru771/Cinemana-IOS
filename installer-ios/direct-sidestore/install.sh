@@ -27,7 +27,7 @@ check_file() {
     [ -f "$1" ] && [ "$(sha "$1")" = "$SIDESTORE_SHA256" ]
 }
 
-case "\${1:-install}" in
+case "${1:-install}" in
     --help|-h|help)
         say 'SideStore phone-only bootstrap (experimental; iOS 27+).'
         say 'Usage: sh install.sh [install|check|verify FILE]'
@@ -48,7 +48,7 @@ esac
 command -v sha256sum >/dev/null 2>&1 || fail 'Open Minis must have sha256sum.'
 [ "$(uname -m)" = aarch64 ] || [ "$(uname -m)" = arm64 ] || fail 'Run on an iPhone inside Open Minis (ARM64).'
 command -v sh >/dev/null 2>&1 || fail 'A POSIX shell is required.'
-[ -n "\${HOME:-}" ] || fail 'HOME is missing.'
+[ -n "${HOME:-}" ] || fail 'HOME is missing.'
 
 STATE="$HOME/.sidestore-phone-bootstrap"
 mkdir -p "$STATE" || fail 'Could not create private cache folder.'
@@ -60,7 +60,7 @@ say 'Requires rootshell pairing, LocalDevVPN, Developer Mode and Apple Account s
 say 'No public signing certificate, no computer, no SideInstaller intermediary.'
 say 'Notice: official siboot currently places pairing data for SideInstaller, not SideStore.'
 
-if [ "\${1:-install}" = check ]; then
+if [ "${1:-install}" = check ]; then
     if command -v siboot >/dev/null 2>&1; then
         exec siboot check --ipa "$SIDESTORE_URL"
     fi
