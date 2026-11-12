@@ -15,7 +15,7 @@ final class CinemanaReleaseMonitor: ObservableObject {
     @Published private(set) var error = false
 
     static let telegramURL = URL(string: "https://t.me/CinemanaHub")!
-    static let updateFeedURL = URL(string: "https://cinemana-ios-updates.pages.dev/latest.json")!
+    static let updateFeedURL = URL(string: "https://cinemana-updates-e8l.pages.dev/updates.json")!
     private static let maxIPABytes = 200_000_000
     private var pendingRelease: UpdateManifest?
 
@@ -39,7 +39,13 @@ final class CinemanaReleaseMonitor: ObservableObject {
             guard Self.successful(response),
                   data.count <= 16_384 else { throw UpdateError.invalidMetadata }
 
-            let release = try JSONDecoder().decode(UpdateManifest.self, from: data)
+            let manifest = try JSONDecoder().decode(CombinedManifest.self, from: data)
+            guard manifest.schema == 1 else { throw UpdateError.invalidMetadata }
+            guard manifest.ios.enabled else {
+                error = false
+                return
+            }
+            let release = manifest.ios
             guard let url = Self.validatedURL(for: release) else {
                 throw UpdateError.invalidMetadata
             }
@@ -48,7 +54,7 @@ final class CinemanaReleaseMonitor: ObservableObject {
                 minimumOS: release.minOSVersion,
                 systemOS: ProcessInfo.processInfo.operatingSystemVersion)
             guard supported, CinemanaUpdateVersion.isNewer(
-                installedBuild: installedBuild, publishedBuild: release.build) else {
+                installedBuild: installedBuild, publishedBuild: String(release.build)) else {
                 error = false
                 return
             }
@@ -89,7 +95,7 @@ final class CinemanaReleaseMonitor: ObservableObject {
         let directory = fileManager.urls(for: .cachesDirectory, in: .userDomainMask)[0]
             .appendingPathComponent("CinemanaUpdates", isDirectory: true)
         try fileManager.createDirectory(at: directory, withIntermediateDirectories: true)
-        let destination = directory.appendingPathComponent(release.ipa)
+        let destination = directory.appendingPathComponent(link.lastPathComponent)
         if fileManager.fileExists(atPath: destination.path) {
             try fileManager.removeItem(at: destination)
         }
@@ -98,21 +104,22 @@ final class CinemanaReleaseMonitor: ObservableObject {
     }
 
     private static func validatedURL(for release: UpdateManifest) -> URL? {
-        guard release.version.range(of: #"^[0-9]+(?:\.[0-9]+){0,3}$"#,
+        guard release.version.range(of: #"^[0-9]+(?:\\.[0-9]+){0,3}$"#,
                                     options: .regularExpression) != nil,
-              release.build.range(of: #"^[0-9]{1,12}$"#, options: .regularExpression) != nil,
-              release.ipa.range(of: #"^[A-Za-z0-9][A-Za-z0-9._-]{0,120}\.ipa$"#,
-                                   options: .regularExpression) != nil,
-              !release.ipa.contains(".."),
+              release.build >= 1,
               release.sha256.range(of: #"^[a-fA-F0-9]{64}$"#,
                                       options: .regularExpression) != nil,
-              release.size > 100_000, release.size <= maxIPABytes else { return nil }
-        let base = updateFeedURL.deletingLastPathComponent()
-        guard let url = URL(string: release.ipa, relativeTo: base)?.absoluteURL,
+              release.size > 100_000, release.size <= maxIPABytes,
+              let url = URL(string: release.downloadUrl),
               url.scheme == "https",
               url.host == updateFeedURL.host,
-              url.deletingLastPathComponent() == base,
-              url.query == nil, url.fragment == nil else { return nil }
+              url.user == nil, url.password == nil,
+              url.port == nil, url.query == nil, url.fragment == nil,
+              url.pathComponents.count == 2,
+              url.lastPathComponent.range(
+                  of: #"^[A-Za-z0-9][A-Za-z0-9._-]{0,120}\\.ipa$"#,
+                  options: .regularExpression) != nil,
+              !url.lastPathComponent.contains("..") else { return nil }
         return url
     }
 
@@ -131,11 +138,17 @@ final class CinemanaReleaseMonitor: ObservableObject {
         return URLSession(configuration: config, delegate: RejectAllRedirects(), delegateQueue: nil)
     }
 
+    private struct CombinedManifest: Decodable {
+        let schema: Int
+        let ios: UpdateManifest
+    }
+
     private struct UpdateManifest: Decodable {
+        let enabled: Bool
         let version: String
-        let build: String
+        let build: Int
         let minOSVersion: String
-        let ipa: String
+        let downloadUrl: String
         let size: Int
         let sha256: String
     }
