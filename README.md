@@ -1,4 +1,4 @@
-## Cinemana iOS v1.0 (Build 27)
+## Cinemana iOS v1.0 (Build 28)
 
 - Separate English and Arabic Telegram invitation cards on iPhone (portrait) and iPad (landscape layout); opt-out never disables independent new-release notifications.
 - Community intro/recap timecodes from SkipDB and TheIntroDB, only when the provider returns a valid IMDb ID and duration; confidence/duration checks avoid inventing skips.
