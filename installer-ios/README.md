@@ -14,7 +14,7 @@ The adaptation keeps `DeepLink.scheme` consistent with its registered `cinemanas
 
 ## Build and verification
 
-[Build workflow](../.github/workflows/cinemana-native-installer.yml) compiles the pinned upstream source as unsigned installer 0.2 and packages one flat Actions ZIP with the IPA, checksum, helper, guide and license. The phone file helper is covered by filesystem/ZIP/checksum regression tests. Run:
+[Build workflow](../.github/workflows/cinemana-native-installer.yml) compiles the pinned upstream source in CI to check that the source adaptation builds. Only a deliberate **manual workflow dispatch** packages an unsigned personal-testing Actions ZIP with the IPA, checksum, helper, guide and license; pull-request and push builds do not publish artifacts. The phone file helper is covered by filesystem/ZIP/checksum regression tests. Run:
 
 ```sh
 python3 -m unittest discover -s tests -p test_phone_setup.py -v
