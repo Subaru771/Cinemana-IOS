@@ -37,3 +37,9 @@ The files and official download links are not hosted on our own servers. No Appl
 `sh -n installer-ios/direct-sidestore/install.sh` and `python3 -m unittest discover -s installer-ios/direct-sidestore/tests -v` validate the script, exact URLs/hashes, fail-closed behavior and shell handling with offline mocks. These tests are **not** device tests. The completion gate is: **SideStore launches, remote pairing succeeds, self-refresh succeeds, and second refresh works after 7 days on an iOS 27 device**.
 
 **Credits:** [FrizzleM / SideInstaller](https://github.com/FrizzleM/SideInstaller), [SideStore](https://github.com/SideStore/SideStore), and the rootshell/Open Minis authors. This wrapper is not endorsed by them.
+
+## Optional source-only automatic handoff patch (development only)
+
+`patch_siboot.py` is a **separate, fail-closed source-only experiment** for the FrizzleM 0.14.0 checkout. It preserves the standard SideInstaller path but, when a signed app's name is `SideStore`, changes the post-install handoff to write the RPPairing XML under SideStore's legacy and current `Documents` filenames and update its `isPairingReset`/`activePairingProtocol` preferences **before first launch**.
+
+Apply to an unmodified checkout of the pinned upstream commit using `python3 patch_siboot.py /path/to/SideInstaller`. Review the resulting diff, run its Rust tests, and verify on a physical iPhone. **This source-only patch has not been Rust-compiled or device-tested.** The binary produced from this patch is not hosted or redistributed because SideInstaller's custom license restricts compiled derivative distribution without written authorization. For end-user distribution, obtain the upstream author's permission or upstream an equivalent implementation, then use a reviewed officially published build. The currently downloadable upstream `siboot` binary still lacks this SideStore-specific handoff.
