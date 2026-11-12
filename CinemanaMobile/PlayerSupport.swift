@@ -313,16 +313,45 @@ final class NowPlayingBridge {
 
 // MARK: - Orientation, volume
 
+@MainActor
 enum PlayerOrientation {
+    // UIKit must advertise the requested orientation before iOS 16+ will
+    // accept a scene geometry update. The player temporarily narrows the
+    // mask; the catalogue gets the default orientations back on dismissal.
+    static var supportedMask: UIInterfaceOrientationMask?
+
     static func request(_ mask: UIInterfaceOrientationMask, onError: ((Error) -> Void)? = nil) {
         guard UIDevice.current.userInterfaceIdiom == .phone else { return }
         let scenes = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
         guard let scene = scenes.first(where: { $0.activationState == .foregroundActive }) ?? scenes.first else { return }
-        // iOS 16+ requires the scene and presenting controller to agree about
-        // supported orientations before applying a geometry update.
-        scene.keyWindow?.rootViewController?.setNeedsUpdateOfSupportedInterfaceOrientations()
+
+        supportedMask = mask
+        for window in scene.windows {
+            var controller: UIViewController? = window.rootViewController
+            while let visible = controller {
+                visible.setNeedsUpdateOfSupportedInterfaceOrientations()
+                controller = visible.presentedViewController
+            }
+        }
         scene.requestGeometryUpdate(UIWindowScene.GeometryPreferences.iOS(interfaceOrientations: mask)) { error in
             DispatchQueue.main.async { onError?(error) }
+        }
+    }
+
+    static func restoreAfterPlayer() {
+        guard UIDevice.current.userInterfaceIdiom == .phone else { return }
+        request(.portrait)
+        Task { @MainActor in
+            // Give the fullScreenCover time to finish its dismissal, then
+            // restore all normally supported iPhone orientations.
+            try? await Task.sleep(for: .milliseconds(700))
+            guard supportedMask == .portrait else { return }
+            supportedMask = nil
+            for scene in UIApplication.shared.connectedScenes.compactMap({ $0 as? UIWindowScene }) {
+                for window in scene.windows {
+                    window.rootViewController?.setNeedsUpdateOfSupportedInterfaceOrientations()
+                }
+            }
         }
     }
 }
