@@ -467,6 +467,9 @@ struct FeaturedPoster: View {
     @State private var loadingEpisodes = false
 
     @State private var episodeError: String?
+    @State private var episodeDiagnosticsText = ""
+    @State private var checkingEpisodeSource = false
+    @State private var showingEpisodeDiagnostics = false
     @AppStorage(MatureContentFilter.preferenceKey) private var hideMatureContent = false
     var seriesContext = false
 
@@ -636,6 +639,17 @@ struct FeaturedPoster: View {
                             }
                         }
                     }
+                    if episodes.isEmpty && !loadingEpisodes && (video.episode == 0 || seriesContext) {
+                        Button {
+                            Task { await inspectEpisodeSource() }
+                        } label: {
+                            Label(checkingEpisodeSource ? "Checking episode source…" : "Episodes missing? Check source",
+                                  systemImage: "stethoscope")
+                        }
+                        .font(.footnote.weight(.medium))
+                        .foregroundStyle(mint)
+                        .disabled(checkingEpisodeSource)
+                    }
                     if !visibleRelated.isEmpty {
                         Text("More like this").font(.title2.weight(.bold)).padding(.top, 10)
                         ScrollView(.horizontal, showsIndicators: false) {
@@ -657,6 +671,12 @@ struct FeaturedPoster: View {
         .navigationBarTitleDisplayMode(.inline)
         .navigationDestination(for: Video.self) { MovieDetailView(video: $0) }
         .fullScreenCover(item: $watch) { CinemaPlayerScreen(video: $0, playlist: episodes) }
+        .alert("Episode source report", isPresented: $showingEpisodeDiagnostics) {
+            Button("Copy report") { UIPasteboard.general.string = episodeDiagnosticsText }
+            Button("Close", role: .cancel) {}
+        } message: {
+            Text(episodeDiagnosticsText)
+        }
 
         .task(id: video.id) {
             // Restore the reliable details-first flow. Never launch playback from
@@ -666,6 +686,8 @@ struct FeaturedPoster: View {
             related = []
             episodes = []
             episodeError = nil
+            episodeDiagnosticsText = ""
+            showingEpisodeDiagnostics = false
             loadingEpisodes = isSeries
             selectedSeason = 1
             // Load metadata and episode list concurrently. Neither an unrelated
@@ -707,6 +729,16 @@ struct FeaturedPoster: View {
         }
             } // visible detail
         } // filter gate
+    }
+
+    @MainActor
+    private func inspectEpisodeSource() async {
+        guard !checkingEpisodeSource else { return }
+        checkingEpisodeSource = true
+        defer { checkingEpisodeSource = false }
+        episodeDiagnosticsText = await CinemanaAPI.shared.episodeDiagnostics(video.id)
+        guard !Task.isCancelled else { return }
+        showingEpisodeDiagnostics = true
     }
 
     @MainActor
