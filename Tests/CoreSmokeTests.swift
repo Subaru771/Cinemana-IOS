@@ -86,6 +86,19 @@ struct CoreSmokeTests {
         let zeroDecoded = CinemanaAPI.decodeEpisodes(zeroFirst, seriesID: "onepiece")
         precondition(zeroDecoded.map(\.episode) == [1, 2])
         precondition(zeroDecoded.first?.id == "onepiece")
+        // Provider videoSeason rows often supply only nb, season and
+        // episodeNummer; the decoder must not require a title.
+        let titlelessRows: [[String: Any]] = [
+            ["nb": "anime-e1", "season": "1", "episodeNummer": "1"],
+            ["nb": "anime-e2", "season": "1", "episodeNummer": "2"],
+            ["nb": "anime-s2e1", "season": "2", "episodeNummer": "1"]
+        ]
+        let titlelessEpisodes = CinemanaAPI.decodeEpisodes(titlelessRows, seriesID: "anime")
+        precondition(titlelessEpisodes.count == 3)
+        precondition(titlelessEpisodes.map(\.id) == ["anime-e1", "anime-e2", "anime-s2e1"])
+        precondition(titlelessEpisodes.map(\.title) == ["Episode 1", "Episode 2", "Episode 1"])
+        precondition(titlelessEpisodes.map(\.season) == [1, 1, 2])
+
         let incomplete = [nestedEpisodes[1], nestedEpisodes[2]]
         precondition(CinemanaAPI.missingFirstEpisode(incomplete))
         let completed = CinemanaAPI.mergeEpisodes(incomplete, backup: nestedEpisodes)
