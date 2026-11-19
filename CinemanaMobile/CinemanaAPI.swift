@@ -270,7 +270,8 @@ struct CinemanaAPI: Sendable {
             do {
                 let raw = try await fetch(path, timeout: 14)
                 result = Self.mergeEpisodes(result, backup: Self.decodeEpisodes(raw, seriesID: id))
-                if !result.isEmpty && !Self.missingFirstEpisode(result) { return result }
+                // A season response can contain episode 1 but omit later episodes.
+                // Always inspect the series detail as well and merge both sources.
             } catch is CancellationError {
                 throw CancellationError()
             } catch {

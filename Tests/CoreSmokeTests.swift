@@ -91,6 +91,13 @@ struct CoreSmokeTests {
         let completed = CinemanaAPI.mergeEpisodes(incomplete, backup: nestedEpisodes)
         precondition(completed.map(\.id) == ["s1e1", "s1e2", "s2e1"])
         precondition(!CinemanaAPI.missingFirstEpisode(completed))
+        // A complete-looking first page can still omit later episodes.
+        // Both provider responses must contribute to the final season list.
+        let firstResponse = [nestedEpisodes[0], nestedEpisodes[1]]
+        precondition(!CinemanaAPI.missingFirstEpisode(firstResponse))
+        let laterResponse = [nestedEpisodes[2]]
+        let combined = CinemanaAPI.mergeEpisodes(firstResponse, backup: laterResponse)
+        precondition(combined.map(\.id) == ["s1e1", "s1e2", "s2e1"])
         let flagged = Video(json: ["id": "restricted", "title": "Mature", "adult": true])!
         let teen = Video(json: ["id": "teen", "title": "Teen", "ageRating": "PG-13"])!
         precondition(MatureContentFilter.isMature(flagged))
