@@ -317,3 +317,7 @@
 "Downloading Cinemana update…" = "جارٍ تنزيل تحديث سينمانا…";
 "Downloading update…" = "جارٍ تنزيل التحديث…";
 "OK" = "موافق";
+
+"Episode source report" = "تقرير مصدر الحلقات";
+"Checking episode source…" = "جارٍ فحص مصدر الحلقات…";
+"Episodes missing? Check source" = "الحلقات غير ظاهرة؟ افحص المصدر";
