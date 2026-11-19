@@ -306,6 +306,37 @@ struct CinemanaAPI: Sendable {
         (try? await episodesDetailed(id)) ?? []
     }
 
+    /// A minimal, shareable report for titles whose episode list is missing.
+    /// Never includes raw provider bodies, URLs, cookies or playback tokens.
+    func episodeDiagnostics(_ id: String) async -> String {
+        var lines = ["Cinemana iOS episode diagnostics", "Content ID: \(id)"]
+        for (name, path) in [
+            ("videoSeason", "videoSeason/id/\(segment(id))"),
+            ("allVideoInfo", "allVideoInfo/id/\(segment(id))")
+        ] {
+            do {
+                let raw = try await fetch(path, timeout: 14)
+                let decoded = Self.decodeEpisodes(raw, seriesID: id)
+                let shape: String
+                if let items = raw as? [Any] {
+                    shape = "array, \(items.count) top-level records"
+                } else if let object = raw as? [String: Any] {
+                    let keys = object.keys.filter {
+                        ["data", "result", "results", "episodes", "seasons", "items",
+                         "videos", "nb", "season", "episodeNummer"].contains($0)
+                    }.sorted().joined(separator: ",")
+                    shape = "object, known keys: \(keys.isEmpty ? "none" : keys)"
+                } else {
+                    shape = "other JSON"
+                }
+                lines.append("\(name): \(shape); parsed \(decoded.count) episodes")
+            } catch {
+                lines.append("\(name): \(error.localizedDescription)")
+            }
+        }
+        return lines.joined(separator: "\\n")
+    }
+
     func related(_ id: String) async -> [Video] {
         do { return videos(try await fetch("relatedVideos/id/\(segment(id))")) }
         catch { return [] }
