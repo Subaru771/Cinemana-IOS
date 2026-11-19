@@ -69,10 +69,26 @@ def validate_ipa(raw):
         return info
 
 def candidates(releases):
-    for release in sorted((r for r in releases if not r.get('draft') and r.get('published_at')), key=lambda r:r['published_at'], reverse=True):
-        for asset in release['assets']:
-            if re.fullmatch(r'Cinemana-iOS-.+-Unsigned\.ipa', asset['name']) and asset.get('state') == 'uploaded':
-                yield release, asset
+    """Sort by IPA upload time, not when the release itself was published.
+
+    The mutable latest-unsigned release predates the frozen v1.0 release,
+    so sorting by release publication date chooses the wrong IPA.
+    """
+    items = [
+        (release, asset)
+        for release in releases
+        if not release.get('draft') and release.get('published_at')
+        for asset in release['assets']
+        if re.fullmatch(r'Cinemana-iOS-.+-Unsigned\.ipa', asset['name'])
+        and asset.get('state') == 'uploaded'
+    ]
+    yield from sorted(
+        items,
+        key=lambda pair: (pair[1].get('updated_at') or
+                          pair[1].get('created_at') or
+                          pair[0].get('published_at') or ''),
+        reverse=True,
+    )
 
 def main():
     releases = []
@@ -92,9 +108,9 @@ def main():
     if not any(re.fullmatch(digest + r'\s+\*?(?:dist/)?' + re.escape(asset['name']), line) for line in lines):
         raise ValueError('Checksum mismatch')
     info = validate_ipa(raw)
-    data = dict(version=info['CFBundleShortVersionString'], build=info['CFBundleVersion'], minOSVersion=info['MinimumOSVersion'], date=release['published_at'][:10], downloadURL=asset['browser_download_url'], releaseURL=release['html_url'], size=len(raw), sha256=digest, signing='unsigned', deviceTested=False)
+    data = dict(version=info['CFBundleShortVersionString'], build=info['CFBundleVersion'], minOSVersion=info['MinimumOSVersion'], date=(asset.get('updated_at') or release['published_at'])[:10], downloadURL=asset['browser_download_url'], releaseURL=release['html_url'], size=len(raw), sha256=digest, signing='unsigned', deviceTested=False)
     (ROOT/'landing/release.json').write_text(json.dumps(data, indent=2)+'\n')
-    source = dict(name='Cinemana iOS beta', identifier='app.cinemana.beta.source', apps=[dict(name='Cinemana iOS', bundleIdentifier=info['CFBundleIdentifier'], developerName='Cinemana iOS contributors', localizedDescription='Unsigned development beta. Requires signing. Installation and playback have not been verified on a real iPhone.', iconURL='https://raw.githubusercontent.com/Subaru771/Cinemana-IOS/main/landing/install-icon.png', versions=[dict(version=data['version'], date=release['published_at'], downloadURL=data['downloadURL'], size=data['size'], minOSVersion=data['minOSVersion'], localizedDescription='Development beta; requires signing. See installation page for device test status.')])], news=[])
+    source = dict(name='Cinemana iOS beta', identifier='app.cinemana.beta.source', apps=[dict(name='Cinemana iOS', bundleIdentifier=info['CFBundleIdentifier'], developerName='Cinemana iOS contributors', localizedDescription='Unsigned development beta. Requires signing. Installation and playback have not been verified on a real iPhone.', iconURL='https://raw.githubusercontent.com/Subaru771/Cinemana-IOS/main/landing/install-icon.png', versions=[dict(version=data['version'], date=(asset.get('updated_at') or release['published_at']), downloadURL=data['downloadURL'], size=data['size'], minOSVersion=data['minOSVersion'], localizedDescription='Development beta; requires signing. See installation page for device test status.')])], news=[])
     (ROOT/'landing/source.json').write_text(json.dumps(source, indent=2)+'\n')
     print(f"Validated Cinemana {data['version']} ({data['build']}), {len(raw)} bytes, SHA-256 {digest}")
 
