@@ -470,7 +470,7 @@ struct FeaturedPoster: View {
     @AppStorage(MatureContentFilter.preferenceKey) private var hideMatureContent = false
     var seriesContext = false
 
-    private var isSeries: Bool { seriesContext || (video.isSeries && video.episode == 0) }
+    private var isSeries: Bool { seriesContext || !episodes.isEmpty || ((detail ?? video).isSeries && video.episode == 0) }
     private var visibleRelated: [Video] { MatureContentFilter.visible(related, hideMature: hideMatureContent) }
     private var sortedSeasons: [Int] { Array(Set(episodes.map(\.season))).sorted() }
     private var visibleEpisodes: [Video] {
@@ -673,7 +673,9 @@ struct FeaturedPoster: View {
             await withTaskGroup(of: DetailLoadResult.self) { group in
                 group.addTask { .detail(await CinemanaAPI.shared.detail(video)) }
                 group.addTask { .related(await CinemanaAPI.shared.related(video.id)) }
-                if isSeries {
+                // The catalog sometimes labels series as movies. Probe for real
+                // episodes on root titles and let the returned records establish type.
+                if video.episode == 0 || seriesContext {
                     group.addTask {
                         do { return .episodes(.ready(try await CinemanaAPI.shared.episodesDetailed(video.id))) }
                         catch { return .episodes(.failed(error.localizedDescription)) }
@@ -683,10 +685,8 @@ struct FeaturedPoster: View {
                     guard !Task.isCancelled else { group.cancelAll(); break }
                     switch result {
                     case .detail(let value):
-                        // Never let unrelated/partial provider metadata change
-                        // the selected movie into a series or disable its Play.
-                        if value.id == video.id &&
-                           (value.kind.isEmpty || value.kind == video.kind) {
+                        // Same-ID detail metadata may correct a catalog's wrong type.
+                        if value.id == video.id {
                             detail = value
                             episodes = episodes.map { $0.inheritingIMDb(value.imdbID ?? video.imdbID) }
                         }
