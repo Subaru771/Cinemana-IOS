@@ -293,3 +293,7 @@
 "One or more sources are unavailable" = "One or more sources are unavailable";
 "Active" = "Active";
 "Ready" = "Ready";
+
+"Episode source report" = "Episode source report";
+"Checking episode source…" = "Checking episode source…";
+"Episodes missing? Check source" = "Episodes missing? Check source";
