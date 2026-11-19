@@ -225,6 +225,17 @@ struct CinemanaAPI: Sendable {
                 fields["episodeNummer"] = ordinal
                 fields["season"] = seasonNumber
                 fields["kind"] = "2"
+                // videoSeason may return only nb/season/episodeNummer, with
+                // no title. Preserve the playable episode instead of dropping it.
+                let titleKeys = ["en_title", "englishTitle", "enTitle", "english_title",
+                                 "title", "name", "ar_title", "arabicTitle", "arTitle", "arabic_title"]
+                let hasTitle = titleKeys.contains { key in
+                    guard let text = fields[key] as? String else { return false }
+                    return !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                }
+                if !hasTitle {
+                    fields["en_title"] = "Episode \(ordinal)"
+                }
                 if fields["imdb_id"] == nil, let currentIMDb { fields["imdb_id"] = currentIMDb }
                 if let video = Video(json: fields),
                    (video.id != seriesID || episodeIndex != nil),
