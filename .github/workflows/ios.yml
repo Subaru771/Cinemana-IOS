@@ -20,7 +20,7 @@ jobs:
     timeout-minutes: 45
     steps:
       - name: Check out complete, versioned source tree
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
       - name: Prepare Retina splash without cropping approved design
         run: |
           sips -s format png --resampleHeightWidth 5016 2823 \
