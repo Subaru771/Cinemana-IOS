@@ -334,7 +334,7 @@ struct CinemanaAPI: Sendable {
                 lines.append("\(name): \(error.localizedDescription)")
             }
         }
-        return lines.joined(separator: "\\n")
+        return lines.joined(separator: "\n")
     }
 
     func related(_ id: String) async -> [Video] {
