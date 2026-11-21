@@ -1,12 +1,12 @@
 {
   "version": "1.0",
-  "build": "29",
+  "build": "30",
   "minOSVersion": "16.0",
-  "date": "2026-11-19",
+  "date": "2026-11-21",
   "downloadURL": "https://github.com/Subaru771/Cinemana-IOS/releases/download/cinemana-ios-latest-unsigned/Cinemana-iOS-v1.0-Unsigned.ipa",
   "releaseURL": "https://github.com/Subaru771/Cinemana-IOS/releases/tag/cinemana-ios-latest-unsigned",
-  "size": 10831867,
-  "sha256": "e61a9c084f835917352977cb760a6fdf8b28d950e5037cf89753f9d4fdc2934c",
+  "size": 10833003,
+  "sha256": "203956ed926a801a1ab30e8076e80a3121d7dbee520a92d6e58a7d3237535428",
   "signing": "unsigned",
   "deviceTested": false
 }
