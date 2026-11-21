@@ -287,14 +287,10 @@ struct CinemanaAPI: Sendable {
                 throw CancellationError()
             } catch {
                 if firstError == nil { firstError = error }
-                if let status = error as? APIError {
-                    switch status {
-                    case .unauthorized, .providerRestricted:
-                        if !result.isEmpty { return result }
-                        throw status
-                    default: break
-                    }
-                }
+                // A restriction on one endpoint must not prevent the other
+                // endpoint from returning legitimate, available records.
+                // After checking every endpoint, report the error only if
+                // neither returned any playable episodes.
             }
         }
         if !result.isEmpty { return result }
