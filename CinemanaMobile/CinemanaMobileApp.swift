@@ -690,20 +690,20 @@ struct FeaturedPoster: View {
             episodeError = nil
             episodeDiagnosticsText = ""
             showingEpisodeDiagnostics = false
-            loadingEpisodes = isSeries
+            // Probe every title once: the catalog sometimes labels a series
+            // as an episode or a movie, so kind and episode are not reliable.
+            loadingEpisodes = true
             selectedSeason = 1
             // Load metadata and episode list concurrently. Neither an unrelated
             // recommendation request nor a slow provider response blocks Play.
             await withTaskGroup(of: DetailLoadResult.self) { group in
                 group.addTask { .detail(await CinemanaAPI.shared.detail(video)) }
                 group.addTask { .related(await CinemanaAPI.shared.related(video.id)) }
-                // The catalog sometimes labels series as movies. Probe for real
-                // episodes on root titles and let the returned records establish type.
-                if video.episode == 0 || seriesContext {
-                    group.addTask {
-                        do { return .episodes(.ready(try await CinemanaAPI.shared.episodesDetailed(video.id))) }
-                        catch { return .episodes(.failed(error.localizedDescription)) }
-                    }
+                // Fetch and recover episode metadata automatically for every
+                // title, even if the catalog's classification is incorrect.
+                group.addTask {
+                    do { return .episodes(.ready(try await CinemanaAPI.shared.episodesRecovering(video.id))) }
+                    catch { return .episodes(.failed(error.localizedDescription)) }
                 }
                 for await result in group {
                     guard !Task.isCancelled else { group.cancelAll(); break }
@@ -743,7 +743,7 @@ struct FeaturedPoster: View {
         // series root. Try loading its episodes explicitly before diagnosing.
         var loadingError: String?
         do {
-            let list = try await CinemanaAPI.shared.episodesDetailed(video.id)
+            let list = try await CinemanaAPI.shared.episodesRecovering(video.id)
             guard !Task.isCancelled else { return }
             if !list.isEmpty {
                 episodes = list.map { $0.inheritingIMDb((detail ?? video).imdbID) }
