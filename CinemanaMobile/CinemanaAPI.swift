@@ -302,8 +302,56 @@ struct CinemanaAPI: Sendable {
         throw APIError.noEpisodes
     }
 
+    /// Detect obvious gaps without assuming every season has the same length.
+    /// A gap is a reason to recheck the provider, not proof that a missing
+    /// episode exists. Never generate invented or unplayable episode entries.
+    static func hasEpisodeGaps(_ episodes: [Video]) -> Bool {
+        let bySeason = Dictionary(grouping: episodes, by: \.season)
+        return bySeason.values.contains { records in
+            let numbers = Set(records.map(\.episode).filter { $0 > 0 })
+            guard let last = numbers.max(), last >= 2 else { return false }
+            return numbers.count < last
+        }
+    }
+
+    /// Resolve all available episode sources automatically when a title opens.
+    /// Retry once if the provider is temporarily unreachable, empty or
+    /// returns an obviously incomplete list. Preserve every confirmed record.
+    func episodesRecovering(_ id: String) async throws -> [Video] {
+        var best = [Video]()
+        var lastError: Error?
+        for attempt in 0..<2 {
+            try Task.checkCancellation()
+            do {
+                let received = try await episodesDetailed(id)
+                best = Self.mergeEpisodes(best, backup: received)
+                if !best.isEmpty && !Self.hasEpisodeGaps(best) &&
+                    !Self.missingFirstEpisode(best) {
+                    return best
+                }
+            } catch is CancellationError {
+                throw CancellationError()
+            } catch {
+                lastError = error
+                if let error = error as? APIError {
+                    switch error {
+                    case .unauthorized, .providerRestricted:
+                        if !best.isEmpty { return best }
+                        throw error
+                    default: break
+                    }
+                }
+            }
+            if attempt == 0 {
+                try await Task.sleep(nanoseconds: 1_000_000_000)
+            }
+        }
+        if !best.isEmpty { return best }
+        throw lastError ?? APIError.noEpisodes
+    }
+
     func episodes(_ id: String) async -> [Video] {
-        (try? await episodesDetailed(id)) ?? []
+        (try? await episodesRecovering(id)) ?? []
     }
 
     /// A minimal, shareable report for titles whose episode list is missing.
