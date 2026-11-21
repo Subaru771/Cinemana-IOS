@@ -641,7 +641,8 @@ struct FeaturedPoster: View {
                     }
                     // Always expose recovery on missing episodes. Catalog records may
                     // incorrectly mark an entire series as episode > 0 or as a movie.
-                    if episodes.isEmpty {
+                    // Only offer optional diagnostics after automatic recovery ends.
+                    if episodes.isEmpty && !loadingEpisodes {
                         Button {
                             Task { await inspectEpisodeSource() }
                         } label: {
