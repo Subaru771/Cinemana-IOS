@@ -18,7 +18,8 @@ start = app.index('        .task(id: video.id) {')
 end = app.index('    @MainActor\n    private func reloadEpisodes()', start)
 assert 'watch =' not in app[start:end], 'Poster should open details without playback'
 assert 'await withTaskGroup(of: DetailLoadResult.self)' in app[start:end], 'Metadata and episodes should load concurrently'
-assert 'episodesDetailed(video.id)' in app[start:end], 'Series must attempt episode metadata while loading detail'
+assert 'episodesRecovering(video.id)' in app[start:end], 'Details must automatically recover episode metadata for all titles'
+assert 'if video.episode == 0 || seriesContext' not in app[start:end], 'Episode recovery must not depend on catalog type'
 assert 'value.id == video.id' in app[start:end], 'Reject unrelated metadata'
 assert 'PlaybackPlanner.playTarget(for: video,' in app, 'Stable movie target must not depend on asynchronous detail metadata'
 assert 'next.play()\n                        next.seek' in app, 'Resume seek must not block autoplay on failure'
