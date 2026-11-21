@@ -639,7 +639,9 @@ struct FeaturedPoster: View {
                             }
                         }
                     }
-                    if episodes.isEmpty && !loadingEpisodes && (video.episode == 0 || seriesContext) {
+                    // Always expose recovery on missing episodes. Catalog records may
+                    // incorrectly mark an entire series as episode > 0 or as a movie.
+                    if episodes.isEmpty {
                         Button {
                             Task { await inspectEpisodeSource() }
                         } label: {
@@ -736,8 +738,39 @@ struct FeaturedPoster: View {
         guard !checkingEpisodeSource else { return }
         checkingEpisodeSource = true
         defer { checkingEpisodeSource = false }
-        episodeDiagnosticsText = await CinemanaAPI.shared.episodeDiagnostics(video.id)
+
+        // A catalog entry may have a nonzero episode number despite being a
+        // series root. Try loading its episodes explicitly before diagnosing.
+        var loadingError: String?
+        do {
+            let list = try await CinemanaAPI.shared.episodesDetailed(video.id)
+            guard !Task.isCancelled else { return }
+            if !list.isEmpty {
+                episodes = list.map { $0.inheritingIMDb((detail ?? video).imdbID) }
+                selectedSeason = list.first?.season ?? 1
+                episodeError = nil
+                loadingEpisodes = false
+                return
+            }
+        } catch {
+            loadingError = error.localizedDescription
+        }
         guard !Task.isCancelled else { return }
+
+        let report = await CinemanaAPI.shared.episodeDiagnostics(video.id)
+        guard !Task.isCancelled else { return }
+        let build = Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "unknown"
+        let kind = (detail ?? video).kind
+        episodeDiagnosticsText = """
+        App build: \(build)
+        Catalog kind: \(video.kind)
+        Detail kind: \(kind)
+        Catalog episode: \(video.episode)
+        Series context: \(seriesContext)
+        Initial error: \(episodeError ?? "none")
+        Manual load error: \(loadingError ?? "none")
+        \(report)
+        """
         showingEpisodeDiagnostics = true
     }
 
