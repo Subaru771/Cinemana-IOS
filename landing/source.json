@@ -10,9 +10,9 @@
       "iconURL": "https://raw.githubusercontent.com/Subaru771/Cinemana-IOS/main/landing/install-icon.png",
       "versions": [
         {
-          "version": "1.0",
-          "date": "2026-11-21T16:06:05Z",
-          "downloadURL": "https://github.com/Subaru771/Cinemana-IOS/releases/download/cinemana-ios-latest-unsigned/Cinemana-iOS-v1.0-Unsigned.ipa",
+          "version": "1.01",
+          "date": "2026-11-21T18:47:11Z",
+          "downloadURL": "https://github.com/Subaru771/Cinemana-IOS/releases/download/cinemana-ios-v1.01/Cinemana-iOS-v1.01-Unsigned.ipa",
           "size": 10838086,
           "minOSVersion": "16.0",
           "localizedDescription": "Development beta; requires signing. See installation page for device test status."
