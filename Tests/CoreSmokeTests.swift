@@ -111,6 +111,14 @@ struct CoreSmokeTests {
         let laterResponse = [nestedEpisodes[2]]
         let mergedEpisodeResponses = CinemanaAPI.mergeEpisodes(firstResponse, backup: laterResponse)
         precondition(mergedEpisodeResponses.map(\.id) == ["s1e1", "s1e2", "s2e1"])
+        // Trigger one automatic recovery attempt for missing first/middle
+        // episodes, but don't misclassify a complete multi-season list.
+        precondition(!CinemanaAPI.hasEpisodeGaps(nestedEpisodes))
+        precondition(CinemanaAPI.hasEpisodeGaps([nestedEpisodes[1], nestedEpisodes[2]]))
+        precondition(CinemanaAPI.hasEpisodeGaps([nestedEpisodes[0],
+                                                  Video(json: ["id": "s1e3", "title": "Third",
+                                                               "season": "1", "episodeNummer": "3"])!]))
+        precondition(!CinemanaAPI.hasEpisodeGaps(mergedEpisodeResponses))
         let flagged = Video(json: ["id": "restricted", "title": "Mature", "adult": true])!
         let teen = Video(json: ["id": "teen", "title": "Teen", "ageRating": "PG-13"])!
         precondition(MatureContentFilter.isMature(flagged))
