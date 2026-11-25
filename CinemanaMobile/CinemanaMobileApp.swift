@@ -467,13 +467,10 @@ struct FeaturedPoster: View {
     @State private var loadingEpisodes = false
 
     @State private var episodeError: String?
-    @State private var episodeDiagnosticsText = ""
-    @State private var checkingEpisodeSource = false
-    @State private var showingEpisodeDiagnostics = false
     @AppStorage(MatureContentFilter.preferenceKey) private var hideMatureContent = false
     var seriesContext = false
 
-    private var isSeries: Bool { seriesContext || !episodes.isEmpty || ((detail ?? video).isSeries && video.episode == 0) }
+    private var isSeries: Bool { seriesContext || (video.isSeries && video.episode == 0) }
     private var visibleRelated: [Video] { MatureContentFilter.visible(related, hideMature: hideMatureContent) }
     private var sortedSeasons: [Int] { Array(Set(episodes.map(\.season))).sorted() }
     private var visibleEpisodes: [Video] {
@@ -598,10 +595,12 @@ struct FeaturedPoster: View {
                             Text(CinemanaLocale.error(episodeError ?? "The provider returned no episodes for this series."))
                                 .font(.footnote).foregroundStyle(.secondary)
                                 .fixedSize(horizontal: false, vertical: true)
-                            Button { Task { await reloadEpisodes() } } label: {
-                                Label("Retry loading episodes", systemImage: "arrow.clockwise")
-                            }
-                            .buttonStyle(.bordered)
+                                .task {
+                                    try? await Task.sleep(nanoseconds: 2_000_000_000)
+                                    if !Task.isCancelled && episodes.isEmpty {
+                                        await reloadEpisodes()
+                                    }
+                                }
                         }
                         ForEach(visibleEpisodes) { ep in
                             VStack(alignment: .leading, spacing: 2) {
@@ -639,20 +638,6 @@ struct FeaturedPoster: View {
                             }
                         }
                     }
-                    // Always expose recovery on missing episodes. Catalog records may
-                    // incorrectly mark an entire series as episode > 0 or as a movie.
-                    // Only offer optional diagnostics after automatic recovery ends.
-                    if episodes.isEmpty && !loadingEpisodes {
-                        Button {
-                            Task { await inspectEpisodeSource() }
-                        } label: {
-                            Label(checkingEpisodeSource ? "Checking episode source…" : "Episodes missing? Check source",
-                                  systemImage: "stethoscope")
-                        }
-                        .font(.footnote.weight(.medium))
-                        .foregroundStyle(mint)
-                        .disabled(checkingEpisodeSource)
-                    }
                     if !visibleRelated.isEmpty {
                         Text("More like this").font(.title2.weight(.bold)).padding(.top, 10)
                         ScrollView(.horizontal, showsIndicators: false) {
@@ -674,12 +659,6 @@ struct FeaturedPoster: View {
         .navigationBarTitleDisplayMode(.inline)
         .navigationDestination(for: Video.self) { MovieDetailView(video: $0) }
         .fullScreenCover(item: $watch) { CinemaPlayerScreen(video: $0, playlist: episodes) }
-        .alert("Episode source report", isPresented: $showingEpisodeDiagnostics) {
-            Button("Copy report") { UIPasteboard.general.string = episodeDiagnosticsText }
-            Button("Close", role: .cancel) {}
-        } message: {
-            Text(episodeDiagnosticsText)
-        }
 
         .task(id: video.id) {
             // Restore the reliable details-first flow. Never launch playback from
@@ -689,29 +668,27 @@ struct FeaturedPoster: View {
             related = []
             episodes = []
             episodeError = nil
-            episodeDiagnosticsText = ""
-            showingEpisodeDiagnostics = false
-            // Probe every title once: the catalog sometimes labels a series
-            // as an episode or a movie, so kind and episode are not reliable.
-            loadingEpisodes = true
+            loadingEpisodes = isSeries
             selectedSeason = 1
             // Load metadata and episode list concurrently. Neither an unrelated
             // recommendation request nor a slow provider response blocks Play.
             await withTaskGroup(of: DetailLoadResult.self) { group in
                 group.addTask { .detail(await CinemanaAPI.shared.detail(video)) }
                 group.addTask { .related(await CinemanaAPI.shared.related(video.id)) }
-                // Fetch and recover episode metadata automatically for every
-                // title, even if the catalog's classification is incorrect.
-                group.addTask {
-                    do { return .episodes(.ready(try await CinemanaAPI.shared.episodesRecovering(video.id))) }
-                    catch { return .episodes(.failed(error.localizedDescription)) }
+                if isSeries {
+                    group.addTask {
+                        do { return .episodes(.ready(try await CinemanaAPI.shared.episodesDetailed(video.id))) }
+                        catch { return .episodes(.failed(error.localizedDescription)) }
+                    }
                 }
                 for await result in group {
                     guard !Task.isCancelled else { group.cancelAll(); break }
                     switch result {
                     case .detail(let value):
-                        // Same-ID detail metadata may correct a catalog's wrong type.
-                        if value.id == video.id {
+                        // Never let unrelated/partial provider metadata change
+                        // the selected movie into a series or disable its Play.
+                        if value.id == video.id &&
+                           (value.kind.isEmpty || value.kind == video.kind) {
                             detail = value
                             episodes = episodes.map { $0.inheritingIMDb(value.imdbID ?? video.imdbID) }
                         }
@@ -732,47 +709,6 @@ struct FeaturedPoster: View {
         }
             } // visible detail
         } // filter gate
-    }
-
-    @MainActor
-    private func inspectEpisodeSource() async {
-        guard !checkingEpisodeSource else { return }
-        checkingEpisodeSource = true
-        defer { checkingEpisodeSource = false }
-
-        // A catalog entry may have a nonzero episode number despite being a
-        // series root. Try loading its episodes explicitly before diagnosing.
-        var loadingError: String?
-        do {
-            let list = try await CinemanaAPI.shared.episodesRecovering(video.id)
-            guard !Task.isCancelled else { return }
-            if !list.isEmpty {
-                episodes = list.map { $0.inheritingIMDb((detail ?? video).imdbID) }
-                selectedSeason = list.first?.season ?? 1
-                episodeError = nil
-                loadingEpisodes = false
-                return
-            }
-        } catch {
-            loadingError = error.localizedDescription
-        }
-        guard !Task.isCancelled else { return }
-
-        let report = await CinemanaAPI.shared.episodeDiagnostics(video.id)
-        guard !Task.isCancelled else { return }
-        let build = Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "unknown"
-        let kind = (detail ?? video).kind
-        episodeDiagnosticsText = """
-        App build: \(build)
-        Catalog kind: \(video.kind)
-        Detail kind: \(kind)
-        Catalog episode: \(video.episode)
-        Series context: \(seriesContext)
-        Initial error: \(episodeError ?? "none")
-        Manual load error: \(loadingError ?? "none")
-        \(report)
-        """
-        showingEpisodeDiagnostics = true
     }
 
     @MainActor
