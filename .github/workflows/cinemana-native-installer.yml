@@ -3,13 +3,13 @@ on:
   pull_request:
     paths:
       - 'installer-ios/**'
-      - 'tests/test_phone_setup.py'
+      - 'tests/test_phone*.py'
       - '.github/workflows/cinemana-native-installer.yml'
   push:
     branches: [main]
     paths:
       - 'installer-ios/**'
-      - 'tests/test_phone_setup.py'
+      - 'tests/test_phone*.py'
       - '.github/workflows/cinemana-native-installer.yml'
   workflow_dispatch:
 permissions:
@@ -22,7 +22,9 @@ jobs:
       - uses: actions/checkout@v4
       - run: python3 -m py_compile installer-ios/apply.py installer-ios/phone_files.py
       - run: sh -n installer-ios/phone-bootstrap.sh
-      - run: python3 -m unittest discover -s tests -p 'test_phone_setup.py' -v
+      - run: sh -n installer-ios/rootshell-pair.sh
+      - run: sh -n installer-ios/minis-bootstrap.sh
+      - run: python3 -m unittest discover -s tests -p 'test_phone*.py' -v
       - name: Check security and release references
         run: |
           python3 - <<'PY'
@@ -98,6 +100,7 @@ jobs:
           cp "${{ runner.temp }}/Cinemana-Installer-Unsigned.ipa.sha256" "$setup/"
           cp installer-ios/phone-bootstrap.sh installer-ios/phone_files.py "$setup/"
           cp installer-ios/PHONE-SETUP.md "$setup/START-HERE.md"
+          cp installer-ios/rootshell-pair.sh installer-ios/minis-bootstrap.sh installer-ios/AUTOMATED-PHONE-SETUP.md "$setup/"
           cp installer-ios/UPSTREAM-LICENSE.md "$setup/UPSTREAM-LICENSE.md"
       - name: Archive for personal device signing (not a signed public release)
         uses: actions/upload-artifact@v4
